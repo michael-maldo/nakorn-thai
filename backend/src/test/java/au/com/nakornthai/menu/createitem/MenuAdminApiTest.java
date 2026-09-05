@@ -36,6 +36,17 @@ class MenuAdminApiTest {
                 .andExpect(status().isOk()).andReturn();
         var session = (org.springframework.mock.web.MockHttpSession) result.getRequest().getSession(false);
         String token = com.jayway.jsonpath.JsonPath.read(result.getResponse().getContentAsString(), "$.token");
+        when(list.handle()).thenReturn(new MenuItemResponse.Dashboard(List.of(), List.of(), List.of()));
+        mvc.perform(get(PATH).session(session).with(httpBasic("menu-admin", "test-password-only")))
+                .andExpect(status().isOk());
+        // The intervening authenticated read makes the original token stale.
+        mvc.perform(post(PATH).session(session).with(httpBasic("menu-admin", "test-password-only"))
+                .header("X-CSRF-TOKEN", token).contentType("application/json").content("{}"))
+                .andExpect(status().isForbidden());
+        verifyNoInteractions(create);
+        var refreshed = mvc.perform(get("/api/staff/menu/csrf").session(session)
+                .with(httpBasic("menu-admin", "test-password-only"))).andExpect(status().isOk()).andReturn();
+        token = com.jayway.jsonpath.JsonPath.read(refreshed.getResponse().getContentAsString(), "$.token");
         when(create.handle(any())).thenReturn(java.util.UUID.randomUUID());
         mvc.perform(post(PATH).session(session).with(httpBasic("menu-admin", "test-password-only"))
                 .header("X-CSRF-TOKEN", token).contentType("application/json").content("""

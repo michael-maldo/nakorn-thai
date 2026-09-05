@@ -30,6 +30,7 @@ for (const id of [undefined, 'dish-id']) {
   test(`save chooses ${id ? 'update' : 'create'} and sends security and version fields`, async () => {
     const dish = { id, name: 'Curry', version: id ? 3 : null, collectionIds: ['collection'] };
     globalThis.fetch = async (url, options) => {
+      if (url === '/api/staff/menu/csrf') return Response.json({ headerName: 'X-CSRF-TOKEN', token: 'token' });
       assert.equal(url, `/api/staff/menu/items${id ? '/dish-id' : ''}`);
       assert.equal(options.method, id ? 'PUT' : 'POST');
       assert.equal(options.headers.Authorization, 'Basic test');
@@ -44,6 +45,7 @@ for (const id of [undefined, 'dish-id']) {
 
 test('archive includes the version and does not parse an empty response', async () => {
   globalThis.fetch = async (url, options) => {
+    if (url === '/api/staff/menu/csrf') return Response.json({ headerName: 'X-CSRF-TOKEN', token: 'token' });
     assert.equal(url, '/api/staff/menu/items/dish-id?version=4');
     assert.equal(options.method, 'DELETE');
     return new Response(null, { status: 204 });
@@ -67,6 +69,7 @@ test('image upload lets the browser generate multipart boundaries and sends CSRF
   const { saveMenuImage } = await import('./menuApi.js');
   const body = new FormData(); body.append('focusX', '25'); body.append('version', '2');
   globalThis.fetch = async (url, options) => {
+    if (url === '/api/staff/menu/csrf') return Response.json({ headerName: 'X-CSRF-TOKEN', token: 'token' });
     assert.equal(url, '/api/staff/menu/items/dish/image');
     assert.equal(options.headers['Content-Type'], undefined);
     assert.equal(options.headers['X-CSRF-TOKEN'], 'token');
@@ -74,4 +77,34 @@ test('image upload lets the browser generate multipart boundaries and sends CSRF
     return new Response(null, { status: 204 });
   };
   await saveMenuImage('dish', body, 'Basic test', { headerName: 'X-CSRF-TOKEN', token: 'token' });
+});
+
+
+test('each write refreshes the token after intervening authenticated reads', async () => {
+  const { getStaffMenu } = await import('./menuApi.js');
+  let generation = 0;
+  const calls = [];
+  globalThis.fetch = async (url, options) => {
+    calls.push([url, options.method || 'GET']);
+    if (url.endsWith('/csrf')) return Response.json({ headerName: 'X-CSRF-TOKEN', token: `fresh-${++generation}` });
+    if (!options.method) { generation++; return Response.json({ items: [] }); }
+    assert.equal(options.headers['X-CSRF-TOKEN'], `fresh-${generation}`);
+    return new Response(null, { status: 204 });
+  };
+  const stale = { headerName: 'X-CSRF-TOKEN', token: 'login-token' };
+  await getStaffMenu('Basic test');
+  await saveMenuItem({ id: 'dish', version: 1 }, 'Basic test', stale);
+  await getStaffMenu('Basic test');
+  await archiveMenuItem({ id: 'dish', version: 2 }, 'Basic test', stale);
+  assert.deepEqual(calls.map((call) => call[1]), ['GET', 'GET', 'PUT', 'GET', 'GET', 'DELETE']);
+});
+
+test('failed token refresh prevents the write', async () => {
+  let calls = 0;
+  globalThis.fetch = async (url) => {
+    calls++; assert.equal(url, '/api/staff/menu/csrf');
+    return new Response(null, { status: 401 });
+  };
+  await assert.rejects(saveMenuItem({ id: 'dish' }, 'Basic test', { token: 'old' }), /Sign-in failed/);
+  assert.equal(calls, 1);
 });

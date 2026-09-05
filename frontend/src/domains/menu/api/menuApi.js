@@ -1,4 +1,9 @@
 export async function menuRequest(path, { authorization, csrf, ...options } = {}) {
+  // Basic-authenticated reads can rotate the session CSRF token. Obtain it
+  // immediately before each write, rather than reusing the sign-in token.
+  if (csrf && !['GET', 'HEAD', 'OPTIONS'].includes((options.method || 'GET').toUpperCase())) {
+    csrf = await menuRequest('/staff/menu/csrf', { authorization });
+  }
   const response = await fetch(`/api${path}`, {
     ...options,
     credentials: 'same-origin',
