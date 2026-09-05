@@ -28,8 +28,9 @@ export async function menuRequest(path, { authorization, csrf, ...options } = {}
   catch { throw new Error('The menu service returned an invalid response. Please try again.'); }
 }
 
-export const getSignatureDishes = (signal) =>
-  menuRequest('/menu/collections/signature-dishes/items', { signal });
+export const getMenuCollection = (slug, signal) =>
+  menuRequest(`/menu/collections/${encodeURIComponent(slug)}/items`, { signal });
+export const getSignatureDishes = (signal) => getMenuCollection('signature-dishes', signal);
 export const getStaffMenu = (authorization) => menuRequest('/staff/menu/items', { authorization });
 export const getStaffCsrf = (authorization) => menuRequest('/staff/menu/csrf', { authorization });
 export const saveMenuItem = (item, authorization, csrf) => menuRequest(

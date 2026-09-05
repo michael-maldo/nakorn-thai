@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { navigation } from '../content/homeContent';
 import logo from '../../assets/images/nakorn-thai-logo.png';
 
-export default function Header() {
+export default function Header({ currentPage = 'Home' }) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -16,7 +16,7 @@ export default function Header() {
       </button>
       <nav id="main-nav" className={open ? 'main-nav is-open' : 'main-nav'} aria-label="Main navigation">
         {navigation.map((item) => (
-          <a key={item} className={item === 'Home' ? 'active' : ''} href={`#${item.toLowerCase()}`} onClick={() => setOpen(false)}>
+          <a key={item} className={item === currentPage ? 'active' : ''} aria-current={item === currentPage ? 'page' : undefined} href={item === 'Menu' ? '#/menu' : `#${item.toLowerCase()}`}  onClick={() => setOpen(false)}>
             {item}
           </a>
         ))}

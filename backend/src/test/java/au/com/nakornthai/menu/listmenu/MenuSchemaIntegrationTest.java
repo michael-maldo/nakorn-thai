@@ -98,11 +98,46 @@ class MenuSchemaIntegrationTest {
         assertEquals("Yellow Curry", response.items().getFirst().name());
         for (var dish : response.items()) {
             assertNull(dish.image());
+            if (dish.slug().equals("crispy-pork-broccoli")) {
+                assertEquals(1, dish.variations().size());
+                assertEquals(2490, dish.variations().getFirst().priceMinor());
+                assertEquals("NOT_REVIEWED", dish.variations().getFirst().profile().allergenReviewStatus());
+                assertTrue(dish.variations().getFirst().profile().dietaryTags().isEmpty());
+                assertTrue(dish.variations().getFirst().profile().allergens().isEmpty());
+                continue;
+            }
             assertTrue(dish.variations().isEmpty());
             assertEquals("NOT_REVIEWED", dish.profile().allergenReviewStatus());
             assertTrue(dish.profile().dietaryTags().isEmpty());
             assertTrue(dish.profile().allergens().isEmpty());
         }
+    }
+
+    @Test
+    void importedChefMenuMatchesPrintedPricesAndChoices() {
+        var menu = handler.handle(new ListMenuQuery("chefs-special-recommendations"));
+        assertEquals(20, menu.items().size());
+        long[] prices = {1190,1190,1190,1590,1190,1190,1790,1790,2790,2790,
+                2890,2890,3190,2890,2390,2990,2490,2390,2590,2590};
+        int variations = 0;
+        for (int i = 0; i < prices.length; i++) {
+            var dish = menu.items().get(i);
+            for (var variation : dish.variations()) {
+                assertEquals(prices[i], variation.priceMinor());
+                assertEquals("AUD", variation.currency());
+                assertEquals("NOT_REVIEWED", variation.profile().allergenReviewStatus());
+                assertTrue(variation.profile().dietaryTags().isEmpty());
+                assertTrue(variation.profile().allergens().isEmpty());
+                variations++;
+            }
+        }
+        assertEquals(23, variations);
+        var lamb = menu.items().get(12);
+        assertEquals("Lamb Shank with Curry", lamb.name());
+        assertEquals(java.util.List.of("Green Curry", "Red Curry", "Yellow Curry", "Massaman Curry"),
+                lamb.variations().stream().map(v -> v.name()).toList());
+        assertTrue(lamb.variations().stream().noneMatch(v -> v.defaultVariation()));
+        assertEquals(java.util.UUID.fromString("20000000-0000-0000-0000-000000000004"), menu.items().get(16).id());
     }
 
     @Test

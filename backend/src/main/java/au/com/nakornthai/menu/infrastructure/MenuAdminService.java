@@ -43,6 +43,7 @@ public class MenuAdminService {
         apply(item, request);
         items.saveAndFlush(item);
         syncCollections(item, request);
+        updatePrices(item, request);
         return item.getId();
     }
 
@@ -62,6 +63,7 @@ public class MenuAdminService {
         }
         apply(item, request);
         syncCollections(item, request);
+        updatePrices(item, request);
     }
 
     @Transactional
@@ -91,6 +93,28 @@ public class MenuAdminService {
         item.setDisplayOrder(request.displayOrder());
     }
 
+    private void updatePrices(MenuItemJpaEntity item, CreateMenuItemRequest request) {
+        if (request.prices() == null || request.prices().isEmpty()) return;
+        var seen = new HashSet<UUID>();
+        for (var price : request.prices()) {
+            MenuItemVariationJpaEntity variation;
+            if (price.id() == null) {
+                if (!item.getVariations().isEmpty() || request.prices().size() != 1)
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A standard price can only be added to an unpriced dish");
+                variation = new MenuItemVariationJpaEntity();
+                variation.setMenuItem(item); variation.setName("Standard");
+                variation.setCurrency("AUD"); variation.setDefaultVariation(true);
+                variation.setPriceMinor(price.amount().movePointRight(2).longValueExact());
+                entityManager.persist(variation);
+            } else {
+                if (!seen.add(price.id())) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Duplicate price");
+                variation = item.getVariations().stream().filter(v -> v.getId().equals(price.id()) && v.isActive())
+                        .findFirst().orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unknown active variation for this dish"));
+                variation.setPriceMinor(price.amount().movePointRight(2).longValueExact());
+            }
+        }
+    }
+
     private void syncCollections(MenuItemJpaEntity item, CreateMenuItemRequest request) {
         var selected = collections.findAllById(request.collectionIds());
         if (selected.size() != request.collectionIds().size())
@@ -113,6 +137,9 @@ public class MenuAdminService {
         var ids = links.stream().filter(m -> m.getMenuItem().getId().equals(item.getId()))
                 .map(m -> m.getCollection().getId()).collect(Collectors.toSet());
         return new MenuItemResponse(item.getId(), item.getName(), item.getSlug(), item.getDescription(),
-                item.getCategory().getId(), item.getStatus(), item.isAvailable(), item.getDisplayOrder(), ids, item.getVersion(), mapper.map(item).image());
+                item.getCategory().getId(), item.getStatus(), item.isAvailable(), item.getDisplayOrder(), ids, item.getVersion(), mapper.map(item).image(), item.getVariations().stream()
+                        .filter(MenuItemVariationJpaEntity::isActive)
+                        .sorted(Comparator.comparingInt(MenuItemVariationJpaEntity::getDisplayOrder).thenComparing(MenuItemVariationJpaEntity::getId))
+                        .map(v -> new MenuItemResponse.Price(v.getId(), v.getName(), java.math.BigDecimal.valueOf(v.getPriceMinor(), 2))).toList());
     }
 }

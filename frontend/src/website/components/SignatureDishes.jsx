@@ -54,11 +54,11 @@ export default function SignatureDishes() {
               <h3>{dish.name}</h3>
               <p>{dish.description}</p>
               {!dish.available && <p className="dish-unavailable">Currently unavailable</p>}
-              <a href="#menu">View dish <span aria-hidden="true">→</span></a>
+              <a href="#/menu">View dish <span aria-hidden="true">→</span></a>
             </article>
           ))}
         </div>
-        <a className="button button-outline centered-button" href="#menu">View full menu</a>
+        <a className="button button-outline centered-button" href="#/menu">View full menu</a>
       </div>
     </section>
   );

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import MenuImageEditor from '../../menu/components/MenuImageEditor';
 import { archiveMenuItem, getStaffCsrf, getStaffMenu, saveMenuItem } from '../../menu/api/menuApi';
 
-const blank = { name: '', slug: '', description: '', categoryId: '', status: 'DRAFT', available: true, displayOrder: 0, collectionIds: [], version: null };
+const blank = { name: '', slug: '', description: '', categoryId: '', status: 'DRAFT', available: true, displayOrder: 0, collectionIds: [], prices: [], version: null };
 
 export default function StaffMenuPage() {
   const [authorization, setAuthorization] = useState('');
@@ -92,6 +92,13 @@ export default function StaffMenuPage() {
           <label>Publication<select value={draft.status} onChange={(e) => field('status', e.target.value)}>{['DRAFT', 'PUBLISHED', 'ARCHIVED'].map((status) => <option key={status}>{status}</option>)}</select></label>
           <label>Display order<input required type="number" min="0" max="2147483647" step="1" value={draft.displayOrder} onChange={(e) => field('displayOrder', e.target.value === '' ? '' : Number(e.target.value))} /></label>
           <label className="staff-check"><input type="checkbox" checked={draft.available} onChange={(e) => field('available', e.target.checked)} /> Available to order</label>
+          <fieldset className="staff-wide"><legend>Prices (AUD)</legend>
+            {(draft.prices || []).map((price, index) => <label key={price.id || 'standard'}>{price.name || 'Standard'} price
+              <input type="number" min="0" max="9999999.99" step="0.01" required value={price.amount} onChange={(event) => field('prices', draft.prices.map((entry, position) => position === index ? { ...entry, amount: event.target.value } : entry))} />
+            </label>)}
+            {!draft.prices?.length && <button type="button" onClick={() => field('prices', [{ id: null, name: 'Standard', amount: '' }])}>Add price</button>}
+            <p>Enter dollars, for example 24.90. Each existing variation has its own price.</p>
+          </fieldset>
           <fieldset className="staff-wide"><legend>Collections</legend><p>Select Signature Dishes to feature a published dish on the homepage.</p>
             {menu.collections.map((collection) => <label className="staff-check" key={collection.id}><input type="checkbox" checked={draft.collectionIds.includes(collection.id)} onChange={(e) => field('collectionIds', e.target.checked ? [...draft.collectionIds, collection.id] : draft.collectionIds.filter((id) => id !== collection.id))} />{collection.name}</label>)}
           </fieldset>
@@ -102,7 +109,7 @@ export default function StaffMenuPage() {
             try { setMenu(await getStaffMenu(authorization)); setNeedsReload(false); }
             catch (failure) { setError(failure.message); }
           }} /> : <p className="staff-wide">Save the new dish first, then edit it to add a photograph.</p>}
-          <p className="staff-wide">Changing the name or description clears dietary verification and requires allergen review. Prices, variations, and food declarations are outside this initial editor.</p>
+          <p className="staff-wide">Changing the name or description clears dietary verification and requires allergen review. Variation creation and food declarations are outside this initial editor.</p>
           <div className="staff-toolbar staff-wide"><button className="button button-primary">{busy ? 'Saving…' : 'Save dish'}</button><button type="button" onClick={() => setDraft(null)}>Cancel</button></div>
         </fieldset>
       </form>}

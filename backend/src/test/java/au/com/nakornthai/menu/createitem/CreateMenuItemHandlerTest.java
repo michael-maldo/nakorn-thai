@@ -34,6 +34,7 @@ class CreateMenuItemHandlerTest {
     @AfterEach
     void cleanup() {
         jdbc.update("DELETE FROM menu_collection_item WHERE menu_item_id IN (SELECT id FROM menu_item WHERE slug = ?)", slug);
+        jdbc.update("DELETE FROM menu_item_variation WHERE menu_item_id IN (SELECT id FROM menu_item WHERE slug = ?)", slug);
         jdbc.update("DELETE FROM menu_item WHERE slug = ?", slug);
     }
 
@@ -88,6 +89,41 @@ class CreateMenuItemHandlerTest {
                 .andExpect(status().isNoContent());
         assertTrue(version(id) > before);
         assertEquals(0, jdbc.queryForObject("SELECT count(*) FROM menu_collection_item WHERE menu_item_id = ?", Integer.class, id));
+    }
+
+    @Test
+    void createsAndUpdatesPriceInCentsWithoutChangingFoodReview() throws Exception {
+        var id = create();
+        String payload = body("Test curry", "PUBLISHED", "" + version(id), selected()).trim();
+        payload = payload.substring(0, payload.length() - 1) + ",\"prices\":[{\"id\":null,\"amount\":\"24.90\"}]}";
+        mvc.perform(put(STAFF + "/" + id).with(user("admin").roles("ADMIN")).with(csrf())
+                .contentType("application/json").content(payload)).andExpect(status().isNoContent());
+        var variation = jdbc.queryForObject("SELECT id FROM menu_item_variation WHERE menu_item_id = ?", UUID.class, id);
+        assertEquals(2490L, jdbc.queryForObject("SELECT price_minor FROM menu_item_variation WHERE id = ?", Long.class, variation));
+        long previous = version(id);
+        payload = body("Test curry", "PUBLISHED", "" + previous, selected()).trim();
+        payload = payload.substring(0, payload.length() - 1) + ",\"prices\":[{\"id\":\"" + variation + "\",\"amount\":\"26.05\"}]}";
+        mvc.perform(put(STAFF + "/" + id).with(user("admin").roles("ADMIN")).with(csrf())
+                .contentType("application/json").content(payload)).andExpect(status().isNoContent());
+        assertEquals(2605L, jdbc.queryForObject("SELECT price_minor FROM menu_item_variation WHERE id = ?", Long.class, variation));
+        assertEquals("NOT_REVIEWED", jdbc.queryForObject("SELECT allergen_review_status FROM menu_item_variation WHERE id = ?", String.class, variation));
+        mvc.perform(get("/api/menu/collections/signature-dishes/items"))
+                .andExpect(jsonPath("$.items[?(@.slug == '" + slug + "')].variations[0].priceMinor").value(2605));
+        mvc.perform(put(STAFF + "/" + id).with(user("admin").roles("ADMIN")).with(csrf())
+                .contentType("application/json").content(payload)).andExpect(status().isConflict());
+    }
+
+    @Test
+    void rejectsInvalidPricePrecisionAndOtherDishVariation() throws Exception {
+        var id = create();
+        for (String prices : new String[]{"[{\"amount\":\"1.001\"}]", "[{\"amount\":-1}]",
+                "[{\"id\":\"" + UUID.randomUUID() + "\",\"amount\":12.00}]"}) {
+            String payload = body("Test curry", "PUBLISHED", "" + version(id), selected()).trim();
+            payload = payload.substring(0, payload.length() - 1) + ",\"prices\":" + prices + "}";
+            mvc.perform(put(STAFF + "/" + id).with(user("admin").roles("ADMIN")).with(csrf())
+                    .contentType("application/json").content(payload)).andExpect(status().isBadRequest());
+        }
+        assertEquals(0, jdbc.queryForObject("SELECT count(*) FROM menu_item_variation WHERE menu_item_id = ?", Integer.class, id));
     }
 
     @Test

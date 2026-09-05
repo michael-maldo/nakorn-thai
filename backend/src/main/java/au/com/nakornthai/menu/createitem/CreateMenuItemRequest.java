@@ -13,4 +13,7 @@ public record CreateMenuItemRequest(
         boolean available,
         @Min(0) int displayOrder,
         @NotNull @Size(max = 100) Set<@NotNull UUID> collectionIds,
-        @PositiveOrZero Long version) {}
+        @PositiveOrZero Long version,
+        @Size(max = 100) java.util.List<@jakarta.validation.Valid @NotNull Price> prices) {
+    public record Price(UUID id, @NotNull @DecimalMin("0.00") @Digits(integer = 7, fraction = 2) java.math.BigDecimal amount) {}
+}

@@ -242,3 +242,22 @@ button, input { font: inherit; }
 
 .menu-focus-preview { width: 100%; max-width: 360px; aspect-ratio: 1.45; overflow: hidden; border-radius: 8px; background: #eee6d9; }
 .menu-focus-preview img { width: 100%; height: 100%; object-fit: cover; }
+
+.restaurant-menu { padding-block: 3rem 4rem; }
+.restaurant-menu-heading { text-align: center; max-width: 760px; margin: 0 auto 2rem; }
+.restaurant-menu-heading h1 { font: 2.8rem var(--serif); margin: .5rem 0; }
+.restaurant-menu-heading h2 { color: var(--plum); font: 1.6rem var(--serif); }
+.restaurant-menu-eyebrow { color: var(--gold-dark); letter-spacing: .12em; text-transform: uppercase; font-size: .8rem; }
+.restaurant-menu-search { display: flex; flex-direction: column; gap: .5rem; max-width: 440px; margin-bottom: 1rem; }
+.restaurant-menu-search input { font: inherit; padding: .8rem; border: 1px solid var(--line); border-radius: 6px; background: var(--paper); }
+.restaurant-menu-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.5rem; margin-block: 1.5rem 2.5rem; }
+.restaurant-menu-item { background: var(--paper); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.restaurant-menu-item-content { padding: 1.5rem; }
+.restaurant-menu-item h3 { color: var(--plum); font: 1.4rem var(--serif); margin: 0 0 .65rem; }
+.restaurant-menu-item p { color: var(--muted); line-height: 1.6; }
+.restaurant-menu-photo { aspect-ratio: 1.45; overflow: hidden; }
+.restaurant-menu-photo img { width: 100%; height: 100%; object-fit: cover; }
+.restaurant-menu-prices { padding: 0; margin: 1rem 0 0; list-style: none; }
+.restaurant-menu-prices li { display: flex; justify-content: space-between; gap: 1rem; padding: .5rem 0; border-top: 1px solid var(--line); }
+.restaurant-menu-prices strong { white-space: nowrap; }
+@media (max-width: 640px) { .restaurant-menu-grid { grid-template-columns: 1fr; } .restaurant-menu-heading h1 { font-size: 2.2rem; } }

@@ -108,3 +108,13 @@ test('failed token refresh prevents the write', async () => {
   await assert.rejects(saveMenuItem({ id: 'dish' }, 'Basic test', { token: 'old' }), /Sign-in failed/);
   assert.equal(calls, 1);
 });
+
+test('restaurant menu fetches the chef collection rather than homepage signatures', async () => {
+  const { getMenuCollection } = await import('./menuApi.js');
+  globalThis.fetch = async (url) => {
+    assert.equal(url, '/api/menu/collections/chefs-special-recommendations/items');
+    return Response.json({ items: [{ name: 'Lamb Shank with Curry', variations: [{ name: 'Green Curry', priceMinor: 3190, currency: 'AUD' }] }] });
+  };
+  const menu = await getMenuCollection('chefs-special-recommendations');
+  assert.equal(menu.items[0].variations[0].priceMinor, 3190);
+});

@@ -5,7 +5,7 @@ Names, descriptions, visibility, availability and order come from PostgreSQL.
 Loading, empty and unavailable states are explicit; there is no static menu fallback.
 The existing four photographs remain bundled frontend assets associated with the
 seeded item IDs. An API image takes precedence. New dishes without media show a
-photo placeholder. Price/variation editing, food declaration editing,
+photo placeholder. Variation creation, food declaration editing,
 and creating categories/collections are not part of this first dashboard.
 
 ## Seed data
@@ -150,3 +150,36 @@ Existing schema/entity tests remain in place. No source folders were restructure
 
 Photo upload and focal positioning are now available for saved dishes. See
 [backend deployment](backend-deployment.md#menu-photo-uploads) for storage and proxy setup.
+
+## Public restaurant menu
+
+The homepage header's **Menu** link and **View full menu** link open `/#/menu`.
+The existing `domains/menu/pages/MenuPage.jsx` renders the published
+`chefs-special-recommendations` collection through the public collection API.
+It displays descriptions, AUD prices, variation choices, availability and photos,
+with search plus loading/error/empty states. Header navigation marks Menu active.
+The four signature dishes remain a separate homepage section.
+
+Deploy backend migration V10 before using this page so the Chef's collection
+exists. No new API endpoint or source directory is required. Staff changes to
+collection membership, publication, availability and photographs appear on the
+public page when it is loaded again.
+
+
+## Editing prices
+
+Edit a dish and use **Prices (AUD)**. Each active variation has its own amount
+field (for example all four lamb curry choices). Amounts are entered in dollars
+with at most two decimal places and stored as integer cents. An unpriced dish
+can receive a **Standard** price using **Add price**, including during creation.
+Save prices with **Save dish**. Existing variation identities and food profiles
+are preserved on price-only edits. The initial editor does not add/remove
+multiple variation choices or edit inactive variations.
+
+The staff response includes `prices: [{id, name, amount}]`. Create/update bodies
+accept optional `prices: [{id, amount}]`, with decimal AUD amounts (JSON numbers
+or decimal strings). Omitted/empty lists preserve prices. A null ID creates one
+Standard variation only when the item has no variations. Existing IDs must belong
+to an active variation of that item; duplicates, negative amounts, more than two
+decimal places, and amounts above 9999999.99 are rejected. Item version checks
+also protect price changes. No schema migration is needed for this feature.
