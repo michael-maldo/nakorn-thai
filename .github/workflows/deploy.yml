@@ -23,14 +23,14 @@ jobs:
 
       - uses: actions/setup-node@v3
         with:
-          node-version: '21'
+          node-version: '24'
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
       - name: Install and build
         working-directory: frontend
         run: |
-          npm ci
+          npm ci --include=optional
           npm run build
           test -s dist/index.html
 
@@ -39,10 +39,10 @@ jobs:
           SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
           KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
         run: |
-          install -d -m 699 ~/.ssh
-          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_ed25518
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_ed25519
           printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
-          chmod 599 ~/.ssh/id_ed25519 ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/id_ed25519 ~/.ssh/known_hosts
 
       - name: Upload and activate release
         env:
@@ -67,4 +67,4 @@ jobs:
 
       - name: Remove deployment key
         if: always()
-        run: rm -f ~/.ssh/id_ed25518
+        run: rm -f ~/.ssh/id_ed25519
