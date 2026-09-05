@@ -252,7 +252,7 @@ button, input { font: inherit; }
 .restaurant-menu-heading h2 { color: var(--plum); font: 1.6rem var(--serif); }
 .restaurant-menu-eyebrow { color: var(--gold-dark); letter-spacing: .12em; text-transform: uppercase; font-size: .8rem; }
 .restaurant-menu-search { display: flex; flex-direction: column; gap: .5rem; max-width: 440px; margin-bottom: 1rem; }
-.restaurant-menu-search input { font: inherit; padding: .8rem; border: 1px solid var(--line); border-radius: 6px; background: var(--paper); }
+.restaurant-menu-search input, .restaurant-menu-search select { font: inherit; padding: .8rem; border: 1px solid var(--line); border-radius: 6px; background: var(--paper); }
 .restaurant-menu-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.5rem; margin-block: 1.5rem 2.5rem; }
 .restaurant-menu-item { background: var(--paper); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
 .restaurant-menu-item-content { padding: 1.5rem; }

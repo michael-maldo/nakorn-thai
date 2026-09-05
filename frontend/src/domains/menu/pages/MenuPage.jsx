@@ -10,7 +10,9 @@ import { presentDish } from '../model/menuModel';
 const price = (minor, currency) => new Intl.NumberFormat('en-AU', { style: 'currency', currency }).format(minor / 100);
 
 export default function MenuPage() {
-  const { items, loading, error, retry } = useMenu('chefs-special-recommendations');
+  const [collection, setCollection] = useState('chefs-special-recommendations');
+  const collections = { 'chefs-special-recommendations': 'Chef’s Special Recommendations', 'regular-menu': 'Restaurant Menu', 'lunch-specials': 'Lunch Specials', drinks: 'Drinks' };
+  const { items, loading, error, retry } = useMenu(collection);
   const [search, setSearch] = useState('');
   const { cart, dispatch } = useCart();
   const [enabled, setEnabled] = useState(false);
@@ -23,9 +25,15 @@ export default function MenuPage() {
       <div className="restaurant-menu-heading">
         <p className="restaurant-menu-eyebrow">Nakorn Thai Restaurant &amp; Bar</p>
         <h1>Our menu</h1>
-        <h2>Chef’s Special Recommendations</h2>
-        <p>Explore our entrées and main dishes. All prices are in Australian dollars.</p>
+        <h2>{collections[collection]}</h2>
+        <p>Explore our dishes and drinks. All prices are in Australian dollars.</p>
       </div>
+      <label className="restaurant-menu-search">Menu collection
+        <select value={collection} onChange={(event) => { setCollection(event.target.value); setSearch(''); setAdded(''); }}>
+          {Object.entries(collections).map(([slug, name]) => <option key={slug} value={slug}>{name}</option>)}
+        </select>
+      </label>
+      {collection === 'lunch-specials' && <p>Lunch specials till 2:30 PM. Please contact the restaurant to order lunch; online lunch ordering is currently unavailable.</p>}
       <p>{enabled ? 'Order for pickup and pay at the restaurant. Staff will confirm your order.' : 'Online ordering is currently closed or unavailable. You can still browse the menu.'}</p>
       <p role="status">{added}</p>
       {cart.length > 0 && <a href="#/checkout">Checkout ({cart.reduce((sum, line) => sum + line.quantity, 0)} items)</a>}
@@ -35,7 +43,7 @@ export default function MenuPage() {
         {items.length > 0 && <label className="restaurant-menu-search">Find a dish
           <input type="search" placeholder="Search dishes or descriptions" value={search} onChange={(event) => setSearch(event.target.value)} />
         </label>}
-        <p role="status">{items.length === 0 ? 'Our chef’s menu is being updated. Please check back soon.' : `${dishes.length} ${dishes.length === 1 ? 'dish' : 'dishes'}${search ? ' found' : ' on the menu'}`}</p>
+        <p role="status">{items.length === 0 ? 'This menu is being updated. Please check back soon.' : `${dishes.length} ${dishes.length === 1 ? 'dish' : 'dishes'}${search ? ' found' : ' on the menu'}`}</p>
         {items.length > 0 && dishes.length === 0 && <button className="button button-outline" onClick={() => setSearch('')}>Clear search</button>}
         <div className="restaurant-menu-grid">
           {dishes.map((dish) => <article className="restaurant-menu-item" key={dish.id}>

@@ -141,6 +141,38 @@ class MenuSchemaIntegrationTest {
     }
 
     @Test
+    void printedRestaurantMenuImportsPricesOptionsAndLunchRestrictions() {
+        var regular = handler.handle(new ListMenuQuery("regular-menu"));
+        assertEquals(58, regular.items().size());
+        var thai = regular.items().stream().filter(i -> i.slug().equals("pad-thai")).findFirst().orElseThrow();
+        assertEquals(java.util.List.of(2090L,2090L,2090L,2690L,2890L,2590L,2690L),
+                thai.variations().stream().map(v -> v.priceMinor()).toList());
+        var fish = regular.items().stream().filter(i -> i.slug().equals("whole-barramundi-fish")).findFirst().orElseThrow();
+        assertEquals(3, fish.variations().size());
+        assertTrue(fish.variations().stream().allMatch(v -> v.priceMinor()==4590));
+        var unknown = regular.items().stream().filter(i -> i.slug().equals("sizzling-hot-plate")).findFirst().orElseThrow();
+        assertTrue(unknown.variations().isEmpty());
+        var lunch = handler.handle(new ListMenuQuery("lunch-specials"));
+        assertEquals(10, lunch.items().size());
+        assertEquals(65, lunch.items().stream().mapToInt(i -> i.variations().size()).sum());
+        assertTrue(lunch.items().stream().flatMap(i -> i.variations().stream()).allMatch(v -> v.priceMinor()>=1490));
+        assertEquals(10, jdbc.queryForObject("SELECT count(*) FROM menu_item i JOIN menu_collection_item ci ON ci.menu_item_id=i.id JOIN menu_collection c ON c.id=ci.collection_id WHERE c.slug='lunch-specials' AND NOT i.is_available", Integer.class));
+        var drinks = handler.handle(new ListMenuQuery("drinks"));
+        assertEquals(5, drinks.items().size());
+        var water = drinks.items().stream().filter(i -> i.slug().equals("sparkling-water")).findFirst().orElseThrow();
+        assertEquals(java.util.List.of(390L,750L), water.variations().stream().map(v -> v.priceMinor()).toList());
+        for (var menu : java.util.List.of(regular, lunch, drinks)) {
+            for (var dish : menu.items()) {
+                assertNull(dish.image());
+                for (var variation : dish.variations()) {
+                    assertEquals("NOT_REVIEWED", variation.profile().allergenReviewStatus());
+                    assertTrue(variation.profile().dietaryTags().isEmpty());
+                }
+            }
+        }
+    }
+
+    @Test
     void unknownDraftFutureAndExpiredCollectionsAreNotFound() throws Exception {
         mvc.perform(get("/api/menu/collections/missing/items")).andExpect(status().isNotFound());
         for (String change : new String[]{"status='DRAFT'", "status='PUBLISHED', starts_at=CURRENT_TIMESTAMP + interval '1 day'",

@@ -180,3 +180,11 @@ Standard variation only when the item has no variations. Existing IDs must belon
 to an active variation of that item; duplicates, negative amounts, more than two
 decimal places, and amounts above 9999999.99 are rejected. Item version checks
 also protect price changes. No schema migration is needed for this feature.
+
+## Printed restaurant menu
+
+Migration V14 adds the regular menu, lunch specials and drinks from the supplied
+photographs. The public Menu page now has a collection selector alongside Chef’s
+Special Recommendations. See [printed-menu-import.md](printed-menu-import.md) for
+all imported prices, protein options and outstanding source-image clarification.
+Lunch items are browse-only pending enforcement of their 2:30 PM cutoff.
