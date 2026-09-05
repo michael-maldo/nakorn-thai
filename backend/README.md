@@ -278,3 +278,10 @@ See [menu-dashboard.md](../docs/menu-dashboard.md) for local/VPS startup, admin
 credentials, API contracts, seed data and scope. `MenuAdminApiTest` covers staff
 security/validation with JUnit and Mockito. `CreateMenuItemHandlerTest` exercises
 committed CRUD transactions against PostgreSQL when `DB_TEST_URL` is supplied.
+
+## Pickup ordering
+
+The existing ordering scaffold now implements guest pickup orders, private tracking,
+role-restricted FOH/BOH queues and status transitions using JPA. V11 adds three order
+tables. See [online-ordering.md](../docs/online-ordering.md) for configuration and
+scope. Public writes require CSRF; menu administration remains ADMIN-only.

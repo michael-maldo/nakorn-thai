@@ -82,8 +82,8 @@ class MenuSchemaIntegrationTest {
     }
 
     @Test
-    void flywayCreatesAllTwelveTablesAndEndpointReturnsDish() throws Exception {
-        assertEquals(12, jdbc.queryForObject("SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_name <> 'flyway_schema_history'", Integer.class));
+    void flywayCreatesMenuAndOrderingTablesAndEndpointReturnsDish() throws Exception {
+        assertEquals(15, jdbc.queryForObject("SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_name <> 'flyway_schema_history'", Integer.class));
         mvc.perform(get("/api/menu/collections/{slug}/items", slug()))
                 .andExpect(status().isOk()).andExpect(header().string("Cache-Control", "no-store"))
                 .andExpect(jsonPath("$.items[0].id").value(item.toString()))

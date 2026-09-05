@@ -160,3 +160,19 @@ its former static dish records have been removed. Initial data remains in V8.
 | `backend/src/main/resources/db/migration/V8__seed_signature_dishes.sql` | Existing four specials and memberships; unchanged, applied once by Flyway. |
 | `infrastructure/nginx/nakorn-thai.conf` | API proxy snippet for the existing HTTPS server. |
 | `docs/menu-dashboard.md` | Setup, API contracts, seed behavior, scope and verification. |
+
+## Pickup ordering and operational staff dashboards
+
+- `backend/src/main/resources/db/migration/V11__create_pickup_ordering.sql`: order,
+  line-item snapshot and status audit tables.
+- `backend/src/main/java/au/com/nakornthai/ordering/`: create, private read, list and
+  transition controllers/handlers plus JPA entities in existing slices.
+- `frontend/src/domains/ordering/`: cart, checkout, private confirmation and API code.
+- `frontend/src/domains/staff/pages/StaffDashboardPage.jsx`: staff navigation.
+- `frontend/src/domains/staff/pages/StaffOrdersPage.jsx`: FOH operational queue and
+  shared queue UI, with role-specific actions.
+- `frontend/src/domains/staff/pages/KitchenDashboardPage.jsx`: BOH kitchen queue.
+- `docs/online-ordering.md`: pickup scope, roles, configuration and usage.
+
+The existing source directories are preserved. Tests are in the existing ordering
+backend test folder and frontend ordering API folder.

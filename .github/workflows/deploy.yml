@@ -63,6 +63,7 @@ jobs:
         working-directory: frontend
         run: |
           npm ci --include=optional
+          npm test
           npm run build
           test -s dist/index.html
 

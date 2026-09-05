@@ -21,7 +21,7 @@ export default function Header({ currentPage = 'Home' }) {
           </a>
         ))}
       </nav>
-      <a className="button button-outline order-button" href="#menu">Order online <span aria-hidden="true">♧</span></a>
+      <a className="button button-outline order-button" href="#/menu">Order online <span aria-hidden="true">♧</span></a>
     </header>
   );
 }

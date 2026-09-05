@@ -59,7 +59,7 @@ export default function StaffMenuPage() {
   const visible = menu?.items.filter((item) => (showArchived || item.status !== 'ARCHIVED') && item.name.toLowerCase().includes(filter.toLowerCase())) || [];
 
   return <main className="staff-menu page-width">
-    <header className="staff-heading"><div><a href="#home">← Restaurant website</a><h1>Menu dashboard</h1></div>
+    <header className="staff-heading"><div><a href="#/staff">← Staff home</a><h1>Menu dashboard</h1></div>
       {menu && <button type="button" disabled={busy} onClick={signOut}>Sign out</button>}
     </header>
     {error && <p role="alert" className="staff-error">{error}</p>}

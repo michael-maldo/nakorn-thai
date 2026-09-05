@@ -46,7 +46,7 @@ export default function SignatureDishes() {
                 <button className="dish-preview-close" type="button" onClick={() => setOpenDish(null)} aria-label={`Close ${dish.name} preview`}>×</button>
                 <div className="dish-preview-actions">
                   <span>{dish.name}</span>
-                  {dish.available ? <a href="#order-online" aria-label={`Order ${dish.name} online`}>
+                  {dish.available ? <a href="#/menu" aria-label={`Order ${dish.name} online`}>
                     <i aria-hidden="true" /> Available — Order online
                   </a> : <span>Currently unavailable</span>}
                 </div>

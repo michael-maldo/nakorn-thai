@@ -1,4 +1,7 @@
-import { useState } from 'react';
+import Cart from '../../ordering/components/Cart';
+import { useCart } from '../../ordering/model/CartContext';
+import { getOrderingOptions } from '../../ordering/api/orderApi';
+import { useEffect, useState } from 'react';
 import Header from '../../../website/components/Header';
 import Footer from '../../../website/components/Footer';
 import useMenu from '../hooks/useMenu';
@@ -9,6 +12,10 @@ const price = (minor, currency) => new Intl.NumberFormat('en-AU', { style: 'curr
 export default function MenuPage() {
   const { items, loading, error, retry } = useMenu('chefs-special-recommendations');
   const [search, setSearch] = useState('');
+  const { cart, dispatch } = useCart();
+  const [enabled, setEnabled] = useState(false);
+  const [added, setAdded] = useState('');
+  useEffect(() => { let active = true; getOrderingOptions().then((options) => { if (active) setEnabled(options.enabled); }).catch(() => {}); return () => { active = false; }; }, []);
   const dishes = items.filter((item) => `${item.name} ${item.description}`.toLowerCase().includes(search.trim().toLowerCase())).map(presentDish);
   return <>
     <Header currentPage="Menu" />
@@ -19,6 +26,9 @@ export default function MenuPage() {
         <h2>Chef’s Special Recommendations</h2>
         <p>Explore our entrées and main dishes. All prices are in Australian dollars.</p>
       </div>
+      <p>{enabled ? 'Order for pickup and pay at the restaurant. Staff will confirm your order.' : 'Online ordering is currently closed or unavailable. You can still browse the menu.'}</p>
+      <p role="status">{added}</p>
+      {cart.length > 0 && <a href="#/checkout">Checkout ({cart.reduce((sum, line) => sum + line.quantity, 0)} items)</a>}
       {loading && <p role="status">Loading our menu…</p>}
       {error && <div role="alert"><p>{error}</p><button className="button button-outline" onClick={retry}>Try again</button></div>}
       {!loading && !error && <>
@@ -38,12 +48,17 @@ export default function MenuPage() {
                 {dish.variations.map((variation) => <li key={variation.id}>
                   <span>{variation.name === 'Standard' && dish.variations.length === 1 ? 'Price' : variation.name}{!variation.available && dish.available && ' — unavailable'}</span>
                   <strong>{price(variation.priceMinor, variation.currency)}</strong>
+                  <button type="button" disabled={!enabled || !dish.available || !variation.available || (cart.find((line) => line.variationId === variation.id)?.quantity || 0) >= 20 || (cart.length >= 30 && !cart.some((line) => line.variationId === variation.id))} onClick={() => {
+                    dispatch({ type: 'add', line: { variationId: variation.id, dishName: dish.name, variationName: variation.name, unitPriceMinor: variation.priceMinor } });
+                    setAdded(`${dish.name} — ${variation.name} added to your cart.`);
+                  }}>Add to order</button>
                 </li>)}
               </ul>}
             </div>
           </article>)}
         </div>
       </>}
+      <Cart />
       <a className="button button-outline" href="#home">Back to home</a>
     </main>
     <Footer />

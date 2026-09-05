@@ -262,3 +262,18 @@ button, input { font: inherit; }
 .restaurant-menu-prices li { display: flex; justify-content: space-between; gap: 1rem; padding: .5rem 0; border-top: 1px solid var(--line); }
 .restaurant-menu-prices strong { white-space: nowrap; }
 @media (max-width: 640px) { .restaurant-menu-grid { grid-template-columns: 1fr; } .restaurant-menu-heading h1 { font-size: 2.2rem; } }
+
+.order-panel { padding: 1.5rem; margin-block: 1.5rem; background: var(--paper); border: 1px solid var(--line); border-radius: 8px; }
+.order-panel label { display: flex; flex-direction: column; gap: .5rem; margin-block: 1rem; }
+.order-panel input, .order-panel textarea { padding: .7rem; font: inherit; border: 1px solid var(--line); border-radius: 4px; }
+.order-panel button, .restaurant-menu-prices button { padding: .5rem .8rem; cursor: pointer; }
+.order-panel button:disabled, .restaurant-menu-prices button:disabled { opacity: .5; cursor: default; }
+.cart-line { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; padding-block: 1rem; border-bottom: 1px solid var(--line); }
+.cart-line > div { flex: 1; min-width: 160px; }
+.cart-line input { width: 5rem; }
+.order-total { font-size: 1.2rem; font-weight: bold; }
+.order-queue { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 1rem; }
+.order-queue .order-panel { margin: 0; }
+.order-notes { padding: .75rem; background: #fff0ca; white-space: pre-wrap; overflow-wrap: anywhere; }
+.restaurant-menu-prices li { flex-wrap: wrap; align-items: center; }
+@media(max-width: 640px) { .order-queue { grid-template-columns: 1fr; } }

@@ -114,3 +114,10 @@ Replacement photos get new URLs. Previous files are retained for rollback and
 must be included in storage capacity planning; automatic unused-file cleanup and
 photo removal are not implemented. Files from rolled-back uploads are removed
 on a best-effort basis. No source directories were restructured.
+
+## Pickup ordering and FOH/BOH dashboards
+
+See [online-ordering.md](online-ordering.md) for migration V11, staff account
+configuration and the operational workflow. Ordering defaults to closed; set
+`ONLINE_ORDERING_ENABLED=true` in the backend service environment and restart only
+after configuring staff access. The current Nginx `/api/` proxy covers these routes.
