@@ -1,3 +1,7 @@
+> Backend deployment is now included in the workflow. Complete the
+> [backend VPS setup](backend-deployment.md) before deploying. The frontend-only
+> workflow example below is historical; use `.github/workflows/deploy.yml`.
+
 I’ll check your project and deployment notes, then outline a GitHub Actions workflow that deploys to your VPS.
 
 Use **GitHub Actions** to build your site and upload it to your VPS whenever you push to `main`:

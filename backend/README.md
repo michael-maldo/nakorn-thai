@@ -2,7 +2,8 @@
 
 Spring Boot 4.1.1, Java 21, Maven 3.6.3+, and PostgreSQL (tested with 16).
 Flyway creates the twelve menu tables on startup. The backend exposes a read-only
-collection endpoint; frontend integration and VPS backend deployment are separate steps.
+collection endpoint and authenticated menu administration. See
+[backend deployment](../docs/backend-deployment.md) for GitHub Actions and VPS setup.
 
 ## Create a local database
 
@@ -96,10 +97,11 @@ For a manual startup, from a backend directory containing the built JAR:
 )
 ```
 
-For a future systemd service, keep the production file outside release directories,
+For the systemd service, keep the production file outside release directories,
 for example `/etc/nakorn-thai/backend.env`, owned by root with mode 600. Its service
 unit can use `EnvironmentFile=/etc/nakorn-thai/backend.env` to load these same literal
-assignments. No VPS service or automatic backend deployment has been configured yet.
+assignments. The repository includes a service unit and automatic deployment workflow;
+complete the [one-time VPS setup](../docs/backend-deployment.md) before running it.
 
 Both profiles bind HTTP to `127.0.0.1:8080`; an Nginx reverse proxy can later expose
 `/api/`. SERVER_ADDRESS and SERVER_PORT override these defaults. Actuator health and Prometheus metrics use a separate loopback listener at port 8081.
@@ -127,8 +129,8 @@ Flyway clean and automatic baselining are disabled. Hibernate is configured to
 validate rather than generate DDL. All twelve tables now have @Entity mappings,
 so Hibernate validates their mapped columns on startup. PostgreSQL integration
 tests additionally verify constraints, relationships, and persistence behavior.
-Spring Data repositories support internal saves; public write endpoints and their
-business validation remain unimplemented.
+Spring Data repositories support internal saves and authenticated menu administration.
+See [the dashboard guide](../docs/menu-dashboard.md) for the initial CRUD scope.
 
 ## Menu responses
 
@@ -149,9 +151,10 @@ provisioning, store relative, URL-safe keys such as `menu/yellow-curry.jpg` and 
 only resolves references; it does not upload or serve media. Storage must survive
 frontend releases. Do not populate database keys with Vite's generated asset hashes.
 
-No public write endpoints are added. Future authenticated write handlers must
-implement the schema document's optimistic locking, default-variation, and review
-invalidation rules transactionally; database checks alone do not enforce those rules.
+Menu item writes are restricted to the configured admin account. The initial editor
+enforces version checks and invalidates food verification on name/description edits.
+Future variation editors must also enforce the default-variation and independent
+review rules; they are outside the initial dashboard scope.
 
 ## Tests
 
@@ -196,10 +199,10 @@ See [configuration and verification](../infrastructure/monitoring/grafana/README
   behavior for invalid slugs. Future request DTOs can use @Valid and constraints.
 - Spring Security explicitly allows GET collection reads and the two private
   management endpoints. Other routes/methods are denied by default. Requests are
-  stateless, CSRF remains enabled, and no default account, Basic auth, or login form
-  is installed. New public endpoints require an explicit policy change in the
-  existing shared/security/SecurityConfig.java. Future protected endpoints need
-  the identity/authentication flow before they can be used.
+  authenticated explicitly via HTTP Basic for the configured menu admin account.
+  CSRF remains enabled with a session token for browser writes. Staff menu routes
+  require ROLE_ADMIN; all other unregistered routes remain denied. There is no
+  default password. See the dashboard guide for environment configuration.
 - JJWT 0.13.0 API plus runtime implementation and Jackson adapter are available for
   future identity work. JJWT's adapter uses Jackson 2 internally; the application's
   ObjectMapper and HTTP JSON continue using Boot's Jackson 3. Integration tests
@@ -234,8 +237,8 @@ The domain MenuItem record and public response shape are unchanged.
   Flyway SQL and direct SQL used to test database constraints remain intentional.
 
 Spring Data save/saveAndFlush can now persist entities and detect stale versions.
-This does not by itself implement administrative use cases. Future write handlers
-must authorize callers and enforce the documented default-variation and food-review
+The initial menu dashboard implements authorized item writes; future variation
+editors must also enforce the documented default-variation and food-review
 invalidation rules transactionally before saving. Do not expose repositories as REST
 endpoints or bind request bodies directly to entities.
 
@@ -268,3 +271,10 @@ never query the repository. The three handler unit tests also run in this comman
 Database visibility/scheduling and relationship correctness remain covered by the
 PostgreSQL integration tests. Actuator health/Prometheus and real trace export are
 covered by scripts/check-observability.py; they are not mocked business controllers.
+
+## Initial menu dashboard
+
+See [menu-dashboard.md](../docs/menu-dashboard.md) for local/VPS startup, admin
+credentials, API contracts, seed data and scope. `MenuAdminApiTest` covers staff
+security/validation with JUnit and Mockito. `CreateMenuItemHandlerTest` exercises
+committed CRUD transactions against PostgreSQL when `DB_TEST_URL` is supplied.

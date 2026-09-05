@@ -213,3 +213,29 @@ button, input { font: inherit; }
 .newsletter .button { min-height: 38px; padding: 0 17px; border: 0; font-size: 9px; }
 .footer-bottom { padding-top: 18px; margin-top: 23px; border-top: 1px solid var(--line); display: flex; justify-content: space-between; color: #666158; font-size: 9px; }
 .footer-bottom span { display: flex; gap: 35px; }
+
+/* Initial staff dashboard, within the existing application stylesheet. */
+.staff-menu { padding-block: 2rem 5rem; }
+.staff-heading, .staff-toolbar, .staff-summary { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; }
+.staff-heading { justify-content: space-between; margin-bottom: 2rem; }
+.staff-summary { margin-bottom: 2rem; }
+.staff-summary > span { padding: 1rem 2rem; background: #fff; border: 1px solid #d6cdbc; border-radius: .5rem; }
+.staff-summary strong { font-size: 1.5rem; margin-right: .5rem; }
+.staff-panel { background: #fff; border: 1px solid #d6cdbc; border-radius: .75rem; padding: 1.5rem; margin-block: 1.5rem; }
+.staff-login { max-width: 28rem; }
+.staff-menu label { display: flex; flex-direction: column; gap: .35rem; margin-block: .5rem; }
+.staff-menu input, .staff-menu textarea, .staff-menu select { padding: .65rem; border: 1px solid #847966; border-radius: .25rem; font: inherit; color: #282018; background: white; min-width: 0; }
+.staff-menu button { cursor: pointer; padding: .6rem 1rem; }
+.staff-menu button:disabled { cursor: wait; opacity: .55; }
+.staff-menu .staff-check { flex-direction: row; align-items: center; }
+.staff-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; border: 0; padding: 0; }
+.staff-wide { grid-column: 1 / -1; }
+.staff-table-wrap { overflow-x: auto; margin-top: 2rem; }
+.staff-table { width: 100%; border-collapse: collapse; text-align: left; }
+.staff-table caption { text-align: left; font-size: 1.4rem; margin-bottom: 1rem; }
+.staff-table th, .staff-table td { padding: 1rem .75rem; border-bottom: 1px solid #d6cdbc; }
+.staff-table small { display: block; }
+.staff-error { padding: 1rem; background: #fff0ee; color: #8d2116; }
+.dish-photo-placeholder { aspect-ratio: 1; display: grid; place-items: center; background: #eee6d9; color: #645744; }
+.dish-unavailable { font-weight: bold; }
+@media (max-width: 640px) { .staff-form-grid { grid-template-columns: 1fr; } .staff-summary > span { padding: .75rem; } }

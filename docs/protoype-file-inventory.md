@@ -137,3 +137,26 @@ Yes—the current frontend follows the existing scaffold:
 We added `website/content/homeContent.js` for homepage content and `assets/images/` for images.
 
 The scaffold guides **code organization**, not the visual design. So far, only the homepage is implemented; the router, business modules, and backend remain placeholders.
+
+## Initial dynamic menu and dashboard
+
+Existing source folders are retained. The homepage now reads backend menu data;
+its former static dish records have been removed. Initial data remains in V8.
+
+| File / path | Purpose |
+|---|---|
+| `frontend/src/app/AppRouter.jsx` | Selects the homepage or `#/staff/menu` dashboard. |
+| `frontend/src/domains/menu/api/menuApi.js` | Public reads and authenticated/CSRF-protected staff requests. |
+| `frontend/src/domains/menu/api/menuApi.test.js` | Node tests for frontend API contracts and failures. |
+| `frontend/src/domains/menu/hooks/useMenu.js` | Loading, cancellation, error and retry state. |
+| `frontend/src/domains/menu/model/menuModel.js` | Seeded dish photo presentation; no static menu content. |
+| `frontend/src/domains/staff/pages/StaffMenuPage.jsx` | Sign-in, counts, search, create/edit/archive/restore and collections. |
+| `frontend/src/website/components/SignatureDishes.jsx` | Renders API dishes and availability with loading/empty/error states. |
+| `backend/src/main/java/au/com/nakornthai/menu/{createitem,updateitem,deleteitem,getitem}/` | Initial staff controllers, handlers and DTOs within existing slices. |
+| `backend/src/main/java/au/com/nakornthai/menu/infrastructure/MenuAdminService.java` | Transactional JPA item writes, collection membership, review invalidation and version checks. |
+| `backend/src/main/java/au/com/nakornthai/menu/infrastructure/MenuWriteExceptionHandler.java` | Safe conflict responses without database internals. |
+| `backend/src/main/java/au/com/nakornthai/shared/security/SecurityConfig.java` | Configurable bcrypt admin account, role checks and CSRF. |
+| `backend/src/test/java/au/com/nakornthai/menu/createitem/` | Mockito staff API tests and PostgreSQL CRUD persistence tests. |
+| `backend/src/main/resources/db/migration/V8__seed_signature_dishes.sql` | Existing four specials and memberships; unchanged, applied once by Flyway. |
+| `infrastructure/nginx/nakorn-thai.conf` | API proxy snippet for the existing HTTPS server. |
+| `docs/menu-dashboard.md` | Setup, API contracts, seed behavior, scope and verification. |

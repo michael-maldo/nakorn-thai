@@ -1,0 +1,24 @@
+[Unit]
+Description=Nakorn Thai backend
+After=network.target
+
+[Service]
+Type=simple
+User=nakorn-backend
+Group=nakorn-backend
+WorkingDirectory=/opt/nakorn-thai/backend
+EnvironmentFile=/etc/nakorn-thai/backend.env
+ExecStart=/usr/bin/java -jar /opt/nakorn-thai/backend/current/backend.jar
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+SuccessExitStatus=143
+LogsDirectory=nakorn-thai
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/var/log/nakorn-thai
+
+[Install]
+WantedBy=multi-user.target

@@ -1,4 +1,4 @@
-name: Deploy website
+name: Deploy website and backend
 
 on:
   push:
@@ -16,10 +16,42 @@ jobs:
   deploy:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    timeout-minutes: 14
+    timeout-minutes: 25
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: nakorn_menu_test
+          POSTGRES_USER: nakorn_test
+          POSTGRES_PASSWORD: ci-test-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U nakorn_test -d nakorn_menu_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
       - uses: actions/checkout@v3
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+          cache-dependency-path: backend/pom.xml
+
+      - name: Test and package backend
+        working-directory: backend
+        env:
+          DB_TEST_URL: jdbc:postgresql://localhost:5432/nakorn_menu_test
+          DB_TEST_USERNAME: nakorn_test
+          DB_TEST_PASSWORD: ci-test-password
+        run: |
+          mvn --batch-mode --no-transfer-progress clean verify
+          test -s target/nakorn-thai-backend-0.1.0-SNAPSHOT.jar
 
       - uses: actions/setup-node@v3
         with:
@@ -44,6 +76,23 @@ jobs:
           printf '%s\n' "$SSH_KEY" | tr -d '\r' > ~/.ssh/id_ed25519
           printf '%s\n' "$KNOWN_HOSTS" | tr -d '\r' > ~/.ssh/known_hosts
           chmod 600 ~/.ssh/id_ed25519 ~/.ssh/known_hosts
+
+      - name: Upload and activate backend
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          set -euo pipefail
+          release="${GITHUB_SHA}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          destination="/opt/nakorn-thai/backend/releases/$release"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            "deploy@$VPS_HOST" "mkdir -p '$destination'"
+          rsync -az \
+            -e "ssh -o BatchMode=yes -o StrictHostKeyChecking=yes" \
+            backend/target/nakorn-thai-backend-0.1.0-SNAPSHOT.jar \
+            "deploy@$VPS_HOST:$destination/backend.jar"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            "deploy@$VPS_HOST" "bash -s -- '$release'" \
+            < infrastructure/scripts/activate-backend.sh
 
       - name: Upload and activate release
         env:
