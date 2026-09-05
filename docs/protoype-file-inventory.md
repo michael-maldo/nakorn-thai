@@ -202,3 +202,16 @@ implement JWT authentication and persistent staff management:
 | `backend/src/main/resources/db/migration/V13__create_reservations.sql` | Reservation records and date index |
 | `frontend/src/domains/reservation/` | Customer booking form, staff dashboard and API client |
 | `docs/reservations.md` | Setup, permissions, request semantics and staff workflow |
+
+## Functions and venue enquiries
+
+| Files | Purpose |
+|---|---|
+| `frontend/src/website/pages/FunctionsPage.jsx` | Public venue enquiry form and acknowledgment |
+| `frontend/src/domains/staff/pages/FunctionEnquiriesPage.jsx` | ADMIN/FOH queue, follow-up and event confirmation |
+| `frontend/src/domains/reservation/api/functionApi.js` | Public and JWT staff API requests with CSRF |
+| `backend/src/main/java/au/com/nakornthai/reservation/createreservation/CreateFunctionEnquiry*` | Enquiry validation, duplicate protection and persistence |
+| `backend/src/main/java/au/com/nakornthai/reservation/listreservations/FunctionEnquiriesController.java` | Paginated queue and versioned staff updates |
+| `backend/src/main/java/au/com/nakornthai/reservation/infrastructure/*FunctionEnquiry*` | JPA entity and repository |
+| `backend/src/main/resources/db/migration/V15__create_function_enquiries.sql` | Venue enquiry table and index |
+| `docs/functions.md` | Customer flow, staff permissions and setup |

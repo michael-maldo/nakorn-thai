@@ -1,3 +1,5 @@
+import FunctionsPage from '../website/pages/FunctionsPage';
+import FunctionEnquiriesPage from '../domains/staff/pages/FunctionEnquiriesPage';
 import ReservationPage from '../domains/reservation/pages/ReservationPage';
 import ReservationAdminPage from '../domains/reservation/pages/ReservationAdminPage';
 import ProtectedRoute from '../domains/identity/components/ProtectedRoute';
@@ -23,6 +25,8 @@ export default function AppRouter() {
     if (hash.startsWith('#/')) window.scrollTo(0, 0);
     else if (!hash.startsWith('#/')) document.getElementById(hash.slice(1))?.scrollIntoView();
   }, [hash]);
+  if (hash === '#/functions') return <FunctionsPage />;
+  if (hash === '#/staff/functions') return <ProtectedRoute roles={['ADMIN','FOH']}><FunctionEnquiriesPage /></ProtectedRoute>;
   if (hash === '#/reservations') return <ReservationPage />;
   if (hash === '#/staff/reservations') return <ProtectedRoute roles={['ADMIN','FOH']}><ReservationAdminPage /></ProtectedRoute>;
   if (hash === '#/menu') return <MenuPage />;

@@ -76,3 +76,9 @@ again. Disabling or changing your own account can require immediate sign-in agai
 ADMIN and FOH can manage guest bookings at `/#/staff/reservations`. BOH has no
 reservation access. Public booking requests do not require a staff login, but do
 require CSRF protection. See [reservations.md](reservations.md) for the workflow.
+
+## Functions and venue enquiries
+
+ADMIN and FOH can manage venue enquiries at `/#/staff/functions`. BOH cannot access
+customer event enquiries. Public submissions at `/#/functions` require CSRF but
+not a staff account. See [functions.md](functions.md) for confirmation and follow-up.

@@ -217,7 +217,7 @@ button, input { font: inherit; }
 /* Initial staff dashboard, within the existing application stylesheet. */
 .staff-menu { padding-block: 2rem 5rem; }
 /* Clear the public site header above the booking form and its confirmation. */
-.reservation-page { padding-top: calc(108px + 3rem); }
+.reservation-page, .function-page { padding-top: calc(108px + 3rem); }
 .staff-heading, .staff-toolbar, .staff-summary { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; }
 .staff-heading { justify-content: space-between; margin-bottom: 2rem; }
 .staff-summary { margin-bottom: 2rem; }
@@ -279,3 +279,5 @@ button, input { font: inherit; }
 .order-notes { padding: .75rem; background: #fff0ca; white-space: pre-wrap; overflow-wrap: anywhere; }
 .restaurant-menu-prices li { flex-wrap: wrap; align-items: center; }
 @media(max-width: 640px) { .order-queue { grid-template-columns: 1fr; } }
+
+.function-message { white-space: pre-wrap; overflow-wrap: anywhere; }
