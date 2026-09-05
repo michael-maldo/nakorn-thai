@@ -38,11 +38,31 @@ jobs:
         env:
           SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
           KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
         run: |
+          set -euo pipefail
+          for name in SSH_KEY KNOWN_HOSTS VPS_HOST; do
+            if [[ -z "${!name}" ]]; then
+              echo "::error::Missing Actions secret for $name. Configure repository secrets or the job's environment."
+              exit 1
+            fi
+          done
+          if [[ "$VPS_HOST" =~ [[:space:]] || "$VPS_HOST" == *://* || "$VPS_HOST" == *@* ]]; then
+            echo "::error::VPS_HOST must contain only the server IP or hostname, without whitespace, a URL scheme, or username."
+            exit 1
+          fi
           install -d -m 700 ~/.ssh
-          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_ed25519
-          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          printf '%s\n' "$SSH_KEY" | tr -d '\r' > ~/.ssh/id_ed25519
+          printf '%s\n' "$KNOWN_HOSTS" | tr -d '\r' > ~/.ssh/known_hosts
           chmod 600 ~/.ssh/id_ed25519 ~/.ssh/known_hosts
+          if ! ssh-keygen -F "$VPS_HOST" -f ~/.ssh/known_hosts > /tmp/nakorn-matched-hosts; then
+            echo "::error::VPS_KNOWN_HOSTS has no entry matching VPS_HOST. Save the verified full host-key line for the exact deployment hostname or IP."
+            exit 1
+          fi
+          if ! ssh-keygen -lf /tmp/nakorn-matched-hosts > /dev/null 2>&1; then
+            echo "::error::The matching VPS_KNOWN_HOSTS entry is not a valid SSH public host key."
+            exit 1
+          fi
 
       - name: Upload and activate release
         env:
