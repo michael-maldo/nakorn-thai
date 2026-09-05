@@ -176,3 +176,18 @@ its former static dish records have been removed. Initial data remains in V8.
 
 The existing source directories are preserved. Tests are in the existing ordering
 backend test folder and frontend ordering API folder.
+
+## Dashboard identity implementation
+
+The earlier scaffold counts are historical. The existing identity folders now
+implement JWT authentication and persistent staff management:
+
+| Files | Purpose |
+|---|---|
+| `backend/src/main/java/au/com/nakornthai/identity/` | Login, refresh, logout, current user, staff CRUD, account/session persistence and bootstrap |
+| `backend/src/main/java/au/com/nakornthai/shared/security/` | JWT signing, verification and role-based endpoint access |
+| `backend/src/main/resources/db/migration/V12__create_staff_identity.sql` | Staff users and refresh-session hashes |
+| `frontend/src/domains/identity/` | Shared login, auth context, route protection and staff accounts dashboard |
+| `backend/src/test/java/au/com/nakornthai/IdentityIntegrationTest.java` | Database-backed identity and revocation tests |
+| `frontend/src/domains/identity/api/identityApi.test.js` | Token retry, concurrent refresh and logout tests |
+| `docs/dashboard-identity.md` | Local and production configuration, permissions and API lifecycle |

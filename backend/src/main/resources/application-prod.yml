@@ -4,3 +4,6 @@ spring:
     url: ${DB_URL}
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
+
+# Refresh credentials must only travel over HTTPS in production.
+JWT_COOKIE_SECURE: true

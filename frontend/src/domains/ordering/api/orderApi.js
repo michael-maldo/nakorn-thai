@@ -1,5 +1,6 @@
+import { fetchWithIdentity } from '../../identity/api/identityApi.js';
 async function request(path, { authorization, token, csrf, ...options } = {}) {
-  const response = await fetch(`/api${path}`, {
+  const response = await fetchWithIdentity(`/api${path}`, {
     ...options, credentials: 'same-origin',
     headers: { ...(options.body ? { 'Content-Type': 'application/json' } : {}),
       ...(authorization ? { Authorization: authorization } : {}),

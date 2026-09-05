@@ -39,8 +39,7 @@ are needed for this change. No prices or dietary/allergen claims are invented.
    MENU_ADMIN_PASSWORD_HASH='$2y$12$REPLACE_WITH_YOUR_COMPLETE_BCRYPT_HASH'
    ```
 
-   Do not put these variables in frontend env files. An empty hash disables admin
-   login; a malformed nonempty hash prevents backend startup. There is no default
+   Do not put these variables in frontend env files. An empty hash skips initial account creation; a malformed nonempty hash prevents backend startup. There is no default
    password. Dev and prod should have separate credentials.
 
 3. Start the backend from `backend/` with Java 21:
@@ -63,13 +62,11 @@ are needed for this change. No prices or dietary/allergen claims are invented.
    `http://localhost:5173/#/staff/menu` for the dashboard. Vite forwards `/api/`
    requests to `127.0.0.1:8080`. Update the proxy if the local backend port changes.
 
-Sign in using the username and original password, not the bcrypt hash. Credentials
-remain in React memory and are sent explicitly via HTTP Basic for each staff
-request; they are not stored in localStorage. Reloading or signing out clears them.
-A same-origin session cookie holds the CSRF token; it does not keep the admin signed
-in. Browser writes require both authentication and the token. Use HTTPS outside
-localhost; this first account is an initial administrative mechanism, not the future
-multi-user identity system.
+Sign in using the username and original password, not the bcrypt hash. All staff
+dashboards now share JWT authentication, with access tokens in memory and a rotating
+HttpOnly refresh cookie. Browser writes also require CSRF tokens. Manage individual
+users at `/#/staff/users`. Production requires a persistent signing key and HTTPS;
+see [dashboard identity](dashboard-identity.md) before deploying.
 
 ## Editing
 

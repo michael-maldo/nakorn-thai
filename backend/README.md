@@ -199,15 +199,15 @@ See [configuration and verification](../infrastructure/monitoring/grafana/README
   behavior for invalid slugs. Future request DTOs can use @Valid and constraints.
 - Spring Security explicitly allows GET collection reads and the two private
   management endpoints. Other routes/methods are denied by default. Requests are
-  authenticated explicitly via HTTP Basic for the configured menu admin account.
+  authenticated via short-lived JWT bearer tokens for persistent staff accounts.
   CSRF remains enabled with a session token for browser writes. Staff menu routes
   require ROLE_ADMIN; all other unregistered routes remain denied. There is no
   default password. See the dashboard guide for environment configuration.
 - JJWT 0.13.0 API plus runtime implementation and Jackson adapter are available for
-  future identity work. JJWT's adapter uses Jackson 2 internally; the application's
+  dashboard JWT authentication. JJWT's adapter uses Jackson 2 internally; the application's
   ObjectMapper and HTTP JSON continue using Boot's Jackson 3. Integration tests
-  exercise signing/verification and the JSON API together. There is no token issuer,
-  bearer filter, signing secret, or JWT authentication enabled by this dependency.
+  exercise signing/verification and the JSON API together. See [dashboard identity](../docs/dashboard-identity.md) for signing-key setup,
+  rotating refresh cookies and staff account management.
 - Boot 4's security-test starter supplies Spring Security test support; its MVC
   test starter already supplies the common test libraries from the old POM.
 

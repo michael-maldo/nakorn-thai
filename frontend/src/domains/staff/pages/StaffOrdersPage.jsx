@@ -1,21 +1,15 @@
+import { useAuth } from '../../identity/model/AuthContext';
 import { useEffect, useState } from 'react';
 import { changeOrderStatus, getStaffOrders } from '../../ordering/api/orderApi';
 import { money } from '../../ordering/model/cartReducer';
 
 export default function StaffOrdersPage({ kitchen = false }) {
-  const [auth, setAuth] = useState(''); const [orders, setOrders] = useState([]);
+  const { authorization: auth, logout } = useAuth(); const [orders, setOrders] = useState([]);
   const [busy, setBusy] = useState(false); const [error, setError] = useState('');
   const [history, setHistory] = useState(false); const [updated, setUpdated] = useState(null);
   const [action, setAction] = useState(null); const [minutes, setMinutes] = useState(30);
   const [reason, setReason] = useState(''); const [paid, setPaid] = useState(false);
   const [stale, setStale] = useState(false);
-  async function login(event) {
-    event.preventDefault(); setError(''); setBusy(true);
-    const data = new FormData(event.currentTarget);
-    const authorization = 'Basic ' + btoa(String.fromCharCode(...new TextEncoder().encode(`${data.get('username')}:${data.get('password')}`)));
-    try { setOrders(await getStaffOrders(authorization, kitchen, history)); setAuth(authorization); setUpdated(new Date()); setStale(false); }
-    catch (failure) { setError(failure.message); } finally { setBusy(false); }
-  }
   useEffect(() => {
     if (!auth || busy) return;
     let stopped = false, timer;
@@ -39,12 +33,10 @@ export default function StaffOrdersPage({ kitchen = false }) {
   function choose(order, status) { setAction({ order, status }); setReason(''); setPaid(false); setMinutes(30); }
   return <main className="staff-menu page-width">
     <header className="staff-heading"><div><a href="#/staff">Staff home</a><h1>{kitchen ? 'Kitchen dashboard' : 'Front-of-house orders'}</h1></div>
-      {auth && <button disabled={busy} onClick={() => { setAuth(''); setOrders([]); setAction(null); setError(''); }}>Sign out</button>}
+      {auth && <button disabled={busy} onClick={logout}>Sign out</button>}
     </header>
     {error && <p role="alert" className="staff-error">{error}</p>}
-    {!auth ? <form className="staff-panel staff-login" onSubmit={login}>
-      <h2>{kitchen ? 'Kitchen' : 'FOH'} sign in</h2><label>Username<input name="username" required autoComplete="username" /></label><label>Password<input type="password" name="password" required autoComplete="current-password" /></label><button disabled={busy}>Sign in</button>
-    </form> : <>
+    {!auth ? <p>Checking staff session…</p> : <>
       <div className="staff-toolbar">
         <p role="status">{orders.length} orders · refreshed {updated?.toLocaleTimeString()} · updates every 5 seconds</p>
         {!kitchen && <label className="staff-check"><input type="checkbox" checked={history} disabled={busy} onChange={(e) => { setHistory(e.target.checked); setAction(null); setStale(true); }} />Completed / cancelled in the last 24 hours</label>}

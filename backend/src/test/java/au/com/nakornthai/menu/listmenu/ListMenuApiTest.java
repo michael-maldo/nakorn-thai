@@ -29,6 +29,9 @@ class ListMenuApiTest {
     private static final String URL = "/api/menu/collections/{slug}/items";
     private static final String SLUG = "signature-dishes";
     private static final UUID COLLECTION_ID = UUID.fromString("30000000-0000-0000-0000-000000000001");
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    au.com.nakornthai.identity.infrastructure.SpringDataStaffSessionRepository jwtSessions;
+
     @Autowired MockMvc mvc;
     @MockitoBean MenuItemRepository repository;
 

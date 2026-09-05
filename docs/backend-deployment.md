@@ -121,3 +121,14 @@ See [online-ordering.md](online-ordering.md) for migration V11, staff account
 configuration and the operational workflow. Ordering defaults to closed; set
 `ONLINE_ORDERING_ENABLED=true` in the backend service environment and restart only
 after configuring staff access. The current Nginx `/api/` proxy covers these routes.
+
+## JWT identity deployment prerequisite
+
+Before deploying migration V12 and the JWT dashboard, generate a key with
+`openssl rand -base64 32` and set `JWT_SECRET_BASE64` in
+`/etc/nakorn-thai/backend.env`. Keep this key stable across releases and set
+`JWT_COOKIE_SECURE=true` for HTTPS. Production refuses to start without a key.
+The workflow continues running backend integration and frontend API tests; no JWT
+production secret belongs in the build or frontend bundle. Existing bootstrap
+password hashes create missing database accounts only. See
+[dashboard-identity.md](dashboard-identity.md) for login and account management.

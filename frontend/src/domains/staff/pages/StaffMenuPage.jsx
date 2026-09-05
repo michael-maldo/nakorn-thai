@@ -1,11 +1,12 @@
-import { useState } from 'react';
+import { useAuth } from '../../identity/model/AuthContext';
+import { useEffect, useState } from 'react';
 import MenuImageEditor from '../../menu/components/MenuImageEditor';
 import { archiveMenuItem, getStaffCsrf, getStaffMenu, saveMenuItem } from '../../menu/api/menuApi';
 
 const blank = { name: '', slug: '', description: '', categoryId: '', status: 'DRAFT', available: true, displayOrder: 0, collectionIds: [], prices: [], version: null };
 
 export default function StaffMenuPage() {
-  const [authorization, setAuthorization] = useState('');
+  const { authorization, logout } = useAuth();
   const [csrf, setCsrf] = useState(null);
   const [menu, setMenu] = useState(null);
   const [draft, setDraft] = useState(null);
@@ -17,19 +18,17 @@ export default function StaffMenuPage() {
   const [filter, setFilter] = useState('');
   const [needsReload, setNeedsReload] = useState(false);
 
-  async function login(event) {
-    event.preventDefault();
-    const values = new FormData(event.currentTarget);
-    const bytes = new TextEncoder().encode(`${values.get('username')}:${values.get('password')}`);
-    const auth = `Basic ${btoa(String.fromCharCode(...bytes))}`;
-    setBusy(true); setError('');
-    try {
-      const token = await getStaffCsrf(auth);
-      const data = await getStaffMenu(auth);
-      setCsrf(token); setAuthorization(auth); setMenu(data);
-    } catch (failure) { setError(failure.message); }
-    finally { setBusy(false); }
-  }
+  useEffect(() => {
+    let active = true;
+    async function load() {
+      try {
+        const token = await getStaffCsrf(authorization);
+        const data = await getStaffMenu(authorization);
+        if (active) { setCsrf(token); setMenu(data); }
+      } catch (failure) { if (active) setError(failure.message); }
+    }
+    load(); return () => { active = false; };
+  }, [authorization]);
 
   async function refresh() {
     setBusy(true); setError('');
@@ -52,10 +51,7 @@ export default function StaffMenuPage() {
   }
 
   function field(name, value) { setDraft((current) => ({ ...current, [name]: value })); }
-  function signOut() {
-    setAuthorization(''); setCsrf(null); setMenu(null); setDraft(null);
-    setPendingArchive(null); setError(''); setNotice(''); setNeedsReload(false);
-  }
+  const signOut = logout;
   const visible = menu?.items.filter((item) => (showArchived || item.status !== 'ARCHIVED') && item.name.toLowerCase().includes(filter.toLowerCase())) || [];
 
   return <main className="staff-menu page-width">
@@ -64,12 +60,7 @@ export default function StaffMenuPage() {
     </header>
     {error && <p role="alert" className="staff-error">{error}</p>}
     {notice && <p role="status">{notice}</p>}
-    {!menu ? <form className="staff-panel staff-login" onSubmit={login}>
-      <h2>Staff sign in</h2><p>Use your configured menu administrator account.</p>
-      <label>Username<input name="username" autoComplete="username" required disabled={busy} /></label>
-      <label>Password<input name="password" type="password" autoComplete="current-password" required disabled={busy} /></label>
-      <button className="button button-primary" disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</button>
-    </form> : <>
+    {!menu ? <p role="status">Loading menu administration…</p> : <>
       <div className="staff-summary" aria-label="Menu summary">
         <span><strong>{menu.items.filter((i) => i.status === 'PUBLISHED').length}</strong> Published</span>
         <span><strong>{menu.items.filter((i) => i.status === 'DRAFT').length}</strong> Drafts</span>

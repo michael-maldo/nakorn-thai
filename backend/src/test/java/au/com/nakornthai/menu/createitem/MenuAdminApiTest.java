@@ -24,6 +24,8 @@ class MenuAdminApiTest {
         properties.add("MENU_ADMIN_USERNAME", () -> "menu-admin");
         properties.add("MENU_ADMIN_PASSWORD_HASH", () -> new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder().encode("test-password-only"));
     }
+    @MockitoBean au.com.nakornthai.identity.infrastructure.SpringDataStaffSessionRepository jwtSessions;
+    @Autowired au.com.nakornthai.shared.security.JwtService jwt;
     @Autowired MockMvc mvc;
     @MockitoBean CreateMenuItemHandler create;
     @MockitoBean GetMenuItemHandler list;
@@ -31,33 +33,22 @@ class MenuAdminApiTest {
     @MockitoBean DeleteMenuItemHandler archive;
     private static final String PATH = "/api/staff/menu/items";
 
-    @Test void configuredBasicAccountAndRealCsrfTokenWorkWithoutPersistingLogin() throws Exception {
-        var result = mvc.perform(get("/api/staff/menu/csrf").with(httpBasic("menu-admin", "test-password-only")))
-                .andExpect(status().isOk()).andReturn();
-        var session = (org.springframework.mock.web.MockHttpSession) result.getRequest().getSession(false);
-        String token = com.jayway.jsonpath.JsonPath.read(result.getResponse().getContentAsString(), "$.token");
-        when(list.handle()).thenReturn(new MenuItemResponse.Dashboard(List.of(), List.of(), List.of()));
-        mvc.perform(get(PATH).session(session).with(httpBasic("menu-admin", "test-password-only")))
-                .andExpect(status().isOk());
-        // The intervening authenticated read makes the original token stale.
-        mvc.perform(post(PATH).session(session).with(httpBasic("menu-admin", "test-password-only"))
-                .header("X-CSRF-TOKEN", token).contentType("application/json").content("{}"))
-                .andExpect(status().isForbidden());
-        verifyNoInteractions(create);
-        var refreshed = mvc.perform(get("/api/staff/menu/csrf").session(session)
-                .with(httpBasic("menu-admin", "test-password-only"))).andExpect(status().isOk()).andReturn();
-        token = com.jayway.jsonpath.JsonPath.read(refreshed.getResponse().getContentAsString(), "$.token");
+    @Test void bearerSessionCanReadAndWriteAndRevocationDeniesAccess() throws Exception {
+        var user=new au.com.nakornthai.identity.infrastructure.UserJpaEntity();
+        user.setId(java.util.UUID.randomUUID());user.setUsername("menu-admin");user.setRole("ADMIN");
+        var session=new au.com.nakornthai.identity.infrastructure.StaffSessionJpaEntity();session.setUser(user);session.setExpiresAt(java.time.Instant.now().plusSeconds(3600));
+        when(jwtSessions.findById(session.getId())).thenReturn(java.util.Optional.of(session));
+        String bearer="Bearer "+jwt.issue(user,session.getId());
+        when(list.handle()).thenReturn(new MenuItemResponse.Dashboard(List.of(),List.of(),List.of()));
+        mvc.perform(get(PATH).header("Authorization",bearer)).andExpect(status().isOk());
+        mvc.perform(get(PATH).with(httpBasic("menu-admin","test-password-only"))).andExpect(status().isUnauthorized());
         when(create.handle(any())).thenReturn(java.util.UUID.randomUUID());
-        mvc.perform(post(PATH).session(session).with(httpBasic("menu-admin", "test-password-only"))
-                .header("X-CSRF-TOKEN", token).contentType("application/json").content("""
-                    {"name":"Curry","slug":"curry","description":"Test curry",
-                    "categoryId":"10000000-0000-0000-0000-000000000001","status":"DRAFT",
-                    "available":true,"displayOrder":0,"collectionIds":[]}
-                    """))
-                .andExpect(status().isCreated());
-        mvc.perform(get(PATH).session(session)).andExpect(status().isUnauthorized());
-        mvc.perform(get(PATH).with(httpBasic("menu-admin", "wrong-password"))).andExpect(status().isUnauthorized());
-        verify(create).handle(any());
+        mvc.perform(post(PATH).header("Authorization",bearer).with(csrf()).contentType("application/json").content("""
+            {"name":"Curry","slug":"curry","description":"Test curry","categoryId":"10000000-0000-0000-0000-000000000001",
+            "status":"DRAFT","available":true,"displayOrder":0,"collectionIds":[]}
+            """)).andExpect(status().isCreated());
+        session.setRevokedAt(java.time.Instant.now());
+        mvc.perform(get(PATH).header("Authorization",bearer)).andExpect(status().isUnauthorized());
     }
     @Test void anonymousCannotReadStaffMenu() throws Exception {
         mvc.perform(get(PATH)).andExpect(status().isUnauthorized());

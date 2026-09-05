@@ -1,3 +1,5 @@
+import ProtectedRoute from '../domains/identity/components/ProtectedRoute';
+import UsersPage from '../domains/identity/pages/UsersPage';
 import CheckoutPage from '../domains/ordering/pages/CheckoutPage';
 import OrderConfirmationPage from '../domains/ordering/pages/OrderConfirmationPage';
 import StaffDashboardPage from '../domains/staff/pages/StaffDashboardPage';
@@ -22,9 +24,10 @@ export default function AppRouter() {
   if (hash === '#/menu') return <MenuPage />;
   if (hash === '#/checkout') return <CheckoutPage />;
   if (hash === '#/order-confirmation') return <OrderConfirmationPage />;
-  if (hash === '#/staff/menu') return <StaffMenuPage />;
-  if (hash === '#/staff/foh') return <StaffOrdersPage />;
-  if (hash === '#/staff/kitchen') return <KitchenDashboardPage />;
-  if (hash.startsWith('#/staff')) return <StaffDashboardPage />;
+  if (hash === '#/staff/users') return <ProtectedRoute roles={['ADMIN']}><UsersPage /></ProtectedRoute>;
+  if (hash === '#/staff/menu') return <ProtectedRoute roles={['ADMIN']}><StaffMenuPage /></ProtectedRoute>;
+  if (hash === '#/staff/foh') return <ProtectedRoute roles={['ADMIN', 'FOH']}><StaffOrdersPage /></ProtectedRoute>;
+  if (hash === '#/staff/kitchen') return <ProtectedRoute roles={['ADMIN', 'BOH']}><KitchenDashboardPage /></ProtectedRoute>;
+  if (hash.startsWith('#/staff')) return <ProtectedRoute><StaffDashboardPage /></ProtectedRoute>;
   return <HomePage />;
 }
