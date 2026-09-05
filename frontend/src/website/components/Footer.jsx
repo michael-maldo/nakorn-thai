@@ -12,7 +12,7 @@ export default function Footer() {
         {footerGroups.map((group) => (
           <nav className="footer-links" aria-label={group.title} key={group.title}>
             <h3>{group.title}</h3>
-            {group.links.map((link) => <a key={link} href={`#${link.toLowerCase().replaceAll(' ', '-')}`}>{link}</a>)}
+            {group.links.map((link) => <a key={link} href={link === 'Book a Table' ? '#/reservations' : `#${link.toLowerCase().replaceAll(' ', '-')}`}>{link}</a>)}
           </nav>
         ))}
         <div className="newsletter">

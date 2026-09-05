@@ -7,7 +7,7 @@ export default function Hero() {
         <div className="thai-divider" aria-hidden="true"><i /> <b>♨</b> <i /></div>
         <p className="hero-copy">Discover the rich and vibrant flavours of Thailand,<br className="desktop-only" /> crafted with fresh local ingredients and passion.</p>
         <div className="hero-actions">
-          <a className="button button-primary" href="#reservations">▦ &nbsp; Book a table</a>
+          <a className="button button-primary" href="#/reservations">▦ &nbsp; Book a table</a>
           <a className="button button-outline" href="#menu">▤ &nbsp; View menu</a>
         </div>
         <div className="hero-meta" aria-label="Restaurant rating and opening status">

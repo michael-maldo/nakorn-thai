@@ -191,3 +191,14 @@ implement JWT authentication and persistent staff management:
 | `backend/src/test/java/au/com/nakornthai/IdentityIntegrationTest.java` | Database-backed identity and revocation tests |
 | `frontend/src/domains/identity/api/identityApi.test.js` | Token retry, concurrent refresh and logout tests |
 | `docs/dashboard-identity.md` | Local and production configuration, permissions and API lifecycle |
+
+## Reservation implementation
+
+| Files | Purpose |
+|---|---|
+| `backend/src/main/java/au/com/nakornthai/reservation/createreservation/` | Validate and persist guest requests with duplicate retry protection |
+| `backend/src/main/java/au/com/nakornthai/reservation/infrastructure/` | Reservation JPA entity, repository and safe API errors |
+| `backend/src/main/java/au/com/nakornthai/reservation/listreservations/` | JWT-protected staff date list and status updates |
+| `backend/src/main/resources/db/migration/V13__create_reservations.sql` | Reservation records and date index |
+| `frontend/src/domains/reservation/` | Customer booking form, staff dashboard and API client |
+| `docs/reservations.md` | Setup, permissions, request semantics and staff workflow |

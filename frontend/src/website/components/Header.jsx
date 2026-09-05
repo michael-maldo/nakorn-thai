@@ -16,7 +16,7 @@ export default function Header({ currentPage = 'Home' }) {
       </button>
       <nav id="main-nav" className={open ? 'main-nav is-open' : 'main-nav'} aria-label="Main navigation">
         {navigation.map((item) => (
-          <a key={item} className={item === currentPage ? 'active' : ''} aria-current={item === currentPage ? 'page' : undefined} href={item === 'Menu' ? '#/menu' : `#${item.toLowerCase()}`}  onClick={() => setOpen(false)}>
+          <a key={item} className={item === currentPage ? 'active' : ''} aria-current={item === currentPage ? 'page' : undefined} href={item === 'Menu' ? '#/menu' : item === 'Reservations' ? '#/reservations' : `#${item.toLowerCase()}`}  onClick={() => setOpen(false)}>
             {item}
           </a>
         ))}

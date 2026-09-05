@@ -70,3 +70,9 @@ There is no public registration, email password recovery or MFA in this version.
 Use an ADMIN account for password resets. If cookies are blocked or Secure cookies
 are configured on local HTTP, refresh fails: check environment settings and sign in
 again. Disabling or changing your own account can require immediate sign-in again.
+
+## Reservation permissions
+
+ADMIN and FOH can manage guest bookings at `/#/staff/reservations`. BOH has no
+reservation access. Public booking requests do not require a staff login, but do
+require CSRF protection. See [reservations.md](reservations.md) for the workflow.

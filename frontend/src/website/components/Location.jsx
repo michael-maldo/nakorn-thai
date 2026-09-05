@@ -7,7 +7,7 @@ export default function Location() {
         <article className="booking-panel" id="reservations">
           <div>
             <h2>Ready for a<br />memorable dining<br />experience?</h2>
-            <a className="button button-primary" href="#reservations">Book your table</a>
+            <a className="button button-primary" href="#/reservations">Book your table</a>
           </div>
         </article>
         <address className="contact-panel">

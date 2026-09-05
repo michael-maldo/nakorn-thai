@@ -1,3 +1,5 @@
+import ReservationPage from '../domains/reservation/pages/ReservationPage';
+import ReservationAdminPage from '../domains/reservation/pages/ReservationAdminPage';
 import ProtectedRoute from '../domains/identity/components/ProtectedRoute';
 import UsersPage from '../domains/identity/pages/UsersPage';
 import CheckoutPage from '../domains/ordering/pages/CheckoutPage';
@@ -21,6 +23,8 @@ export default function AppRouter() {
     if (hash.startsWith('#/')) window.scrollTo(0, 0);
     else if (!hash.startsWith('#/')) document.getElementById(hash.slice(1))?.scrollIntoView();
   }, [hash]);
+  if (hash === '#/reservations') return <ReservationPage />;
+  if (hash === '#/staff/reservations') return <ProtectedRoute roles={['ADMIN','FOH']}><ReservationAdminPage /></ProtectedRoute>;
   if (hash === '#/menu') return <MenuPage />;
   if (hash === '#/checkout') return <CheckoutPage />;
   if (hash === '#/order-confirmation') return <OrderConfirmationPage />;
