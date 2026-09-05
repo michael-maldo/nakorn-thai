@@ -243,3 +243,28 @@ Tests also exercise entity insert/update, generated IDs/timestamps, stale detach
 saves, every association type, multiple collection memberships, and independent
 variation declarations. Tests using JDBC fixtures explicitly clear the persistence
 context before rereading externally modified data.
+
+## API tests with JUnit and Mockito
+
+ListMenuApiTest uses JUnit parameterized tests, Spring MVC MockMvc, and @MockitoBean
+for MenuItemRepository. The real controller, handler, Jakarta validator, security
+filter chain, and correlation filter run without PostgreSQL. No extra JUnit/Mockito
+dependency is needed: the existing Boot MVC/security test starters supply them.
+Surefire loads Mockito as an explicit Java agent for Java 21+.
+
+From backend/:
+
+```bash
+mvn -Dtest=ListMenuApiTest,ListMenuHandlerTest test
+```
+
+The 13 API test cases cover the current business endpoint,
+GET /api/menu/collections/{slug}/items: JSON item and variation profiles, empty
+collections, missing collections, invalid/oversized slugs, public access, denied
+writes with and without CSRF, denied unregistered routes, no session cookie, and
+per-request correlation IDs. Mockito verifies that invalid or denied requests
+never query the repository. The three handler unit tests also run in this command.
+
+Database visibility/scheduling and relationship correctness remain covered by the
+PostgreSQL integration tests. Actuator health/Prometheus and real trace export are
+covered by scripts/check-observability.py; they are not mocked business controllers.
