@@ -31,6 +31,7 @@ export default function SignatureDishes() {
                     alt={dish.imageAlt}
                     style={{
                       objectPosition: dish.imagePosition,
+                      transformOrigin: dish.imageOrigin,
                       transform: `scale(${dish.imageScale ?? 1}) rotate(${dish.imageRotation ?? '0deg'})`,
                     }}
                   />
@@ -40,7 +41,7 @@ export default function SignatureDishes() {
                 {dish.image && <img
                   src={dish.image}
                   alt=""
-                  style={{ objectPosition: dish.imagePosition }}
+                  style={{ objectPosition: dish.imagePosition, transformOrigin: dish.imageOrigin, ...(dish.imageOrigin ? { transform: `scale(${dish.imageScale})` } : {}) }}
                 />}
                 <button className="dish-preview-close" type="button" onClick={() => setOpenDish(null)} aria-label={`Close ${dish.name} preview`}>×</button>
                 <div className="dish-preview-actions">

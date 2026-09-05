@@ -18,3 +18,6 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Local uploaded menu photos
+/backend/menu-media/

@@ -62,3 +62,16 @@ for (const [status, message] of [[401, /Sign-in failed/], [409, /changed or its 
   globalThis.fetch = async () => new Response('<html>Restaurant homepage</html>');
   await assert.rejects(getSignatureDishes(), /invalid response/);
 });
+
+test('image upload lets the browser generate multipart boundaries and sends CSRF', async () => {
+  const { saveMenuImage } = await import('./menuApi.js');
+  const body = new FormData(); body.append('focusX', '25'); body.append('version', '2');
+  globalThis.fetch = async (url, options) => {
+    assert.equal(url, '/api/staff/menu/items/dish/image');
+    assert.equal(options.headers['Content-Type'], undefined);
+    assert.equal(options.headers['X-CSRF-TOKEN'], 'token');
+    assert.equal(options.body, body);
+    return new Response(null, { status: 204 });
+  };
+  await saveMenuImage('dish', body, 'Basic test', { headerName: 'X-CSRF-TOKEN', token: 'token' });
+});

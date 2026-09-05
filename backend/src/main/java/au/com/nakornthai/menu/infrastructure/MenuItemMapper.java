@@ -23,7 +23,7 @@ public class MenuItemMapper {
                         item.isAvailable() && v.isAvailable(), v.isDefaultVariation(), variationProfile(v)))
                 .toList();
         var image = item.getImages().stream().filter(MenuItemImageJpaEntity::isPrimary)
-                .findFirst().map(i -> new MenuItem.Image(mediaBaseUrl + i.getStorageKey(), i.getAltText()))
+                .findFirst().map(i -> new MenuItem.Image(mediaBaseUrl + i.getStorageKey(), i.getAltText(), i.getFocusX(), i.getFocusY(), i.getZoom()))
                 .orElse(null);
         return new MenuItem(item.getId(), item.getSlug(), item.getName(), item.getDescription(),
                 item.isAvailable(), image, variations.isEmpty() ? "ITEM" : "VARIATION_REQUIRED",

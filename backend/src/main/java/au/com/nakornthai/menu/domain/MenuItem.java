@@ -9,7 +9,9 @@ public record MenuItem(UUID id, String slug, String name, String description,
                        boolean available, Image image, String profileScope,
                        FoodProfile profile, List<Variation> variations) {
     public record Collection(UUID id, String slug, String name, String description, List<MenuItem> items) {}
-    public record Image(String url, String alt) {}
+    public record Image(String url, String alt, int focusX, int focusY, double zoom) {
+        public Image(String url, String alt) { this(url, alt, 50, 50, 1); }
+    }
     public record FoodProfile(String allergenReviewStatus, Instant allergenReviewedAt,
                               List<Badge> dietaryTags, List<Allergen> allergens) {}
     public record Badge(String code, String name, String notes, Instant verifiedAt) {}

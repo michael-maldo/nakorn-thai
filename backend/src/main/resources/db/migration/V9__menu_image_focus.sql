@@ -1,0 +1,4 @@
+ALTER TABLE menu_item_image
+ ADD COLUMN focus_x integer NOT NULL DEFAULT 50 CHECK (focus_x BETWEEN 0 AND 100),
+ ADD COLUMN focus_y integer NOT NULL DEFAULT 50 CHECK (focus_y BETWEEN 0 AND 100),
+ ADD COLUMN zoom double precision NOT NULL DEFAULT 1 CHECK (zoom BETWEEN 1 AND 3);

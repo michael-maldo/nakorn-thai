@@ -3,7 +3,7 @@ export async function menuRequest(path, { authorization, csrf, ...options } = {}
     ...options,
     credentials: 'same-origin',
     headers: {
-      ...(options.body ? { 'Content-Type': 'application/json' } : {}),
+      ...(options.body && !(options.body instanceof FormData) ? { 'Content-Type': 'application/json' } : {}),
       ...(authorization ? { Authorization: authorization } : {}),
       ...(csrf ? { [csrf.headerName]: csrf.token } : {}),
     },
@@ -34,4 +34,8 @@ export const saveMenuItem = (item, authorization, csrf) => menuRequest(
 export const archiveMenuItem = (item, authorization, csrf) => menuRequest(
   `/staff/menu/items/${item.id}?version=${item.version}`,
   { method: 'DELETE', authorization, csrf },
+);
+
+export const saveMenuImage = (id, body, authorization, csrf) => menuRequest(
+  `/staff/menu/items/${id}/image`, { method: 'POST', body, authorization, csrf },
 );

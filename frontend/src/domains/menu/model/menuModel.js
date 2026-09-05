@@ -15,5 +15,6 @@ export function presentDish(item) {
   return { ...item, ...(photos[item.id] || {}),
     image: item.image?.url || photos[item.id]?.image,
     imageAlt: item.image?.alt || item.name,
+    ...(item.image ? { imagePosition: `${item.image.focusX ?? 50}% ${item.image.focusY ?? 50}%`, imageOrigin: `${item.image.focusX ?? 50}% ${item.image.focusY ?? 50}%`, imageScale: item.image.zoom ?? 1, imageRotation: '0deg' } : {}),
   };
 }

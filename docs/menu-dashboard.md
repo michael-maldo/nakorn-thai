@@ -5,7 +5,7 @@ Names, descriptions, visibility, availability and order come from PostgreSQL.
 Loading, empty and unavailable states are explicit; there is no static menu fallback.
 The existing four photographs remain bundled frontend assets associated with the
 seeded item IDs. An API image takes precedence. New dishes without media show a
-photo placeholder. Photo uploads, price/variation editing, food declaration editing,
+photo placeholder. Price/variation editing, food declaration editing,
 and creating categories/collections are not part of this first dashboard.
 
 ## Seed data
@@ -147,3 +147,6 @@ The tests cover public API behavior, authenticated/authorized staff access, CSRF
 validation, transactional create/update/archive/restore, stale and collection-only
 edits, duplicate slugs, invalid membership rollback, and frontend request contracts.
 Existing schema/entity tests remain in place. No source folders were restructured.
+
+Photo upload and focal positioning are now available for saved dishes. See
+[backend deployment](backend-deployment.md#menu-photo-uploads) for storage and proxy setup.

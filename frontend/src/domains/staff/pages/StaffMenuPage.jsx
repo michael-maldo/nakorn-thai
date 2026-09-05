@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import MenuImageEditor from '../../menu/components/MenuImageEditor';
 import { archiveMenuItem, getStaffCsrf, getStaffMenu, saveMenuItem } from '../../menu/api/menuApi';
 
 const blank = { name: '', slug: '', description: '', categoryId: '', status: 'DRAFT', available: true, displayOrder: 0, collectionIds: [], version: null };
@@ -94,7 +95,14 @@ export default function StaffMenuPage() {
           <fieldset className="staff-wide"><legend>Collections</legend><p>Select Signature Dishes to feature a published dish on the homepage.</p>
             {menu.collections.map((collection) => <label className="staff-check" key={collection.id}><input type="checkbox" checked={draft.collectionIds.includes(collection.id)} onChange={(e) => field('collectionIds', e.target.checked ? [...draft.collectionIds, collection.id] : draft.collectionIds.filter((id) => id !== collection.id))} />{collection.name}</label>)}
           </fieldset>
-          <p className="staff-wide">Changing the name or description clears dietary verification and requires allergen review. Prices, variations, food declarations and photo uploads are outside this initial editor.</p>
+          {draft.id ? <MenuImageEditor key={`${draft.id}-${draft.version}`} item={menu.items.find((item) => item.id === draft.id)} authorization={authorization} csrf={csrf} onBusy={setBusy} disabled={busy || needsReload || JSON.stringify(draft) !== JSON.stringify(menu.items.find((item) => item.id === draft.id))} onSaved={async () => {
+            setNeedsReload(true);
+            setDraft(null);
+            setNotice('Photo and focus saved.');
+            try { setMenu(await getStaffMenu(authorization)); setNeedsReload(false); }
+            catch (failure) { setError(failure.message); }
+          }} /> : <p className="staff-wide">Save the new dish first, then edit it to add a photograph.</p>}
+          <p className="staff-wide">Changing the name or description clears dietary verification and requires allergen review. Prices, variations, and food declarations are outside this initial editor.</p>
           <div className="staff-toolbar staff-wide"><button className="button button-primary">{busy ? 'Saving…' : 'Save dish'}</button><button type="button" onClick={() => setDraft(null)}>Cancel</button></div>
         </fieldset>
       </form>}

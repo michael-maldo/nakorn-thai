@@ -21,7 +21,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(authorize -> authorize
                         .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/menu/collections/*/items",
-                                "/actuator/health", "/actuator/prometheus").permitAll()
+                                "/media/menu/*", "/actuator/health", "/actuator/prometheus").permitAll()
                         .requestMatchers("/api/staff/menu/**").hasRole("ADMIN")
                         .anyRequest().denyAll())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

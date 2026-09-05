@@ -36,10 +36,13 @@ over an existing production environment file. Add this exact sudoers rule:
 deploy ALL=(root) NOPASSWD: /usr/bin/systemctl restart nakorn-thai-backend.service, /usr/bin/systemctl stop nakorn-thai-backend.service
 ```
 
-The first workflow run uploads the JAR and starts the service. Install the existing
-`infrastructure/nginx/nakorn-thai.conf` site configuration using your normal Nginx
-setup, then run `sudo nginx -t` before `sudo systemctl reload nginx`. Its `/api/`
-proxy must reach `127.0.0.1:8080`. The workflow does not install Nginx configuration.
+The first workflow run uploads the JAR and starts the service. Add the location
+block from `infrastructure/nginx/nakorn-thai.conf` inside the existing HTTPS
+server block in `/etc/nginx/sites-available/nakorn-thai`. This file is a snippet,
+not a complete site configuration; preserve the Certbot certificate settings,
+HTTP redirect and frontend root. Then run `sudo nginx -t` before
+`sudo systemctl reload nginx`. Its `/api/` proxy must reach `127.0.0.1:8080`.
+The workflow does not install Nginx configuration.
 
 ## Release behavior and troubleshooting
 
@@ -58,3 +61,56 @@ sudo systemctl status nakorn-thai-backend.service
 sudo journalctl -u nakorn-thai-backend.service -n 100 --no-pager
 curl -fsS http://127.0.0.1:8081/actuator/health
 ```
+
+If the website reports an invalid menu response, compare the direct API with
+the HTTPS route from the VPS:
+
+```bash
+curl -i http://127.0.0.1:8080/api/menu/collections/signature-dishes/items
+curl -i https://nakorn-thai.tech-labs.dev/api/menu/collections/signature-dishes/items
+```
+
+Both should return 200 and JSON containing an `items` array. If only the HTTPS
+response contains HTML, check that the `/api/` location is inside the active
+HTTPS server block. Otherwise the frontend's `try_files` fallback may serve
+`index.html` for API requests. Keep `proxy_pass http://127.0.0.1:8080;` without
+a trailing slash so Nginx preserves the `/api/` path. If the direct connection
+is refused, start the backend service and inspect its startup journal first.
+
+
+## Menu photo uploads
+
+V9 adds persistent horizontal/vertical focus (0–100) and zoom (1–3) to menu images.
+The dashboard supports JPEG/PNG uploads up to 8 MB and 16 megapixels. Uploads are
+validated by decoding and re-encoded as JPEG, with generated filenames. Photos
+are public menu assets. Admin authentication and CSRF protect uploads and edits.
+
+Install the updated service unit from your checkout before using uploads:
+
+```bash
+sudo install -m 644 infrastructure/systemd/nakorn-thai-backend.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl restart nakorn-thai-backend.service
+```
+
+`StateDirectory=nakorn-thai` lets the service write under `/var/lib/nakorn-thai`.
+`MENU_MEDIA_DIRECTORY=/var/lib/nakorn-thai/menu-media` stores photos outside JAR
+and frontend releases. Back up this directory together with PostgreSQL. Local
+runs default to `backend/menu-media` when started from backend/. The existing
+`MEDIA_BASE_URL=/media/` setting resolves uploaded images to `/media/menu/<uuid>.jpg`.
+
+Inside the active HTTPS Nginx server, update `/api/` to allow `client_max_body_size
+9m;` and add the `/media/menu/` proxy block from `infrastructure/nginx/nakorn-thai.conf`.
+Validate with `sudo nginx -t` and reload Nginx. The workflow does not install either
+server configuration. The media port remains internal; Nginx serves its public URL.
+
+To use: save a new dish, edit it, choose a photo, adjust horizontal/vertical focus
+and zoom in the card-shaped preview, enter descriptive alt text, then choose
+**Save photo and focus**. Save text changes first; image saves have a separate
+version check. Existing bundled seed photos can be saved into persistent storage
+through the same control without choosing a replacement file.
+
+Replacement photos get new URLs. Previous files are retained for rollback and
+must be included in storage capacity planning; automatic unused-file cleanup and
+photo removal are not implemented. Files from rolled-back uploads are removed
+on a best-effort basis. No source directories were restructured.

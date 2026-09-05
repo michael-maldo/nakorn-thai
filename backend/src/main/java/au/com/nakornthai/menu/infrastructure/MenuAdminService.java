@@ -20,6 +20,7 @@ public class MenuAdminService {
     private final SpringDataMenuCollectionRepository collections;
     private final SpringDataMenuCollectionItemRepository memberships;
     private final EntityManager entityManager;
+    private final MenuItemMapper mapper;
 
     @Transactional(readOnly = true)
     public MenuItemResponse.Dashboard list() {
@@ -112,6 +113,6 @@ public class MenuAdminService {
         var ids = links.stream().filter(m -> m.getMenuItem().getId().equals(item.getId()))
                 .map(m -> m.getCollection().getId()).collect(Collectors.toSet());
         return new MenuItemResponse(item.getId(), item.getName(), item.getSlug(), item.getDescription(),
-                item.getCategory().getId(), item.getStatus(), item.isAvailable(), item.getDisplayOrder(), ids, item.getVersion());
+                item.getCategory().getId(), item.getStatus(), item.isAvailable(), item.getDisplayOrder(), ids, item.getVersion(), mapper.map(item).image());
     }
 }
