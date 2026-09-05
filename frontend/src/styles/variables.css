@@ -1,0 +1,14 @@
+:root {
+  --ivory: #fbf8f2;
+  --paper: #fffdf9;
+  --ink: #1e1c19;
+  --muted: #5c5851;
+  --gold: #b97813;
+  --gold-dark: #99600a;
+  --plum: #7e1f71;
+  --line: #e4ddd2;
+  --green: #4f9b42;
+  --serif: Georgia, 'Times New Roman', serif;
+  --sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --page-width: 1200px;
+}

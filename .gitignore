@@ -1,0 +1,18 @@
+# Dependencies and build output
+node_modules/
+target/
+dist/
+
+# Local environment files
+.env
+.env.*
+!.env.example
+
+# IDE and operating system files
+.idea/
+*.iml
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
