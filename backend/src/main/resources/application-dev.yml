@@ -1,0 +1,4 @@
+# Development uses application.yml defaults and an explicitly supplied DB_PASSWORD.
+logging:
+  level:
+    au.com.nakornthai: DEBUG

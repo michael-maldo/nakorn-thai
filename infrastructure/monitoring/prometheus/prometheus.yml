@@ -1,0 +1,9 @@
+# Prometheus running on the same host as the JVM (not an isolated container).
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+scrape_configs:
+  - job_name: nakorn-thai-backend
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ['127.0.0.1:8081']

@@ -7,6 +7,8 @@ dist/
 .env
 .env.*
 !.env.example
+!backend/.env.dev.example
+!backend/.env.prod.example
 
 # IDE and operating system files
 .idea/

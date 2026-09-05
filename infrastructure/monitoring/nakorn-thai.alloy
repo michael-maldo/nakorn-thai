@@ -1,0 +1,30 @@
+// Same-host Alloy collector. Set NAKORN_LOG_FILE and LOKI_PUSH_URL in Alloy's service environment.
+local.file_match "backend" {
+  path_targets = [{ "__path__" = sys.env("NAKORN_LOG_FILE"), "service_name" = "nakorn-thai-backend" }]
+}
+
+loki.source.file "backend" {
+  targets    = local.file_match.backend.targets
+  forward_to = [loki.process.backend.receiver]
+}
+
+loki.process "backend" {
+  stage.json {
+    expressions = { level = "level", environment = "environment", timestamp = "\"@timestamp\"" }
+  }
+  stage.labels {
+    values = { level = "", environment = "" }
+  }
+  stage.timestamp {
+    source = "timestamp"
+    format = "RFC3339Nano"
+  }
+  // Keep trace_id/request_id in JSON, never indexed as high-cardinality Loki labels.
+  forward_to = [loki.write.backend.receiver]
+}
+
+loki.write "backend" {
+  endpoint {
+    url = sys.env("LOKI_PUSH_URL")
+  }
+}

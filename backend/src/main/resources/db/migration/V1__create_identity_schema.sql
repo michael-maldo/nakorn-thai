@@ -1,0 +1,3 @@
+-- Reserved for the identity domain. No identity tables are required by the
+-- read-only menu feature. Do not put menu tables here or edit this migration
+-- after it has been applied; implement identity in a new versioned migration.
