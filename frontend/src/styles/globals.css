@@ -281,3 +281,14 @@ button, input { font: inherit; }
 @media(max-width: 640px) { .order-queue { grid-template-columns: 1fr; } }
 
 .function-message { white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* Global cart stays visible across public and staff hash routes. */
+body.has-cart-dock { padding-bottom: calc(88px + env(safe-area-inset-bottom)); }
+.cart-dock { position: fixed; z-index: 30; bottom: 0; left: 0; right: 0; padding: 12px 20px calc(12px + env(safe-area-inset-bottom)); background: var(--paper); border-top: 1px solid var(--line); box-shadow: 0 -4px 20px #0001; }
+.cart-dock > button { display: flex; justify-content: space-between; gap: 2rem; width: min(100%, 720px); margin: auto; }
+.cart-dialog { width: min(900px, calc(100% - 24px)); max-height: 85dvh; overflow: auto; border: 1px solid var(--line); border-radius: 12px; padding: 24px; background: var(--paper); color: var(--ink); }
+.cart-dialog::backdrop { background: #0008; }
+.cart-dialog-heading { display: flex; justify-content: space-between; gap: 1rem; align-items: center; }
+.cart-dialog-heading button { padding: .6rem 1rem; cursor: pointer; }
+.cart-dialog .order-panel { margin-bottom: 0; }
+@media (max-width: 640px) { .cart-dialog { padding: 16px; } .cart-dialog .cart-line { display: flex; flex-wrap: wrap; gap: 1rem; } .cart-dialog .cart-line > div { width: 100%; } }

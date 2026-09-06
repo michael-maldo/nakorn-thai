@@ -1,3 +1,4 @@
+import PaymentStatus from '../../payment/components/PaymentStatus';
 import { useAuth } from '../../identity/model/AuthContext';
 import { useEffect, useState } from 'react';
 import { changeOrderStatus, getStaffOrders } from '../../ordering/api/orderApi';
@@ -60,7 +61,8 @@ export default function StaffOrdersPage({ kitchen = false }) {
         <ul>{order.items.map((line,index) => <li key={index}><strong>{line.quantity} × {line.dishName}</strong> — {line.variationName}</li>)}</ul>
         {order.notes && <p className="order-notes"><strong>Customer notes:</strong> {order.notes}</p>}
         {order.cancellationReason && <p>Cancelled: {order.cancellationReason}</p>}
-        {!kitchen && <p>{money(order.totalMinor)} · {order.paidAt ? 'Payment recorded' : 'Pay at restaurant'}</p>}
+        {!kitchen && <p>{money(order.totalMinor)} · {order.paidAt ? 'Payment recorded' : order.paymentMethod === 'PAY_AT_RESTAURANT' ? 'Pay at restaurant' : 'Payment pending'}</p>}
+        {!kitchen && <PaymentStatus order={order} authorization={auth} />}
         <div className="staff-toolbar">
           {!kitchen && order.status === 'NEW' && <button disabled={busy || stale} onClick={() => choose(order, 'ACCEPTED')}>Accept order</button>}
           {kitchen && order.status === 'ACCEPTED' && <button disabled={busy || stale} onClick={() => choose(order, 'PREPARING')}>Start preparing</button>}

@@ -11,13 +11,11 @@ import java.util.UUID;
 public class GetOrderHandler {
     private final SpringDataOrderRepository orders;
     private final OrderMapper mapper;
+    private final OrderAccessService access;
     @Transactional(readOnly=true)
     public CreateOrderResponse handle(UUID id, String token) {
         var order = orders.findById(id).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
-        if (token == null || token.length()!=64 || !java.security.MessageDigest.isEqual(
-                order.getTrackingHash().getBytes(java.nio.charset.StandardCharsets.UTF_8),
-                CreateOrderHandler.hash(token).getBytes(java.nio.charset.StandardCharsets.UTF_8)))
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+        access.require(order,token);
         return mapper.map(order, false);
     }
 }

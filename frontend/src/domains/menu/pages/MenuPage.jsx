@@ -1,5 +1,4 @@
 import { menuCollections as collections } from '../model/menuCollections';
-import Cart from '../../ordering/components/Cart';
 import { useCart } from '../../ordering/model/CartContext';
 import { getOrderingOptions } from '../../ordering/api/orderApi';
 import { useEffect, useState } from 'react';
@@ -34,9 +33,7 @@ export default function MenuPage() {
         </select>
       </label>
       {collection === 'lunch-specials' && <p>Lunch specials till 2:30 PM. Please contact the restaurant to order lunch; online lunch ordering is currently unavailable.</p>}
-      <p>{enabled ? 'Order for pickup and pay at the restaurant. Staff will confirm your order.' : 'Online ordering is currently closed or unavailable. You can still browse the menu.'}</p>
-      <p role="status">{added}</p>
-      {cart.length > 0 && <a href="#/checkout">Checkout ({cart.reduce((sum, line) => sum + line.quantity, 0)} items)</a>}
+      <p className="sr-only" role="status">{added}</p>
       {loading && <p role="status">Loading our menu…</p>}
       {error && <div role="alert"><p>{error}</p><button className="button button-outline" onClick={retry}>Try again</button></div>}
       {!loading && !error && <>
@@ -66,7 +63,6 @@ export default function MenuPage() {
           </article>)}
         </div>
       </>}
-      <Cart />
       <a className="button button-outline" href="#home">Back to home</a>
     </main>
     <Footer />

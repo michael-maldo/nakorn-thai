@@ -4,7 +4,7 @@ This guide follows each implemented workflow from user action to frontend code,
 HTTP request, backend processing and persistence, then back to the screen. Use it
 as a reading/debugging order rather than as a list of every scaffold file.
 
-The paths below describe the implementation through V15. Arrows mean execution or
+The paths below describe the implementation through V16. Arrows mean execution or
 data flow; grouped supporting files are not necessarily called one after another.
 The backend is one Spring Boot application. Not every slice has a separate handler:
 some transactional staff operations currently live directly in controllers.
@@ -183,7 +183,8 @@ A 404 collection is skipped, but its missing cart items remain unavailable.
 [checkoutApi.test.js](../../frontend/src/domains/ordering/api/checkoutApi.test.js)
 covers these cases. The backend still performs authoritative validation.
 
-**Data:** V11 order tables, read dependency on menu tables; no payment provider call.
+**Data:** V11 order tables with V16 additions, read dependency on menu tables.
+Payment creation/capture is a subsequent receipt-page flow, described below.
 **Checks:** [CreateOrderIntegrationTest.java](../../backend/src/test/java/au/com/nakornthai/ordering/createorder/CreateOrderIntegrationTest.java);
 [orderApi.test.js](../../frontend/src/domains/ordering/api/orderApi.test.js).
 
@@ -284,8 +285,8 @@ own domain API. Backend `staff/` remains empty.
 | Scaffold | Executable workflow today |
 |---|---|
 | Customer | None; guest details live on orders, reservations and enquiries |
-| Payment | None; order completion only records payment-at-restaurant acknowledgment |
-| Notification | None; no email/SMS pipeline is called |
+| Payment webhooks/refunds | Not implemented; PayPal capture and PayID reconciliation threads are documented below |
+| Status notifications | Not implemented; requested SMS/email OTP verification is documented below |
 | Restaurant / availability | None; opening hours and capacity are not enforced by these empty packages |
 | Unused hooks/handlers inside active domains | Their existence does not put them in a runtime thread |
 
@@ -306,3 +307,28 @@ a missing implementation from the name of a scaffolded file alone.
 For new slices, document the trigger, route, frontend state/client, authorization,
 controller/handler, persistence, response handling and executable tests. Keep the
 existing folder structure; describe any proposed restructuring before implementing it.
+
+## V16: cart, payments and tracking recovery
+
+The menu's inline Cart is now mounted inside
+[CartDock.jsx](../../frontend/src/domains/ordering/components/CartDock.jsx), which
+[App.jsx](../../frontend/src/app/App.jsx) keeps outside AppRouter so it persists
+across routes. Checkout records an optional email and selected payment method.
+
+[PaymentForm.jsx](../../frontend/src/domains/payment/components/PaymentForm.jsx)
+uses [paymentApi.js](../../frontend/src/domains/payment/api/paymentApi.js) →
+[CreatePaymentController.java](../../backend/src/main/java/au/com/nakornthai/payment/createpayment/CreatePaymentController.java)
+→ [CreatePaymentHandler.java](../../backend/src/main/java/au/com/nakornthai/payment/createpayment/CreatePaymentHandler.java)
+→ [PayPalPaymentProvider.java](../../backend/src/main/java/au/com/nakornthai/payment/infrastructure/PayPalPaymentProvider.java)
+or manual PayID receipt recording. Staff use
+[PaymentStatus.jsx](../../frontend/src/domains/payment/components/PaymentStatus.jsx).
+
+[OrderTrackingPage.jsx](../../frontend/src/domains/ordering/pages/OrderTrackingPage.jsx)
+→ [OrderVerificationController.java](../../backend/src/main/java/au/com/nakornthai/notification/orderconfirmation/OrderVerificationController.java)
+→ [OrderVerificationHandler.java](../../backend/src/main/java/au/com/nakornthai/notification/orderconfirmation/OrderVerificationHandler.java)
+→ [TwilioVerifyClient.java](../../backend/src/main/java/au/com/nakornthai/notification/infrastructure/TwilioVerifyClient.java).
+Verified challenges issue hashed grants checked by
+[OrderAccessService.java](../../backend/src/main/java/au/com/nakornthai/ordering/infrastructure/OrderAccessService.java).
+Payment and notification are therefore no longer wholly scaffolded; remaining empty
+provider/refund/status-notification files are not part of these paths.
+See [setup and limitations](../payment/payments-and-tracking.md).

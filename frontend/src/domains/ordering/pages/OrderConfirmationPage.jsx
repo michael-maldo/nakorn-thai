@@ -1,3 +1,4 @@
+import PaymentForm from '../../payment/components/PaymentForm';
 import { useEffect, useState } from 'react';
 import { useCart } from '../model/CartContext';
 import Header from '../../../website/components/Header';
@@ -7,6 +8,7 @@ import { PENDING_ORDER, RECEIPT } from './CheckoutPage';
 const labels = { NEW: 'Awaiting restaurant confirmation', ACCEPTED: 'Accepted by the restaurant', PREPARING: 'Your order is being prepared', READY: 'Ready for pickup', COMPLETED: 'Collected and paid', CANCELLED: 'Order cancelled' };
 export default function OrderConfirmationPage() {
   const { dispatch } = useCart();
+  const [receipt, setReceipt] = useState(null);
   const [order, setOrder] = useState(null); const [error, setError] = useState('');
   useEffect(() => {
     let stopped = false, timer;
@@ -18,7 +20,7 @@ export default function OrderConfirmationPage() {
         if (stopped) return;
         sessionStorage.setItem(RECEIPT, JSON.stringify({ requestId: receipt.requestId, trackingToken: receipt.trackingToken }));
         if (sessionStorage.getItem(PENDING_ORDER)) dispatch({ type: 'clear' });
-        sessionStorage.removeItem(PENDING_ORDER); setOrder(data); setError('');
+        sessionStorage.removeItem(PENDING_ORDER); setReceipt(receipt); setOrder(data); setError('');
         if (!['COMPLETED', 'CANCELLED'].includes(data.status)) timer = setTimeout(poll, 5000);
       } catch (failure) {
         if (stopped) return;
@@ -38,9 +40,10 @@ export default function OrderConfirmationPage() {
       {order.estimatedReadyAt && !['CANCELLED','COMPLETED'].includes(order.status) && <p>Estimated pickup: {new Date(order.estimatedReadyAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>}
       {order.cancellationReason && <p>{order.cancellationReason}</p>}
       {order.items.map((line,index) => <p key={index}>{line.quantity} × {line.dishName} ({line.variationName}) — {money(line.quantity * line.unitPriceMinor)}</p>)}
-      <p>Total: <strong>{money(order.totalMinor)}</strong></p><p>{order.status === 'CANCELLED' ? 'No payment is due for this cancelled order.' : order.paidAt ? 'Payment recorded by restaurant staff.' : 'Payment is due at the restaurant.'}</p>
+      <p>Total: <strong>{money(order.totalMinor)}</strong></p>
+      {receipt && <PaymentForm order={order} receipt={receipt} />}
       <p>Pickup: 233 Glenferrie Rd, Malvern VIC 3144.</p>
-      <p>Keep this tab open to see status updates. No email or SMS is sent.</p>
+      <p>Full order ID: <strong>{order.id}</strong></p><p>Keep this receipt for tracking. <a href="#/track-order">Recover tracking with an SMS or email verification code</a>.</p>
     </section>}
     <div className="staff-toolbar"><a href="#/checkout">Return to checkout</a><a href="#/menu">Back to menu</a></div>
   </main></>;

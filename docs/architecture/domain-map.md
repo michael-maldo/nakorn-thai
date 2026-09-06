@@ -1,7 +1,8 @@
 # Domain map
 
-This map describes the implementation through Flyway **V15**, including menu
-imports, JWT staff identity, pickup ordering, table reservations and venue enquiries.
+This map describes the implementation through Flyway **V16**, including menu
+imports, JWT staff identity, pickup ordering, reservations, venue enquiries, payments
+and tracking verification.
 Folder names alone do not indicate implemented features; several domains remain
 empty scaffolds.
 
@@ -40,7 +41,7 @@ flowchart LR
 
 Arrows represent requests or dependencies, not asynchronous events. These features
 use synchronous HTTP and database transactions; there is no message broker or
-implemented notification delivery pipeline.
+automatic order-status notification pipeline. Requested OTP delivery uses Twilio Verify.
 
 ## Implemented domains
 
@@ -51,6 +52,8 @@ implemented notification delivery pipeline.
 | Ordering | Guest pickup checkout, authoritative pricing, private tracking, FOH acceptance/handover and kitchen preparation | `ordering/` | `domains/ordering/` and operational pages in `domains/staff/`; `/#/checkout`, `/#/order-confirmation`, `/#/staff/foh`, `/#/staff/kitchen` |
 | Table reservations | Guest table requests and staff confirmation, cancellation and attendance | `reservation/createreservation/`, `reservation/listreservations/`, `reservation/infrastructure/` | `domains/reservation/`; `/#/reservations`, `/#/staff/reservations` |
 | Functions / venue enquiries | Event enquiries, preferred dates, contact details, staff follow-up and agreed event dates | `CreateFunctionEnquiry*`, `FunctionEnquiriesController` and persistence classes inside the existing `reservation/` folders | `website/pages/FunctionsPage.jsx`, `domains/reservation/api/functionApi.js`, `domains/staff/pages/FunctionEnquiriesPage.jsx`; `/#/functions`, `/#/staff/functions` |
+| Payment | PayPal create/capture/reconciliation and staff-confirmed PayID receipt | `payment/` | `domains/payment/`, order receipt and FOH views |
+| Tracking verification | Requested SMS/email codes and expiring tracking grants | `notification/` | `domains/ordering/pages/OrderTrackingPage.jsx`; `/#/track-order` |
 | Staff workspace | Role-aware navigation and operational screens that call the owning feature APIs | No implemented logic in backend `staff/`; endpoints belong to identity/menu/ordering/reservation packages | `domains/staff/`; staff home at `/#/staff` |
 
 The reservation package contains two distinct workflows and tables. A venue enquiry
@@ -72,7 +75,10 @@ schema changes; active persistence uses JPA entities and repositories/EntityMana
 | Table reservations | `reservation` | V13 |
 | Venue enquiries | `function_enquiry` | V15 |
 
-There are **19 application tables**, excluding Flyway's history table. V1 and
+V16 adds `order_payment`, `order_verification` and `order_tracking_grant`, plus order
+email and payment-method support.
+
+There are **22 application tables**, excluding Flyway's history table. V1 and
 V3–V7 are retained empty migration placeholders; their names do not mean identity,
 reservation, payment, customer or restaurant schemas were created by them.
 
@@ -117,9 +123,10 @@ Printed labels do not automatically become verified food-suitability declaration
 Lunch imports are visible but unavailable for online ordering while daily service-hour
 enforcement is absent. The restaurant-domain scaffold does not enforce opening hours.
 
-Ordering currently supports pickup and payment at the restaurant. Marking an order
-completed records staff acknowledgment that payment was collected; it does not call
-a payment provider. Order status changes have their own event records with actors.
+Ordering supports pickup with pay-at-restaurant, configured PayPal and PayID.
+Online-payment orders require verified receipt before acceptance/handover. PayPal
+uses server-side capture and reconciliation; PayID is manually checked by staff.
+Cancellation does not automatically refund a payment. Order status changes have their own event records with actors.
 
 ### Reservations and venue enquiries
 
@@ -143,8 +150,8 @@ do not create customer identities from guest names or contact details.
 | Scaffold | Current status | Boundary for future work |
 |---|---|---|
 | `customer/` | Backend and frontend files are empty | Customer profiles/accounts; linking guest transactions needs an explicit design |
-| `payment/` | Backend and frontend files are empty | Provider payments, webhooks and refunds; not used by pay-at-restaurant ordering |
-| `notification/` | Backend files are empty | Email/SMS delivery; no confirmations are automatically sent today |
+| Payment webhooks/refunds and unused providers | Scaffolded | Current payment API supports PayPal capture and manual PayID reconciliation; automatic refunds/webhooks remain future work |
+| Order/reservation status notifications | Scaffolded | Twilio Verify OTP delivery is implemented; automatic order-status emails/SMS remain future work |
 | `restaurant/` | Backend and frontend files are empty | Opening hours, capacity and availability configuration |
 | Backend `staff/` | Files are empty | Potential aggregate staff views; current endpoints remain in their owning domains |
 | Reservation availability and cancellation slices | `checkavailability/` and `cancelreservation/` remain scaffolded | No dedicated availability engine or public cancellation endpoint; staff status changes use the implemented list controller |
@@ -178,3 +185,5 @@ structure change. Documentation of a future domain is not an implemented depende
 
 For the frontend-to-backend execution paths and linked source files, see
 [workflow vertical slices](vertical-slices.md).
+
+See [payments and tracking](../payment/payments-and-tracking.md) for provider setup.

@@ -7,6 +7,7 @@ marked **placeholder** retain the original scaffold and have no content yet.
 |---|---|
 | Menu | [Dashboard](menu/menu-dashboard.md), [schema](menu/menu-schema-v1.md), [Chef’s Specials import](menu/chefs-specials-import.md), [printed menu import](menu/printed-menu-import.md), [image prompts](menu/prompt-image-menu.md) |
 | Identity | [Dashboard authentication and staff accounts](identity/dashboard-identity.md), [security](identity/security.md) — placeholder |
+| Payments & tracking | [Cart, PayPal, PayID and verification setup](payment/payments-and-tracking.md) |
 | Ordering | [Online ordering and FOH/BOH setup](ordering/online-ordering.md) |
 | Reservations | [Table bookings](reservations/reservations.md) |
 | Functions | [Venue enquiries and staff dashboard](functions/functions.md) |

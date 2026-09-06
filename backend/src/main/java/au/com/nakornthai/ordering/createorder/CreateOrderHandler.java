@@ -17,6 +17,8 @@ public class CreateOrderHandler {
     private final EntityManager em;
     private final OrderMapper mapper;
     private final boolean enabled;
+    @Value("${PAYPAL_ENABLED:false}") private boolean paypalEnabled;
+    @Value("${PAYID_ENABLED:false}") private boolean payidEnabled;
     public CreateOrderHandler(EntityManager em, OrderMapper mapper, @Value("${ONLINE_ORDERING_ENABLED:false}") boolean enabled) {
         this.em=em; this.mapper=mapper; this.enabled=enabled;
     }
@@ -31,6 +33,9 @@ public class CreateOrderHandler {
         em.createNativeQuery("SELECT pg_advisory_xact_lock(:key)", Object.class)
                 .setParameter("key", request.requestId().getMostSignificantBits() ^ request.requestId().getLeastSignificantBits()).getSingleResult();
         String fingerprint = hash(java.util.stream.Stream.of(request.customerName(), request.phone(), request.notes(), request.items().toString()).map(value -> value.length() + ":" + value).collect(java.util.stream.Collectors.joining()));
+        if(request.email()!=null && !request.email().isBlank()) fingerprint=hash(fingerprint+":"+request.email().trim().toLowerCase(Locale.ROOT));
+        String paymentMethod=request.paymentMethod()==null?"PAY_AT_RESTAURANT":request.paymentMethod();
+        if(!paymentMethod.equals("PAY_AT_RESTAURANT"))fingerprint=hash(fingerprint+":"+paymentMethod);
         var existing = em.find(OrderJpaEntity.class, request.requestId());
         if (existing != null) {
             if (!existing.getTrackingHash().equals(hash(request.trackingToken())) || !existing.getRequestHash().equals(fingerprint))
@@ -38,9 +43,12 @@ public class CreateOrderHandler {
             return mapper.map(existing, false);
         }
         if (!enabled) throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Online ordering is currently closed");
+        if((paymentMethod.equals("PAYPAL")&&!paypalEnabled) || (paymentMethod.equals("PAYID")&&!payidEnabled))throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,"Selected payment method is unavailable");
         var order = new OrderJpaEntity(); order.setId(request.requestId());
+        order.setPaymentMethod(paymentMethod);
         order.setTrackingHash(hash(request.trackingToken())); order.setRequestHash(fingerprint);
         order.setCustomerName(request.customerName().trim()); order.setPhone(request.phone().trim()); order.setNotes(request.notes().trim());
+        order.setEmail(request.email()==null || request.email().isBlank()?null:request.email().trim().toLowerCase(Locale.ROOT));
         order.setCreatedAt(Instant.now()); order.setUpdatedAt(order.getCreatedAt());
         var seen = new HashSet<UUID>();
         // A stable lock order avoids competing checkouts locking dishes in different orders.

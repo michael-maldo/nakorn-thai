@@ -1,6 +1,6 @@
 import { useCart } from '../model/CartContext';
 import { cartTotal, money } from '../model/cartReducer';
-export default function Cart() {
+export default function Cart({ checkoutEnabled = true }) {
   const { cart, dispatch } = useCart();
   return <section className="order-panel" aria-label="Your pickup order">
     <h2>Your pickup order</h2>
@@ -12,7 +12,7 @@ export default function Cart() {
         <button type="button" onClick={() => dispatch({ type: 'remove', id: line.variationId })}>Remove</button>
       </div>)}
       <p className="order-total">Total: {money(cartTotal(cart))}</p>
-      <a className="button button-primary" href="#/checkout">Checkout for pickup</a>
+      {checkoutEnabled && <a className="button button-primary" href="#/checkout">Checkout for pickup</a>}
     </>}
   </section>;
 }

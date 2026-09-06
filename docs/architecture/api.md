@@ -1,6 +1,6 @@
 # API reference
 
-This document describes the implemented Spring Boot API through migration **V15**.
+This document describes the implemented Spring Boot API through migration **V16**.
 It is a reference to current controllers, request records and handlers, not a proposed
 API. Empty scaffold packages do not expose endpoints.
 
@@ -296,10 +296,19 @@ Prometheus metrics on the private management listener. Health details are disabl
 These are not dashboard business endpoints; see [deployment](../deployment/backend-deployment.md)
 and [monitoring](../../infrastructure/monitoring/grafana/README.md).
 
-Customer accounts, payment providers/refunds, notification delivery, opening-hour
-configuration and automatic reservation capacity remain scaffolded. There are no
-implemented APIs for those features. See the [domain map](domain-map.md) for ownership
+Customer accounts, automatic refunds, order-status notifications, opening-hour
+configuration and automatic reservation capacity remain scaffolded. Payment and
+requested verification-code APIs are documented below. See the [domain map](domain-map.md) for ownership
 and the [identity guide](../identity/dashboard-identity.md) for environment setup.
 
 For the frontend-to-backend execution paths and linked source files, see
 [workflow vertical slices](vertical-slices.md).
+
+## V16 payment and tracking additions
+
+Order creation now accepts optional `email` and `paymentMethod`
+(PAY_AT_RESTAURANT/PAYPAL/PAYID); responses include `paymentMethod`. Online-payment
+orders require confirmed receipt before staff acceptance/handover. Tracking accepts
+original tokens or unexpired OTP-issued grants. See the
+[payment and verification API reference](../payment/payments-and-tracking.md#api-and-persistence)
+for the new endpoints. Refunds and automatic status messages remain unimplemented.

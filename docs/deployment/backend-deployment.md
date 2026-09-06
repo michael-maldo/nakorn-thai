@@ -132,3 +132,9 @@ The workflow continues running backend integration and frontend API tests; no JW
 production secret belongs in the build or frontend bundle. Existing bootstrap
 password hashes create missing database accounts only. See
 [dashboard-identity.md](../identity/dashboard-identity.md) for login and account management.
+
+## Optional payment and tracking providers (V16)
+
+Provider flags default off, so existing deployments can start without new secrets.
+Configure PayPal/PayID/Twilio values in `/etc/nakorn-thai/backend.env` only when ready
+to enable them. See [provider setup](../payment/payments-and-tracking.md).

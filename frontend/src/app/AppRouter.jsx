@@ -1,3 +1,4 @@
+import OrderTrackingPage from '../domains/ordering/pages/OrderTrackingPage';
 import FunctionsPage from '../website/pages/FunctionsPage';
 import FunctionEnquiriesPage from '../domains/staff/pages/FunctionEnquiriesPage';
 import ReservationPage from '../domains/reservation/pages/ReservationPage';
@@ -15,9 +16,9 @@ import HomePage from '../website/pages/HomePage';
 import StaffMenuPage from '../domains/staff/pages/StaffMenuPage';
 
 export default function AppRouter() {
-  const [hash, setHash] = useState(window.location.hash);
+  const [hash, setHash] = useState(window.location.hash.split('?')[0]);
   useEffect(() => {
-    const navigate = () => setHash(window.location.hash);
+    const navigate = () => setHash(window.location.hash.split('?')[0]);
     window.addEventListener('hashchange', navigate);
     return () => window.removeEventListener('hashchange', navigate);
   }, []);
@@ -30,6 +31,7 @@ export default function AppRouter() {
   if (hash === '#/reservations') return <ReservationPage />;
   if (hash === '#/staff/reservations') return <ProtectedRoute roles={['ADMIN','FOH']}><ReservationAdminPage /></ProtectedRoute>;
   if (hash === '#/menu') return <MenuPage />;
+  if (hash === '#/track-order') return <OrderTrackingPage />;
   if (hash === '#/checkout') return <CheckoutPage />;
   if (hash === '#/order-confirmation') return <OrderConfirmationPage />;
   if (hash === '#/staff/users') return <ProtectedRoute roles={['ADMIN']}><UsersPage /></ProtectedRoute>;

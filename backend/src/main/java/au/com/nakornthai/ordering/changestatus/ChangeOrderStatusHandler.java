@@ -33,6 +33,7 @@ public class ChangeOrderStatusHandler {
         };
         if (!next.contains(command.status())) throw new ResponseStatusException(HttpStatus.CONFLICT,"Invalid order transition");
         if ("ACCEPTED".equals(command.status())) {
+            if(!order.getPaymentMethod().equals("PAY_AT_RESTAURANT") && order.getPaidAt()==null)throw new ResponseStatusException(HttpStatus.CONFLICT,"Verify payment before accepting this order");
             if (command.pickupMinutes()==null) throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Enter estimated pickup minutes");
             order.setEstimatedReadyAt(Instant.now().plusSeconds(command.pickupMinutes()*60L));
         }
@@ -42,7 +43,8 @@ public class ChangeOrderStatusHandler {
         }
         if ("COMPLETED".equals(command.status())) {
             if (!command.paymentCollected()) throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Confirm payment was collected");
-            order.setPaidAt(Instant.now());
+            if(order.getPaidAt()==null && !order.getPaymentMethod().equals("PAY_AT_RESTAURANT"))throw new ResponseStatusException(HttpStatus.CONFLICT,"Verify online or bank payment before handover");
+            if(order.getPaidAt()==null)order.setPaidAt(Instant.now());
         }
         order.setStatus(command.status()); order.setUpdatedAt(Instant.now());
         var event = new OrderEventJpaEntity(); event.setOrderId(id); event.setStatus(command.status());

@@ -237,3 +237,11 @@ and staff scaffold. `mvn verify` runs the PostgreSQL lifecycle tests when
 `DB_TEST_URL` is configured for a disposable database. `npm test` covers cart cents,
 quantity limits, idempotent request payloads, private tracking headers, and staff
 poll/write serialization. `npm run build` builds the production frontend.
+
+## Payment and tracking update (V16)
+
+The earlier pay-at-restaurant-only scope now also supports configured PayPal and
+PayID methods. A global sticky cart popup replaces the menu's inline cart. Order
+tracking can be recovered through requested SMS/email verification codes when
+Twilio Verify is configured. See [payments and tracking](../payment/payments-and-tracking.md)
+for setup, payment-state rules and the distinction between OTPs and status notifications.

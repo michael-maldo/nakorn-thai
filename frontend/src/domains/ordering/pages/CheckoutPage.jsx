@@ -1,3 +1,4 @@
+import { paymentRequest } from '../../payment/api/paymentApi';
 import { useEffect, useState } from 'react';
 import Header from '../../../website/components/Header';
 import { useCart } from '../model/CartContext';
@@ -16,6 +17,10 @@ export default function CheckoutPage() {
   const [name, setName] = useState(''); const [phone, setPhone] = useState(''); const [notes, setNotes] = useState('');
   const [busy, setBusy] = useState(false); const [error, setError] = useState('');
   const [enabled, setEnabled] = useState(false);
+  const [email, setEmail] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState('PAY_AT_RESTAURANT');
+  const [paymentOptions, setPaymentOptions] = useState({});
+  useEffect(() => { paymentRequest('/api/payments/options').then(setPaymentOptions).catch(() => {}); }, []);
   useEffect(() => { let active = true; getOrderingOptions().then((options) => { if (active) setEnabled(options.enabled); }).catch((e) => { if (active) setError(e.message); }); return () => { active = false; }; }, []);
   async function place(event) {
     event.preventDefault(); setBusy(true); setError('');
@@ -26,7 +31,7 @@ export default function CheckoutPage() {
         if (updated.some((line, index) => line.unitPriceMinor !== cart[index].unitPriceMinor)) {
           dispatch({ type: 'replace', lines: updated }); throw new Error('Prices changed. Review the updated total and submit again.');
         }
-        payload = { requestId: crypto.randomUUID(), trackingToken: Array.from(crypto.getRandomValues(new Uint8Array(32)), (n) => n.toString(16).padStart(2, '0')).join(''), customerName: name, phone, notes,
+        payload = { requestId: crypto.randomUUID(), trackingToken: Array.from(crypto.getRandomValues(new Uint8Array(32)), (n) => n.toString(16).padStart(2, '0')).join(''), customerName: name, phone, notes, email: email || null, paymentMethod,
           items: cart.map((line) => ({ variationId: line.variationId, quantity: line.quantity, expectedUnitPriceMinor: line.unitPriceMinor })) };
         // Keep the exact attempt across reloads, so a lost response cannot duplicate the order.
         sessionStorage.setItem(PENDING_ORDER, JSON.stringify(payload)); setPending(payload);
@@ -51,7 +56,7 @@ export default function CheckoutPage() {
     } finally { setBusy(false); }
   }
   return <><Header currentPage="Menu" /><main className="restaurant-menu page-width">
-    <h1>Pickup checkout</h1><p>Pay at the restaurant. Your order needs staff confirmation before preparation begins.</p>
+    <h1>Pickup checkout</h1><p>Choose how to pay below. Your order needs staff confirmation before preparation begins.</p>
     <p>Pickup: 233 Glenferrie Rd, Malvern VIC 3144.</p>
     {error && <p role="alert" className="staff-error">{error}</p>}
     {!enabled && !pending && <p>Online ordering is currently closed or unavailable.</p>}
@@ -61,9 +66,16 @@ export default function CheckoutPage() {
         <p className="order-total">Total: {money(cartTotal(cart))}</p>
         <label>Your name<input required maxLength={100} autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} disabled={busy} /></label>
         <label>Phone number<input required type="tel" maxLength={30} minLength={6} autoComplete="tel" value={phone} onChange={(e) => setPhone(e.target.value)} disabled={busy} /></label>
+        <label>Email for order verification (optional)<input type="email" maxLength={254} autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} disabled={busy} /></label>
+        <p>Keep the full order ID on your receipt. Where enabled, you can request an SMS or email code to recover tracking access.</p>
+        <label>Payment method<select value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)} disabled={busy}>
+          <option value="PAY_AT_RESTAURANT">Pay at restaurant</option>
+          {paymentOptions.paypal && <option value="PAYPAL">PayPal</option>}
+          {paymentOptions.payid && <option value="PAYID">PayID bank transfer</option>}
+        </select></label>
         <label>Order notes<textarea maxLength={1000} value={notes} onChange={(e) => setNotes(e.target.value)} disabled={busy} /></label>
       </>}
-      <button className="button button-primary" disabled={busy || (!enabled && !pending)}>{busy ? 'Submitting…' : pending ? 'Retry submission' : 'Place pickup order — pay at restaurant'}</button>
+      <button className="button button-primary" disabled={busy || (!enabled && !pending)}>{busy ? 'Submitting…' : pending ? 'Retry submission' : 'Place pickup order'}</button>
     </form>}
     <a href="#/menu">Back to menu and cart</a>
   </main></>;

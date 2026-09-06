@@ -25,7 +25,7 @@ export default function Footer() {
           </form>
         </div>
       </div>
-      <div className="footer-bottom page-width"><small>© 2026 Nakorn Thai Restaurant and Bar. All rights reserved.</small><span><a href="#privacy">Privacy Policy</a><a href="#terms">Terms of Use</a></span></div>
+      <div className="footer-bottom page-width"><a href="#/track-order">Track an order</a><small>© 2026 Nakorn Thai Restaurant and Bar. All rights reserved.</small><span><a href="#privacy">Privacy Policy</a><a href="#terms">Terms of Use</a></span></div>
     </footer>
   );
 }
