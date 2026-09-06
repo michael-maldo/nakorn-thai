@@ -117,7 +117,7 @@ on a best-effort basis. No source directories were restructured.
 
 ## Pickup ordering and FOH/BOH dashboards
 
-See [online-ordering.md](online-ordering.md) for migration V11, staff account
+See [online-ordering.md](../ordering/online-ordering.md) for migration V11, staff account
 configuration and the operational workflow. Ordering defaults to closed; set
 `ONLINE_ORDERING_ENABLED=true` in the backend service environment and restart only
 after configuring staff access. The current Nginx `/api/` proxy covers these routes.
@@ -131,4 +131,4 @@ Before deploying migration V12 and the JWT dashboard, generate a key with
 The workflow continues running backend integration and frontend API tests; no JWT
 production secret belongs in the build or frontend bundle. Existing bootstrap
 password hashes create missing database accounts only. See
-[dashboard-identity.md](dashboard-identity.md) for login and account management.
+[dashboard-identity.md](../identity/dashboard-identity.md) for login and account management.

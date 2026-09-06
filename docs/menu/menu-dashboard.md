@@ -66,7 +66,7 @@ Sign in using the username and original password, not the bcrypt hash. All staff
 dashboards now share JWT authentication, with access tokens in memory and a rotating
 HttpOnly refresh cookie. Browser writes also require CSRF tokens. Manage individual
 users at `/#/staff/users`. Production requires a persistent signing key and HTTPS;
-see [dashboard identity](dashboard-identity.md) before deploying.
+see [dashboard identity](../identity/dashboard-identity.md) before deploying.
 
 ## Editing
 
@@ -146,7 +146,7 @@ edits, duplicate slugs, invalid membership rollback, and frontend request contra
 Existing schema/entity tests remain in place. No source folders were restructured.
 
 Photo upload and focal positioning are now available for saved dishes. See
-[backend deployment](backend-deployment.md#menu-photo-uploads) for storage and proxy setup.
+[backend deployment](../deployment/backend-deployment.md#menu-photo-uploads) for storage and proxy setup.
 
 ## Public restaurant menu
 

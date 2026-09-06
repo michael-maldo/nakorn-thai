@@ -461,7 +461,7 @@ are null until records are added. No identity or authenticated write handlers ar
 implemented; transactional review invalidation and version checks remain requirements
 for future writes, not behavior supplied by the read-only API.
 
-See [backend setup and testing](../backend/README.md). No existing folder was moved
+See [backend setup and testing](../../backend/README.md). No existing folder was moved
 or reorganized. The deployed frontend still uses its static content until its API
 integration and VPS backend service are implemented.
 

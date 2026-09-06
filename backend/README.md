@@ -3,7 +3,7 @@
 Spring Boot 4.1.1, Java 21, Maven 3.6.3+, and PostgreSQL (tested with 16).
 Flyway creates the twelve menu tables on startup. The backend exposes a read-only
 collection endpoint and authenticated menu administration. See
-[backend deployment](../docs/backend-deployment.md) for GitHub Actions and VPS setup.
+[backend deployment](../docs/deployment/backend-deployment.md) for GitHub Actions and VPS setup.
 
 ## Create a local database
 
@@ -101,7 +101,7 @@ For the systemd service, keep the production file outside release directories,
 for example `/etc/nakorn-thai/backend.env`, owned by root with mode 600. Its service
 unit can use `EnvironmentFile=/etc/nakorn-thai/backend.env` to load these same literal
 assignments. The repository includes a service unit and automatic deployment workflow;
-complete the [one-time VPS setup](../docs/backend-deployment.md) before running it.
+complete the [one-time VPS setup](../docs/deployment/backend-deployment.md) before running it.
 
 Both profiles bind HTTP to `127.0.0.1:8080`; an Nginx reverse proxy can later expose
 `/api/`. SERVER_ADDRESS and SERVER_PORT override these defaults. Actuator health and Prometheus metrics use a separate loopback listener at port 8081.
@@ -130,7 +130,7 @@ validate rather than generate DDL. All twelve tables now have @Entity mappings,
 so Hibernate validates their mapped columns on startup. PostgreSQL integration
 tests additionally verify constraints, relationships, and persistence behavior.
 Spring Data repositories support internal saves and authenticated menu administration.
-See [the dashboard guide](../docs/menu-dashboard.md) for the initial CRUD scope.
+See [the dashboard guide](../docs/menu/menu-dashboard.md) for the initial CRUD scope.
 
 ## Menu responses
 
@@ -175,7 +175,7 @@ selected database. Individual test fixtures roll back. Tests cover migration
 creation, constraints, collection scheduling/visibility/order, variation profile
 isolation, review status, and API behavior using real PostgreSQL.
 
-The detailed design is in [menu-schema-v1.md](../docs/menu-schema-v1.md).
+The detailed design is in [menu-schema-v1.md](../docs/menu/menu-schema-v1.md).
 
 ## Observability
 
@@ -206,7 +206,7 @@ See [configuration and verification](../infrastructure/monitoring/grafana/README
 - JJWT 0.13.0 API plus runtime implementation and Jackson adapter are available for
   dashboard JWT authentication. JJWT's adapter uses Jackson 2 internally; the application's
   ObjectMapper and HTTP JSON continue using Boot's Jackson 3. Integration tests
-  exercise signing/verification and the JSON API together. See [dashboard identity](../docs/dashboard-identity.md) for signing-key setup,
+  exercise signing/verification and the JSON API together. See [dashboard identity](../docs/identity/dashboard-identity.md) for signing-key setup,
   rotating refresh cookies and staff account management.
 - Boot 4's security-test starter supplies Spring Security test support; its MVC
   test starter already supplies the common test libraries from the old POM.
@@ -274,7 +274,7 @@ covered by scripts/check-observability.py; they are not mocked business controll
 
 ## Initial menu dashboard
 
-See [menu-dashboard.md](../docs/menu-dashboard.md) for local/VPS startup, admin
+See [menu-dashboard.md](../docs/menu/menu-dashboard.md) for local/VPS startup, admin
 credentials, API contracts, seed data and scope. `MenuAdminApiTest` covers staff
 security/validation with JUnit and Mockito. `CreateMenuItemHandlerTest` exercises
 committed CRUD transactions against PostgreSQL when `DB_TEST_URL` is supplied.
@@ -283,5 +283,5 @@ committed CRUD transactions against PostgreSQL when `DB_TEST_URL` is supplied.
 
 The existing ordering scaffold now implements guest pickup orders, private tracking,
 role-restricted FOH/BOH queues and status transitions using JPA. V11 adds three order
-tables. See [online-ordering.md](../docs/online-ordering.md) for configuration and
+tables. See [online-ordering.md](../docs/ordering/online-ordering.md) for configuration and
 scope. Public writes require CSRF; menu administration remains ADMIN-only.

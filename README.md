@@ -49,7 +49,7 @@ nakorn-thai/
 │   │   ├── styles/              # Global, responsive, and token styles
 │   │   └── website/             # Public marketing pages/components
 │   └── tests/                   # Unit, integration, and E2E placeholders
-├── docs/                        # Architecture and operations placeholders
+├── docs/                        # Feature guides, architecture and operations
 ├── infrastructure/              # Deployment and observability placeholders
 ├── scripts/                     # Developer command placeholders
 ├── .github/workflows/           # CI/deployment workflow placeholders
@@ -181,9 +181,10 @@ The repository reserves infrastructure paths for:
 - database backup and deployment scripts in `infrastructure/scripts/`;
 - backend, frontend, and deployment workflows in `.github/workflows/`.
 
-The `docs/` directory reserves documents for system context, architecture,
-domain mapping, critical flows, API design, security, deployment, operations,
-risk management, and staff workflows. These files are currently empty.
+The [documentation index](docs/README.md) groups guides by menu, identity, ordering,
+reservations, functions and staff, with supporting architecture, development,
+deployment and operations folders. The index identifies the remaining scaffold
+placeholders.
 
 ## Current project status
 

@@ -35,7 +35,7 @@ different details returns a conflict. Completed/cancelled orders remain persiste
 ## Staff flow
 
 Open `/#/staff` for staff navigation. All dashboards share a JWT login backed by persistent staff accounts.
-See [dashboard identity](dashboard-identity.md) for setup and account management. The existing admin account can use
+See [dashboard identity](../identity/dashboard-identity.md) for setup and account management. The existing admin account can use
 all three dashboards; FOH and BOH accounts have narrower permissions.
 
 | Page | Account roles | Work |
@@ -83,7 +83,7 @@ environment before starting the backend.
 1. If you do not already have `backend/.env.dev`, create it from
    `backend/.env.dev.example`. Preserve an existing file and its database credentials.
    Set `DB_URL`, `DB_USERNAME` and `DB_PASSWORD` for your local database as described
-   in [backend/README.md](../backend/README.md).
+   in [backend/README.md](../../backend/README.md).
 2. Generate local staff password hashes (if `htpasswd` is unavailable on Ubuntu,
    install `apache2-utils`):
 
@@ -193,7 +193,7 @@ ONLINE_ORDERING_ENABLED=true
 
 Use distinct usernames for ADMIN, FOH and BOH. Empty hashes skip bootstrap creation; existing database accounts remain active.
 Disable accounts in the identity dashboard. Production also requires
-`JWT_SECRET_BASE64`; see [identity setup](dashboard-identity.md). The existing
+`JWT_SECRET_BASE64`; see [identity setup](../identity/dashboard-identity.md). The existing
 `/api/` Nginx proxy covers the new endpoints. Keep the backend listeners private and
 use HTTPS for customer checkout and staff authentication.
 

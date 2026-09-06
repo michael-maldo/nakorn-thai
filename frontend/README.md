@@ -8,7 +8,7 @@ Run `npm ci --include=optional` and `npm run dev`. The existing Vite proxy forwa
 - Request tests: `npm test`
 - Production build: `npm run build`
 
-See [the menu dashboard guide](../docs/menu-dashboard.md) for admin configuration,
+See [the menu dashboard guide](../docs/menu/menu-dashboard.md) for admin configuration,
 seed data, editing and the required production Nginx proxy. Admin secrets belong
 only in the backend environment. The existing deployment workflow ships frontend
 assets only; the API must be running before deploying this version.

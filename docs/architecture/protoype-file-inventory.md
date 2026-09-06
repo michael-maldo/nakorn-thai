@@ -3,7 +3,7 @@ Here’s the file inventory for the GitHub → VPS deployment and HTTPS setup. V
 | File / path | Purpose |
 |---|---|
 | `.gitignore` | Excludes dependencies, build output, local environment files, IDE files, and logs from Git. |
-| `docs/git-init-repo.md` | Instructions for initializing Git and uploading the project to GitHub. |
+| `docs/development/git-init-repo.md` | Instructions for initializing Git and uploading the project to GitHub. |
 | `.github/workflows/deploy.yml` | Builds the frontend on pushes to `main`, uploads it over SSH, and activates the release. |
 | `frontend/package.json` | Defines frontend dependencies and the `npm run build` command. |
 | `frontend/package-lock.json` | Locks dependency versions for reproducible installation with `npm ci`. |
@@ -159,7 +159,7 @@ its former static dish records have been removed. Initial data remains in V8.
 | `backend/src/test/java/au/com/nakornthai/menu/createitem/` | Mockito staff API tests and PostgreSQL CRUD persistence tests. |
 | `backend/src/main/resources/db/migration/V8__seed_signature_dishes.sql` | Existing four specials and memberships; unchanged, applied once by Flyway. |
 | `infrastructure/nginx/nakorn-thai.conf` | API proxy snippet for the existing HTTPS server. |
-| `docs/menu-dashboard.md` | Setup, API contracts, seed behavior, scope and verification. |
+| `docs/menu/menu-dashboard.md` | Setup, API contracts, seed behavior, scope and verification. |
 
 ## Pickup ordering and operational staff dashboards
 
@@ -172,7 +172,7 @@ its former static dish records have been removed. Initial data remains in V8.
 - `frontend/src/domains/staff/pages/StaffOrdersPage.jsx`: FOH operational queue and
   shared queue UI, with role-specific actions.
 - `frontend/src/domains/staff/pages/KitchenDashboardPage.jsx`: BOH kitchen queue.
-- `docs/online-ordering.md`: pickup scope, roles, configuration and usage.
+- `docs/ordering/online-ordering.md`: pickup scope, roles, configuration and usage.
 
 The existing source directories are preserved. Tests are in the existing ordering
 backend test folder and frontend ordering API folder.
@@ -190,7 +190,7 @@ implement JWT authentication and persistent staff management:
 | `frontend/src/domains/identity/` | Shared login, auth context, route protection and staff accounts dashboard |
 | `backend/src/test/java/au/com/nakornthai/IdentityIntegrationTest.java` | Database-backed identity and revocation tests |
 | `frontend/src/domains/identity/api/identityApi.test.js` | Token retry, concurrent refresh and logout tests |
-| `docs/dashboard-identity.md` | Local and production configuration, permissions and API lifecycle |
+| `docs/identity/dashboard-identity.md` | Local and production configuration, permissions and API lifecycle |
 
 ## Reservation implementation
 
@@ -201,7 +201,7 @@ implement JWT authentication and persistent staff management:
 | `backend/src/main/java/au/com/nakornthai/reservation/listreservations/` | JWT-protected staff date list and status updates |
 | `backend/src/main/resources/db/migration/V13__create_reservations.sql` | Reservation records and date index |
 | `frontend/src/domains/reservation/` | Customer booking form, staff dashboard and API client |
-| `docs/reservations.md` | Setup, permissions, request semantics and staff workflow |
+| `docs/reservations/reservations.md` | Setup, permissions, request semantics and staff workflow |
 
 ## Functions and venue enquiries
 
@@ -214,4 +214,4 @@ implement JWT authentication and persistent staff management:
 | `backend/src/main/java/au/com/nakornthai/reservation/listreservations/FunctionEnquiriesController.java` | Paginated queue and versioned staff updates |
 | `backend/src/main/java/au/com/nakornthai/reservation/infrastructure/*FunctionEnquiry*` | JPA entity and repository |
 | `backend/src/main/resources/db/migration/V15__create_function_enquiries.sql` | Venue enquiry table and index |
-| `docs/functions.md` | Customer flow, staff permissions and setup |
+| `docs/functions/functions.md` | Customer flow, staff permissions and setup |

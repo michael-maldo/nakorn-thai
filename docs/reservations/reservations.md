@@ -30,7 +30,7 @@ and database row lock: stale updates return 409 and staff must refresh before re
 Flyway `V13__create_reservations.sql` creates the reservation table and date index.
 The old empty V3 migration remains untouched. New source files use the existing
 reservation scaffold. No additional environment variables are needed; the database
-and JWT configuration in [dashboard-identity.md](dashboard-identity.md) still apply.
+and JWT configuration in [dashboard-identity.md](../identity/dashboard-identity.md) still apply.
 
 | Endpoint | Access |
 |---|---|

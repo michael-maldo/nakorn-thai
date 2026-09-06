@@ -67,7 +67,7 @@ Update fields: `version`, `status`, nullable `arrangedDate` and `staffNote`.
 Staff reads and public acknowledgments have `Cache-Control: no-store`.
 
 No new environment variables are needed. Use the existing database and
-[JWT identity setup](dashboard-identity.md). Restart the updated backend to apply
+[JWT identity setup](../identity/dashboard-identity.md). Restart the updated backend to apply
 V15 and deploy the frontend through the existing workflow. Production still requires
 `JWT_SECRET_BASE64` and HTTPS for staff authentication.
 
