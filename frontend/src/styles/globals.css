@@ -1,6 +1,6 @@
 * { box-sizing: border-box; }
 
-html { scroll-behavior: smooth; }
+html { scroll-behavior: smooth; scroll-padding-top: calc(var(--site-header-height, 108px) + 16px); }
 
 body {
   margin: 0;
@@ -40,11 +40,14 @@ button, input { font: inherit; }
 
 /* Header */
 .site-header {
-  position: absolute;
+  position: fixed;
   z-index: 10;
   inset: 0 0 auto;
   height: 108px;
-  width: min(calc(100% - 80px), 1320px);
+  width: 100%;
+  padding-inline: max(40px, calc((100% - 1320px) / 2));
+  background: var(--paper);
+  box-shadow: 0 2px 15px rgba(35,26,12,.08);
   margin-inline: auto;
   display: grid;
   grid-template-columns: 240px 1fr auto;
@@ -54,7 +57,7 @@ button, input { font: inherit; }
 .brand { width: 184px; display: block; line-height: 0; }
 .brand img { width: 100%; height: 82px; object-fit: contain; object-position: left center; }
 .main-nav { display: flex; align-items: center; justify-content: center; gap: clamp(18px, 2.25vw, 38px); }
-.main-nav a { position: relative; padding: 15px 0; font-size: 11px; font-weight: 600; text-transform: uppercase; }
+.main-nav a { position: relative; padding: 15px 0; font-size: 12px; font-weight: 600; text-transform: uppercase; }
 .main-nav a::after { content: ''; position: absolute; left: 0; right: 100%; bottom: 5px; height: 2px; background: var(--gold); transition: .2s; }
 .main-nav a:hover::after, .main-nav a.active::after { right: 0; }
 .main-nav a.active { color: var(--gold-dark); }
@@ -253,6 +256,16 @@ button, input { font: inherit; }
 .restaurant-menu-eyebrow { color: var(--gold-dark); letter-spacing: .12em; text-transform: uppercase; font-size: .8rem; }
 .restaurant-menu-search { display: flex; flex-direction: column; gap: .5rem; max-width: 440px; margin-bottom: 1rem; }
 .restaurant-menu-search input, .restaurant-menu-search select { font: inherit; padding: .8rem; border: 1px solid var(--line); border-radius: 6px; background: var(--paper); }
+.restaurant-menu-navigation { position: sticky; top: var(--site-header-height, 108px); z-index: 9; padding-block: .75rem; background: var(--ivory); border-bottom: 1px solid var(--line); }
+.restaurant-menu-navigation .restaurant-menu-search { margin: 0; }
+.restaurant-menu-navigation select { min-width: 0; width: 100%; }
+.restaurant-menu-categories { display: flex; align-items: center; gap: .5rem; margin-top: .75rem; }
+.menu-collection-list { display: flex; gap: .5rem; min-width: 0; overflow-x: auto; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; padding: 3px; }
+.menu-collection-list button { flex: 0 0 auto; white-space: nowrap; min-height: 44px; padding: .6rem .9rem; border: 1px solid var(--line); border-radius: 6px; background: var(--paper); color: var(--ink); cursor: pointer; }
+.menu-collection-list button[aria-current="true"] { background: var(--plum); border-color: var(--plum); color: white; }
+.menu-collection-list button:focus-visible, .menu-scroll-control:focus-visible { outline: 2px solid var(--gold-dark); outline-offset: 1px; }
+.menu-scroll-control { display: none; flex: 0 0 44px; height: 44px; border: 1px solid var(--line); border-radius: 6px; background: var(--paper); color: var(--ink); font-size: 24px; cursor: pointer; }
+.menu-scroll-control:disabled { opacity: .35; cursor: default; }
 .restaurant-menu-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.5rem; margin-block: 1.5rem 2.5rem; }
 .restaurant-menu-item { background: var(--paper); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
 .restaurant-menu-item-content { padding: 1.5rem; }

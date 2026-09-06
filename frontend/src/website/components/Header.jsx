@@ -1,12 +1,23 @@
-import { useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { navigation } from '../content/homeContent';
 import logo from '../../assets/images/nakorn-thai-logo.png';
 
 export default function Header({ currentPage = 'Home' }) {
   const [open, setOpen] = useState(false);
+  const headerRef = useRef(null);
+  useLayoutEffect(() => {
+    const updateHeight = () => document.documentElement.style.setProperty('--site-header-height', `${headerRef.current.getBoundingClientRect().height}px`);
+    updateHeight();
+    const observer = new ResizeObserver(updateHeight);
+    observer.observe(headerRef.current);
+    return () => {
+      observer.disconnect();
+      document.documentElement.style.removeProperty('--site-header-height');
+    };
+  }, []);
 
   return (
-    <header className="site-header">
+    <header ref={headerRef} className="site-header">
       <a className="brand" href="#home" aria-label="Nakorn Thai home">
         <img src={logo} alt="Nakorn Thai Restaurant and Bar" />
       </a>
