@@ -35,4 +35,10 @@ public class MenuCollectionItemJpaEntity extends MenuAuditJpaEntity {
 
     @Column(name = "display_order", nullable = false)
     private int displayOrder = 0;
+    @ManyToOne(fetch = FetchType.LAZY) @JoinColumn(name = "collection_category_id")
+    private MenuCollectionCategoryJpaEntity collectionCategory;
+    private Long priceOverrideMinor;
+    public MenuCategoryJpaEntity effectiveCategory() {
+        return collectionCategory == null ? menuItem.getCategory() : collectionCategory.getCategory();
+    }
 }

@@ -83,7 +83,8 @@ class MenuSchemaIntegrationTest {
 
     @Test
     void flywayCreatesMenuAndOrderingTablesAndEndpointReturnsDish() throws Exception {
-        assertEquals(22, jdbc.queryForObject("SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_name <> 'flyway_schema_history'", Integer.class));
+        for (String table : java.util.List.of("menu_collection_schedule", "menu_collection_category", "menu_option_group", "menu_option", "menu_item_option_group", "restaurant_order_item_option"))
+            assertEquals(1, jdbc.queryForObject("SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_name=?", Integer.class, table));
         mvc.perform(get("/api/menu/collections/{slug}/items", slug()))
                 .andExpect(status().isOk()).andExpect(header().string("Cache-Control", "no-store"))
                 .andExpect(jsonPath("$.items[0].id").value(item.toString()))
@@ -92,95 +93,30 @@ class MenuSchemaIntegrationTest {
     }
 
     @Test
-    void seededSignatureDishesHaveNoInventedClaimsOrPrices() {
-        var response = handler.handle(new ListMenuQuery("signature-dishes"));
-        assertEquals(4, response.items().size());
-        assertEquals("Yellow Curry", response.items().getFirst().name());
-        for (var dish : response.items()) {
-            assertNull(dish.image());
-            if (dish.slug().equals("crispy-pork-broccoli")) {
-                assertEquals(1, dish.variations().size());
-                assertEquals(2490, dish.variations().getFirst().priceMinor());
-                assertEquals("NOT_REVIEWED", dish.variations().getFirst().profile().allergenReviewStatus());
-                assertTrue(dish.variations().getFirst().profile().dietaryTags().isEmpty());
-                assertTrue(dish.variations().getFirst().profile().allergens().isEmpty());
-                continue;
-            }
-            assertTrue(dish.variations().isEmpty());
-            assertEquals("NOT_REVIEWED", dish.profile().allergenReviewStatus());
-            assertTrue(dish.profile().dietaryTags().isEmpty());
-            assertTrue(dish.profile().allergens().isEmpty());
+    void v18SeedHasMainMenuDefaultVariationsAndRequiredReusableOptions() {
+        var menu=handler.handle(new ListMenuQuery("main-menu"));
+        assertEquals(40,menu.items().size()); assertEquals(7,menu.categories().size());
+        assertTrue(menu.availability().available());
+        assertEquals(12,menu.items().stream().filter(i -> !i.optionGroups().isEmpty()).count());
+        for(var dish:menu.items()) {
+            assertEquals(1,dish.variations().size()); assertTrue(dish.variations().getFirst().defaultVariation());
+            assertTrue(dish.variations().getFirst().profile().dietaryTags().isEmpty());
+            for(var group:dish.optionGroups()) { assertEquals(1,group.minSelections()); assertEquals(1,group.maxSelections()); }
         }
     }
 
     @Test
-    void importedChefMenuMatchesPrintedPricesAndChoices() {
-        var menu = handler.handle(new ListMenuQuery("chefs-special-recommendations"));
-        assertEquals(20, menu.items().size());
-        long[] prices = {1190,1190,1190,1590,1190,1190,1790,1790,2790,2790,
-                2890,2890,3190,2890,2390,2990,2490,2390,2590,2590};
-        int variations = 0;
-        for (int i = 0; i < prices.length; i++) {
-            var dish = menu.items().get(i);
-            for (var variation : dish.variations()) {
-                assertEquals(prices[i], variation.priceMinor());
-                assertEquals("AUD", variation.currency());
-                assertEquals("NOT_REVIEWED", variation.profile().allergenReviewStatus());
-                assertTrue(variation.profile().dietaryTags().isEmpty());
-                assertTrue(variation.profile().allergens().isEmpty());
-                variations++;
-            }
-        }
-        assertEquals(23, variations);
-        var lamb = menu.items().get(12);
-        assertEquals("Lamb Shank with Curry", lamb.name());
-        assertEquals(java.util.List.of("Green Curry", "Red Curry", "Yellow Curry", "Massaman Curry"),
-                lamb.variations().stream().map(v -> v.name()).toList());
-        assertTrue(lamb.variations().stream().noneMatch(v -> v.defaultVariation()));
-        assertEquals(java.util.UUID.fromString("20000000-0000-0000-0000-000000000004"), menu.items().get(16).id());
-    }
-
-    @Test
-    void printedRestaurantMenuImportsPricesOptionsAndLunchRestrictions() {
-        var regular = handler.handle(new ListMenuQuery("regular-menu"));
-        assertEquals(58, regular.items().size());
-        var thai = regular.items().stream().filter(i -> i.slug().equals("pad-thai")).findFirst().orElseThrow();
-        assertEquals(java.util.List.of(2090L,2090L,2090L,2690L,2890L,2590L,2690L),
-                thai.variations().stream().map(v -> v.priceMinor()).toList());
-        var fish = regular.items().stream().filter(i -> i.slug().equals("whole-barramundi-fish")).findFirst().orElseThrow();
-        assertEquals(3, fish.variations().size());
-        assertTrue(fish.variations().stream().allMatch(v -> v.priceMinor()==4590));
-        var unknown = regular.items().stream().filter(i -> i.slug().equals("sizzling-hot-plate")).findFirst().orElseThrow();
-        assertTrue(unknown.variations().isEmpty());
-        var lunch = handler.handle(new ListMenuQuery("lunch-specials"));
-        assertEquals(10, lunch.items().size());
-        assertEquals(65, lunch.items().stream().mapToInt(i -> i.variations().size()).sum());
-        assertTrue(lunch.items().stream().flatMap(i -> i.variations().stream()).allMatch(v -> v.priceMinor()>=1490));
-        assertEquals(10, jdbc.queryForObject("SELECT count(*) FROM menu_item i JOIN menu_collection_item ci ON ci.menu_item_id=i.id JOIN menu_collection c ON c.id=ci.collection_id WHERE c.slug='lunch-specials' AND NOT i.is_available", Integer.class));
-        var drinks = handler.handle(new ListMenuQuery("drinks"));
-        assertEquals(5, drinks.items().size());
-        var water = drinks.items().stream().filter(i -> i.slug().equals("sparkling-water")).findFirst().orElseThrow();
-        assertEquals(java.util.List.of(390L,750L), water.variations().stream().map(v -> v.priceMinor()).toList());
-        for (var menu : java.util.List.of(regular, lunch, drinks)) {
-            for (var dish : menu.items()) {
-                assertNull(dish.image());
-                for (var variation : dish.variations()) {
-                    assertEquals("NOT_REVIEWED", variation.profile().allergenReviewStatus());
-                    assertTrue(variation.profile().dietaryTags().isEmpty());
-                }
-            }
-        }
-    }
-
-    @Test
-    void unknownDraftFutureAndExpiredCollectionsAreNotFound() throws Exception {
+    void unpublishedIsHiddenButUnavailablePublishedCollectionsRemainBrowsable() throws Exception {
         mvc.perform(get("/api/menu/collections/missing/items")).andExpect(status().isNotFound());
-        for (String change : new String[]{"status='DRAFT'", "status='PUBLISHED', starts_at=CURRENT_TIMESTAMP + interval '1 day'",
-                "starts_at=NULL, ends_at=CURRENT_TIMESTAMP"}) {
-            jdbc.update("UPDATE menu_collection SET " + change + " WHERE id=?", collection);
-            entityManager.clear();
-            mvc.perform(get("/api/menu/collections/{slug}/items", slug())).andExpect(status().isNotFound());
+        jdbc.update("UPDATE menu_collection SET status='DRAFT' WHERE id=?",collection); entityManager.clear();
+        mvc.perform(get("/api/menu/collections/{slug}/items",slug())).andExpect(status().isNotFound());
+        for(String change:new String[]{"status='PUBLISHED', starts_at=CURRENT_TIMESTAMP + interval '1 day'", "starts_at=NULL, ends_at=CURRENT_TIMESTAMP", "ends_at=NULL, is_active=false"}) {
+            jdbc.update("UPDATE menu_collection SET "+change+" WHERE id=?",collection); entityManager.clear();
+            mvc.perform(get("/api/menu/collections/{slug}/items",slug())).andExpect(status().isOk())
+                    .andExpect(jsonPath("$.availability.available").value(false));
         }
+        mvc.perform(get("/api/menu/collections")).andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.id == '"+collection+"')].availability.available").value(false));
     }
 
     @Test
@@ -196,6 +132,7 @@ class MenuSchemaIntegrationTest {
         assertTrue(handler.handle(new ListMenuQuery(slug())).items().isEmpty());
         jdbc.update("UPDATE menu_item SET status='PUBLISHED' WHERE id=?", item);
         jdbc.update("UPDATE menu_category SET is_active=false WHERE id=?", category);
+        entityManager.clear();
         assertTrue(handler.handle(new ListMenuQuery(slug())).items().isEmpty());
     }
 

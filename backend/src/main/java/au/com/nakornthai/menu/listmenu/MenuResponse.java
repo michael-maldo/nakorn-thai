@@ -4,9 +4,10 @@ import au.com.nakornthai.menu.domain.MenuItem;
 import java.util.List;
 import java.util.UUID;
 
-public record MenuResponse(UUID id, String slug, String name, String description, List<MenuItem> items) {
+public record MenuResponse(UUID id, String slug, String name, String description, List<MenuItem> items, String timezone,
+        au.com.nakornthai.menu.domain.CollectionAvailability.Result availability, List<MenuItem.Category> categories) {
     public static MenuResponse from(MenuItem.Collection collection) {
         return new MenuResponse(collection.id(), collection.slug(), collection.name(),
-                collection.description(), collection.items());
+                collection.description(), collection.items(), collection.timezone(), collection.availability(), collection.categories());
     }
 }

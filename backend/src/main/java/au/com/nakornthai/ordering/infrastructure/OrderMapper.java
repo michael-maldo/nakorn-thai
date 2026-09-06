@@ -9,6 +9,10 @@ public class OrderMapper {
                 order.getEstimatedReadyAt(), order.getPaidAt(), order.getCancellationReason(),
                 contact ? order.getCustomerName() : null, contact ? order.getPhone() : null,
                 order.getNotes(), order.getVersion(), order.getItems().stream().map(i ->
-                    new CreateOrderResponse.Line(i.getDishName(), i.getVariationName(), i.getQuantity(), i.getUnitPriceMinor())).toList(), order.getPaymentMethod());
+                    new CreateOrderResponse.Line(i.getDishName(), i.getVariationName(), i.getQuantity(), i.getUnitPriceMinor(),
+                            i.getId(), i.getSnapshotVersion(), i.getCollectionId(), i.getCollectionName(), i.getCollectionSlug(),
+                            i.getVariationBasePriceMinor(), i.getCollectionPriceOverrideMinor(),
+                            i.getSelectedOptions().stream().map(o -> new CreateOrderResponse.SelectedOption(o.getOptionId(),
+                                    o.getOptionGroupName(), o.getOptionName(), o.getPriceDeltaMinor(), o.getQuantity())).toList())).toList(), order.getPaymentMethod());
     }
 }

@@ -11,5 +11,16 @@ public record CreateOrderRequest(
     @NotEmpty @Size(max=30) List<@Valid @NotNull Line> items, @Email @Size(max=254) String email, @Pattern(regexp="PAY_AT_RESTAURANT|PAYPAL|PAYID") String paymentMethod) {
     public CreateOrderRequest(UUID requestId,String trackingToken,String customerName,String phone,String notes,List<Line> items) { this(requestId,trackingToken,customerName,phone,notes,items,null,null); }
     public record Line(@NotNull UUID variationId, @Min(1) @Max(20) int quantity,
-                       @Min(0) long expectedUnitPriceMinor) {}
+                       @Min(0) long expectedUnitPriceMinor, UUID collectionId,
+                       @Size(max=100) List<@Valid @NotNull SelectedOption> selectedOptions) {
+        public Line { selectedOptions = selectedOptions == null ? List.of() : List.copyOf(selectedOptions); }
+        public Line(UUID variationId, int quantity, long expectedUnitPriceMinor) {
+            this(variationId, quantity, expectedUnitPriceMinor, null, List.of());
+        }
+        public String configurationKey() {
+            return collectionId + ":" + variationId + ":" + selectedOptions.stream()
+                    .sorted(Comparator.comparing(SelectedOption::optionId)).toList();
+        }
+    }
+    public record SelectedOption(@NotNull UUID optionId, @Min(1) @Max(20) int quantity) {}
 }

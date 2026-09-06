@@ -38,6 +38,7 @@ public class MenuAdminService {
 
     @Transactional
     public UUID create(CreateMenuItemRequest request) {
+        MenuCatalogLock.write(entityManager);
         if (request.version() != null) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "New dishes must not have a version");
         var item = new MenuItemJpaEntity();
         apply(item, request);
@@ -73,6 +74,7 @@ public class MenuAdminService {
     }
 
     private MenuItemJpaEntity locked(UUID id, Long version) {
+        MenuCatalogLock.write(entityManager);
         if (version == null || version < 0) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Version is required");
         var item = entityManager.find(MenuItemJpaEntity.class, id, LockModeType.PESSIMISTIC_WRITE);
         if (item == null) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Dish not found");
@@ -126,9 +128,9 @@ public class MenuAdminService {
                 var link = new MenuCollectionItemJpaEntity();
                 link.setCollection(collection);
                 link.setMenuItem(item);
+                link.setDisplayOrder(request.displayOrder());
                 return link;
             });
-            membership.setDisplayOrder(request.displayOrder());
             memberships.save(membership);
         }
     }

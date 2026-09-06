@@ -14,6 +14,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class ListMenuController {
     private final ListMenuHandler handler;
 
+    @GetMapping
+    public ResponseEntity<java.util.List<au.com.nakornthai.menu.domain.MenuItem.CollectionSummary>> discover() {
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(handler.discover());
+    }
+
     @GetMapping("/{slug}/items")
     public ResponseEntity<MenuResponse> list(@PathVariable String slug) {
         return ResponseEntity.ok().cacheControl(CacheControl.noStore())

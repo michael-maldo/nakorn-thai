@@ -29,21 +29,28 @@ class CreateMenuItemHandlerTest {
     @Autowired JdbcTemplate jdbc;
     private final String slug = "crud-test-" + UUID.randomUUID();
     private static final String STAFF = "/api/staff/menu/items";
-    private static final UUID COLLECTION = UUID.fromString("30000000-0000-0000-0000-000000000001");
+    private final UUID COLLECTION = UUID.randomUUID();
+    private final UUID CATEGORY = UUID.randomUUID();
+    @BeforeEach void fixture() {
+        jdbc.update("INSERT INTO menu_category(id,name,slug) VALUES (?,'CRUD category',?)", CATEGORY,"category-"+CATEGORY);
+        jdbc.update("INSERT INTO menu_collection(id,name,slug,status) VALUES (?,'CRUD collection',?,'PUBLISHED')",COLLECTION,"collection-"+COLLECTION);
+    }
 
     @AfterEach
     void cleanup() {
         jdbc.update("DELETE FROM menu_collection_item WHERE menu_item_id IN (SELECT id FROM menu_item WHERE slug = ?)", slug);
         jdbc.update("DELETE FROM menu_item_variation WHERE menu_item_id IN (SELECT id FROM menu_item WHERE slug = ?)", slug);
         jdbc.update("DELETE FROM menu_item WHERE slug = ?", slug);
+        jdbc.update("DELETE FROM menu_collection WHERE id=?",COLLECTION);
+        jdbc.update("DELETE FROM menu_category WHERE id=?",CATEGORY);
     }
 
     private String body(String name, String status, String version, String collections) {
         return """
             {"name":"%s","slug":"%s","description":"Freshly prepared test dish",
-            "categoryId":"10000000-0000-0000-0000-000000000001","status":"%s",
+            "categoryId":"%s","status":"%s",
             "available":true,"displayOrder":99,"collectionIds":%s,"version":%s}
-            """.formatted(name, slug, status, collections, version);
+            """.formatted(name, slug, CATEGORY, status, collections, version);
     }
     private String selected() { return "[\"" + COLLECTION + "\"]"; }
     private UUID create() throws Exception {
@@ -57,7 +64,7 @@ class CreateMenuItemHandlerTest {
     @Test
     void persistsCreateUpdateArchiveAndRestoreAndRejectsStaleEdits() throws Exception {
         var id = create();
-        mvc.perform(get("/api/menu/collections/signature-dishes/items"))
+        mvc.perform(get("/api/menu/collections/collection-"+COLLECTION+"/items"))
                 .andExpect(jsonPath("$.items[?(@.slug == '" + slug + "')].name").value("Test curry"));
         long before = version(id);
         mvc.perform(put(STAFF + "/" + id).with(user("admin").roles("ADMIN")).with(csrf())
@@ -70,13 +77,13 @@ class CreateMenuItemHandlerTest {
                 .andExpect(status().isConflict());
         mvc.perform(delete(STAFF + "/" + id).param("version", "" + version(id))
                 .with(user("admin").roles("ADMIN")).with(csrf())).andExpect(status().isNoContent());
-        mvc.perform(get("/api/menu/collections/signature-dishes/items"))
+        mvc.perform(get("/api/menu/collections/collection-"+COLLECTION+"/items"))
                 .andExpect(jsonPath("$.items[?(@.slug == '" + slug + "')]").isEmpty());
         assertEquals(1, jdbc.queryForObject("SELECT count(*) FROM menu_collection_item WHERE menu_item_id = ?", Integer.class, id));
         mvc.perform(put(STAFF + "/" + id).with(user("admin").roles("ADMIN")).with(csrf())
                 .contentType("application/json").content(body("Restored curry", "PUBLISHED", "" + version(id), selected())))
                 .andExpect(status().isNoContent());
-        mvc.perform(get("/api/menu/collections/signature-dishes/items"))
+        mvc.perform(get("/api/menu/collections/collection-"+COLLECTION+"/items"))
                 .andExpect(jsonPath("$.items[?(@.slug == '" + slug + "')].name").value("Restored curry"));
     }
 
@@ -107,7 +114,7 @@ class CreateMenuItemHandlerTest {
                 .contentType("application/json").content(payload)).andExpect(status().isNoContent());
         assertEquals(2605L, jdbc.queryForObject("SELECT price_minor FROM menu_item_variation WHERE id = ?", Long.class, variation));
         assertEquals("NOT_REVIEWED", jdbc.queryForObject("SELECT allergen_review_status FROM menu_item_variation WHERE id = ?", String.class, variation));
-        mvc.perform(get("/api/menu/collections/signature-dishes/items"))
+        mvc.perform(get("/api/menu/collections/collection-"+COLLECTION+"/items"))
                 .andExpect(jsonPath("$.items[?(@.slug == '" + slug + "')].variations[0].priceMinor").value(2605));
         mvc.perform(put(STAFF + "/" + id).with(user("admin").roles("ADMIN")).with(csrf())
                 .contentType("application/json").content(payload)).andExpect(status().isConflict());

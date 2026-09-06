@@ -20,7 +20,7 @@ public class SecurityConfig {
         return http
                 .authorizeHttpRequests(authorize -> authorize
                         .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/menu/collections/*/items",
+                        .requestMatchers(HttpMethod.GET, "/api/menu/collections", "/api/menu/collections/*/items",
                                 "/media/menu/*", "/actuator/health", "/actuator/prometheus").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/orders/options", "/api/orders/csrf", "/api/orders/*").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/orders").permitAll()

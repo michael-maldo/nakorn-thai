@@ -59,4 +59,6 @@ public class MenuItemJpaEntity extends MenuUuidJpaEntity {
     @OneToMany(mappedBy = "menuItem")
     @BatchSize(size = 64)
     private List<MenuItemAllergenJpaEntity> allergens = new ArrayList<>();
+    @OneToMany(mappedBy = "menuItem") @BatchSize(size = 64)
+    private List<MenuItemOptionGroupJpaEntity> optionGroups = new ArrayList<>();
 }

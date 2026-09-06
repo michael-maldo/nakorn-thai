@@ -30,6 +30,37 @@ public class MenuItemMapper {
                 variations.isEmpty() ? itemProfile(item) : null, variations);
     }
 
+    public MenuItem map(MenuCollectionItemJpaEntity membership, boolean collectionAvailable) {
+        var item = membership.getMenuItem();
+        var base = map(item);
+        var category = membership.effectiveCategory();
+        var groups = item.getOptionGroups().stream()
+                .sorted(Comparator.comparingInt(MenuItemOptionGroupJpaEntity::getDisplayOrder)
+                        .thenComparing(a -> a.getOptionGroup().getId()))
+                .map(a -> {
+                    var g = a.getOptionGroup();
+                    return new MenuItem.OptionGroup(g.getId(), g.getCode(), g.getName(), g.getSelectionType(), g.isActive(),
+                            a.getMinSelections(), a.getMaxSelections(), a.getDisplayOrder(), g.getOptions().stream()
+                            .sorted(Comparator.comparingInt(MenuOptionJpaEntity::getDisplayOrder).thenComparing(MenuOptionJpaEntity::getId))
+                            .map(o -> new MenuItem.Option(o.getId(), o.getCode(), o.getName(), o.getPriceDeltaMinor(),
+                                    o.getCurrency(), g.isActive() && o.isActive(), o.getDisplayOrder())).toList());
+                }).toList();
+        boolean configurable = groups.stream().allMatch(g -> g.minSelections() == 0 ||
+                (g.active() && (g.selectionType().equals("SINGLE") ?
+                        g.minSelections() <= 1 && g.options().stream().anyMatch(MenuItem.Option::available) :
+                        g.options().stream().filter(MenuItem.Option::available).count() * 20 >= g.minSelections())));
+        boolean available = collectionAvailable && base.available() && category.isActive() && configurable;
+        var variations = base.variations().stream().map(v -> new MenuItem.Variation(v.id(), v.name(),
+                v.defaultVariation() && membership.getPriceOverrideMinor() != null ? membership.getPriceOverrideMinor() : v.priceMinor(),
+                v.currency(), available && v.available(), v.defaultVariation(), v.profile(), v.priceMinor())).toList();
+        return new MenuItem(base.id(), base.slug(), base.name(), base.description(), available, base.image(),
+                base.profileScope(), base.profile(), variations,
+                new MenuItem.Category(category.getId(), category.getSlug(), category.getName(),
+                        membership.getCollectionCategory() == null ? category.getDisplayOrder() : membership.getCollectionCategory().getDisplayOrder()),
+                membership.getCollectionCategory() == null ? null : membership.getCollectionCategory().getId(),
+                membership.getDisplayOrder(), membership.getPriceOverrideMinor(), groups);
+    }
+
     private MenuItem.FoodProfile itemProfile(MenuItemJpaEntity item) {
         var badges = item.getDietaryTags().stream()
                 .filter(a -> a.getVerifiedAt() != null && a.getDietaryTag().isActive())

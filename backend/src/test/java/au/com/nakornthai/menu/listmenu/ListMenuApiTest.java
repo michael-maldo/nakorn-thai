@@ -146,4 +146,19 @@ class ListMenuApiTest {
         org.junit.jupiter.api.Assertions.assertNotEquals("client-supplied", first);
         org.junit.jupiter.api.Assertions.assertNull(org.slf4j.MDC.get("requestId"));
     }
+
+    @Test
+    void discoveryExposesUnavailablePublishedCollectionWithoutCaching() throws Exception {
+        var evaluated=Instant.parse("2026-09-07T00:00:00Z");
+        when(repository.findPublishedCollections()).thenReturn(List.of(new MenuItem.CollectionSummary(COLLECTION_ID,
+                "main-menu","Main Menu",null,"Australia/Melbourne",1,
+                new au.com.nakornthai.menu.domain.CollectionAvailability.Result(false,"OUTSIDE_SCHEDULE",evaluated))));
+        mvc.perform(get("/api/menu/collections")).andExpect(status().isOk())
+                .andExpect(header().string("Cache-Control","no-store"))
+                .andExpect(jsonPath("$[0].id").value(COLLECTION_ID.toString()))
+                .andExpect(jsonPath("$[0].timezone").value("Australia/Melbourne"))
+                .andExpect(jsonPath("$[0].availability.available").value(false))
+                .andExpect(jsonPath("$[0].availability.reason").value("OUTSIDE_SCHEDULE"))
+                .andExpect(jsonPath("$[0].availability.evaluatedAt").value(evaluated.toString()));
+    }
 }
