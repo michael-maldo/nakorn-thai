@@ -12,7 +12,7 @@ function catalog(data, failures = {}) {
   };
 }
 test('mixed collection cart rechecks Chef, regular menu and drinks prices', async () => {
-  catalog({ 'chefs-special-recommendations': [dish('chef',1190)], 'regular-menu': [dish('rice',2090)], drinks: [dish('tea',999)] });
+  catalog({ 'chefs-special-recommendations': [dish('chef',1190)], 'main-menu': [dish('rice',2090)], drinks: [dish('tea',999)] });
   const cart = ['chef','rice','tea'].map(line);
   const updated = await refreshCartPrices(cart);
   assert.deepEqual(updated.map(i => i.unitPriceMinor), [1190,2090,999]);
@@ -23,7 +23,7 @@ test('unavailable lunch and unavailable variations cannot pass checkout', async 
   catalog({ 'lunch-specials': [dish('lunch',1490,false)] });
   await assert.rejects(refreshCartPrices([line('lunch')]), /no longer available/);
   const unavailable = dish('rice',2090); unavailable.variations[0].available = false;
-  catalog({ 'regular-menu': [unavailable] });
+  catalog({ 'main-menu': [unavailable] });
   await assert.rejects(refreshCartPrices([line('rice')]), /no longer available/);
 });
 test('missing collection is skipped but missing cart item is rejected', async () => {
@@ -32,6 +32,6 @@ test('missing collection is skipped but missing cart item is rejected', async ()
   await assert.rejects(refreshCartPrices([line('removed')]), /no longer available/);
 });
 test('server failure stops validation rather than using a partial catalog', async () => {
-  catalog({ drinks: [dish('tea',999)] }, { 'regular-menu': 503 });
+  catalog({ drinks: [dish('tea',999)] }, { 'main-menu': 503 });
   await assert.rejects(refreshCartPrices([line('tea')]), /service is unavailable/);
 });

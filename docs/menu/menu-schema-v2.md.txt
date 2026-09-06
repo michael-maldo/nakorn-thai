@@ -1,0 +1,253 @@
+Nakorn Thai Flyway migrations — collection-aware menu model
+
+Files
+-----
+V17__add_menu_option_model.sql
+    Adds:
+    - reusable option groups/options;
+    - menu-item -> option-group mappings;
+    - order-item option snapshots;
+    - collection-specific category placement;
+    - collection-specific price overrides;
+    - menu collection active/inactive control;
+    - menu collection timezone;
+    - recurring weekday/time schedules;
+    - specific-date schedules.
+
+V18__reset_and_seed_main_menu.sql
+    Clears current menu + restaurant order data and seeds the supplied
+    printed Main Restaurant Menu.
+
+Preserved by V16
+----------------
+- flyway_schema_history
+- staff_user
+- staff_session
+- reservation
+- function_enquiry
+
+
+Compatibility with existing V15/V16
+-----------------------------------
+Existing repository migrations:
+
+    V15__create_function_enquiries.sql
+    V16__order_payments_and_tracking_verification.sql
+
+are compatible with V17/V18.
+
+V15 creates function_enquiry, which V18 preserves.
+
+V16 creates order_payment, order_verification and order_tracking_grant.
+Those tables reference restaurant_order, so V18 explicitly truncates them
+before resetting restaurant_order and related order/menu data.
+
+This allows the normal Flyway sequence:
+
+    V15 -> V16 -> V17 -> V18
+
+without foreign-key conflicts from the V16 order-support tables.
+
+
+V18 reset scope
+---------------
+Preserved:
+
+    flyway_schema_history
+    staff_user
+    staff_session
+    reservation
+    function_enquiry
+
+Reset:
+
+    order_payment
+    order_verification
+    order_tracking_grant
+    restaurant_order_event
+    restaurant_order_item_option
+    restaurant_order_item
+    restaurant_order
+    menu-related tables seeded by this migration
+
+Collection model
+----------------
+The same menu_item can be reused by many menu collections, such as:
+
+    Main Restaurant Menu
+    Lunch Menu
+    Valentine's Day Menu
+    Father's Day Special
+    Summer Promo
+
+menu_collection_category controls which categories appear in each collection.
+
+menu_collection_item.collection_category_id controls where an item appears
+inside THAT collection. Therefore one canonical Pad Thai can be:
+
+    Main Restaurant Menu -> Noodles
+    Lunch Menu           -> Lunch Specials
+
+without duplicating the menu item.
+
+Collection-specific pricing
+---------------------------
+menu_collection_item.price_override_minor is nullable:
+
+    NULL  -> use the normal/default menu_item_variation.price_minor
+    value -> use this collection-specific base price
+
+Example:
+
+    Pad Thai normal price   2090 ($20.90)
+    Lunch Menu override     1790 ($17.90)
+
+Option price deltas are then added to the resolved collection/base price.
+
+Availability model
+------------------
+menu_collection already has:
+
+    status       DRAFT / PUBLISHED / ARCHIVED
+    starts_at    optional broad validity start
+    ends_at      optional broad validity end
+
+V15 adds:
+
+    is_active    operational on/off switch
+    timezone     local timezone used for schedules
+    menu_collection_schedule
+
+A collection is intended to be customer-available when:
+
+    status = PUBLISHED
+    AND is_active = true
+    AND current time is inside starts_at / ends_at, when present
+    AND schedule rules allow the current local day/date/time, when present
+
+No schedule rows means there is no recurring/specific-date restriction.
+
+Examples
+--------
+Main Restaurant Menu
+
+    status = PUBLISHED
+    is_active = true
+    starts_at = NULL
+    ends_at = NULL
+    no schedule rows
+
+    => always available
+
+Summer Promo
+
+    starts_at = 2026-12-01
+    ends_at   = 2027-02-28
+    no schedule rows
+
+    => available for the entire summer-promo date range
+
+Lunch Menu
+
+    starts_at = NULL
+    ends_at = NULL
+
+    WEEKLY Monday    11:30-15:00
+    WEEKLY Tuesday   11:30-15:00
+    WEEKLY Wednesday 11:30-15:00
+    WEEKLY Thursday  11:30-15:00
+    WEEKLY Friday    11:30-15:00
+
+    => recurring weekday lunch menu
+
+Summer Lunch Promo
+
+    starts_at = 2026-12-01
+    ends_at   = 2027-02-28
+
+    plus WEEKLY Mon-Fri 11:30-15:00
+
+    => both the seasonal date range AND weekly schedule must match
+
+Valentine's Day Menu
+
+    SPECIFIC_DATE 2027-02-14 17:00-22:00
+
+    => available only on that date/time
+
+A SPECIFIC_DATE row with NULL start_time/end_time means the entire local date.
+
+Time zone
+---------
+The default collection timezone is:
+
+    Australia/Melbourne
+
+Weekday and time-of-day schedules must be evaluated using this timezone,
+not the VPS operating-system timezone.
+
+Option model
+------------
+New business choices such as Protein, Sauce, Size, Spice, Rice Choice or
+Extras are data, not schema changes.
+
+A menu item can have several option groups simultaneously, for example:
+
+    Green Curry
+      Protein -> Chicken / Beef / Prawns +600
+      Size    -> Small / Medium +300 / Large +600
+      Spice   -> Mild / Medium / Hot
+
+The current pricing model is additive.
+
+Backend pricing rule
+--------------------
+For an order line:
+
+    base price =
+        menu_collection_item.price_override_minor
+        OR default menu_item_variation.price_minor
+
+    final unit price =
+        base price
+        + sum(selected menu_option.price_delta_minor)
+
+Spring Boot must calculate this server-side. Never trust item prices or option
+prices submitted by the browser.
+
+Application work still required
+-------------------------------
+The database supports the model after V17, but the Spring Boot application
+must also be updated to:
+
+1. list/select menu collections;
+2. determine whether a collection is currently available;
+3. evaluate collection schedules using the collection timezone;
+4. load items through the selected collection;
+5. use collection-specific category placement;
+6. resolve collection-specific base prices;
+7. return option groups/options;
+8. validate min/max option selections;
+9. calculate final prices server-side;
+10. save selected options to restaurant_order_item_option.
+
+Allergen note
+-------------
+The seed does not infer allergens from ingredient descriptions. Only printed
+GF markings are seeded as a dietary tag. All allergen review statuses remain
+NOT_REVIEWED.
+
+Suggested workflow
+------------------
+1. Back up the database before applying V18.
+2. Put V17 and V18 in the existing Flyway migration directory.
+3. Commit them.
+4. Run the normal application/Flyway deployment.
+5. Confirm Flyway reports versions 17 and 18 successful.
+6. Verify:
+       SELECT count(*) FROM menu_item;                    -- 40
+       SELECT count(*) FROM menu_item_variation;          -- 40
+       SELECT count(*) FROM menu_collection_item;         -- 40
+       SELECT count(*) FROM menu_collection_category;     -- 7
+       SELECT count(*) FROM menu_collection_schedule;     -- 0 for Main Menu
+7. Verify staff identity, sessions and reservations are preserved.
