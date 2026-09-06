@@ -174,11 +174,14 @@ storage. **Checks:** [MenuImageServiceTest.java](../../backend/src/test/java/au/
    returns the receipt. Checkout saves the tracking reference, clears the cart and
    navigates to confirmation. Conflicting/lost responses can trigger a private lookup.
 
-**Known integration gap:** MenuPage supports multiple collections, but CheckoutPage
-currently revalidates against `chefs-special-recommendations` only. Regular-menu/drink
-items can therefore be rejected by the frontend before reaching the backend, which
-supports any eligible published collection. This is a source-code limitation, not
-an intended domain restriction; this documentation change does not fix it.
+Checkout now uses [checkoutApi.js](../../frontend/src/domains/ordering/api/checkoutApi.js)
+to revalidate all collections listed in the shared
+[menuCollections.js](../../frontend/src/domains/menu/model/menuCollections.js).
+Mixed Chef’s Specials, regular-menu and drinks carts use current prices. Unavailable
+items (including lunch), missing variations and service failures block checkout.
+A 404 collection is skipped, but its missing cart items remain unavailable.
+[checkoutApi.test.js](../../frontend/src/domains/ordering/api/checkoutApi.test.js)
+covers these cases. The backend still performs authoritative validation.
 
 **Data:** V11 order tables, read dependency on menu tables; no payment provider call.
 **Checks:** [CreateOrderIntegrationTest.java](../../backend/src/test/java/au/com/nakornthai/ordering/createorder/CreateOrderIntegrationTest.java);

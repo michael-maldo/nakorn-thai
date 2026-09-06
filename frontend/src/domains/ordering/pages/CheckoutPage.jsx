@@ -3,7 +3,7 @@ import Header from '../../../website/components/Header';
 import { useCart } from '../model/CartContext';
 import { cartTotal, money } from '../model/cartReducer';
 import { getOrderingOptions, getOrder, submitOrder } from '../api/orderApi';
-import { getMenuCollection } from '../../menu/api/menuApi';
+import { refreshCartPrices } from '../api/checkoutApi';
 
 export const PENDING_ORDER = 'nakorn-pending-pickup';
 export const RECEIPT = 'nakorn-pickup-receipt';
@@ -22,13 +22,7 @@ export default function CheckoutPage() {
     let payload = pending;
     try {
       if (!payload) {
-        const menu = await getMenuCollection('chefs-special-recommendations');
-        const current = menu.items.flatMap((dish) => dish.variations.map((variation) => ({ dish, variation })));
-        const updated = cart.map((line) => {
-          const match = current.find((entry) => entry.variation.id === line.variationId);
-          if (!match || !match.dish.available || !match.variation.available) throw new Error(`${line.dishName} is no longer available. Remove it from your cart before ordering.`);
-          return { ...line, unitPriceMinor: match.variation.priceMinor };
-        });
+        const updated = await refreshCartPrices(cart);
         if (updated.some((line, index) => line.unitPriceMinor !== cart[index].unitPriceMinor)) {
           dispatch({ type: 'replace', lines: updated }); throw new Error('Prices changed. Review the updated total and submit again.');
         }

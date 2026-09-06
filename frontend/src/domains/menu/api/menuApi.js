@@ -22,7 +22,9 @@ export async function menuRequest(path, { authorization, csrf, ...options } = {}
       404: 'The requested menu could not be found.',
       409: 'This dish has changed or its slug already exists. Reload the menu before saving.',
     };
-    throw new Error(messages[response.status] || 'The menu service is unavailable. Please try again.');
+    const error = new Error(messages[response.status] || 'The menu service is unavailable. Please try again.');
+    error.status = response.status;
+    throw error;
   }
   if (response.status === 204) return null;
   try { return await response.json(); }

@@ -1,3 +1,4 @@
+import { menuCollections as collections } from '../model/menuCollections';
 import Cart from '../../ordering/components/Cart';
 import { useCart } from '../../ordering/model/CartContext';
 import { getOrderingOptions } from '../../ordering/api/orderApi';
@@ -11,7 +12,6 @@ const price = (minor, currency) => new Intl.NumberFormat('en-AU', { style: 'curr
 
 export default function MenuPage() {
   const [collection, setCollection] = useState('chefs-special-recommendations');
-  const collections = { 'chefs-special-recommendations': 'Chef’s Special Recommendations', 'regular-menu': 'Restaurant Menu', 'lunch-specials': 'Lunch Specials', drinks: 'Drinks' };
   const { items, loading, error, retry } = useMenu(collection);
   const [search, setSearch] = useState('');
   const { cart, dispatch } = useCart();
