@@ -1,3 +1,4 @@
+import CheckoutSummary from '../components/CheckoutSummary';
 import PaymentForm from '../../payment/components/PaymentForm';
 import { useEffect, useState } from 'react';
 import { useCart } from '../model/CartContext';
@@ -39,7 +40,7 @@ export default function OrderConfirmationPage() {
       {order.status === 'NEW' && <p>Wait for confirmation here. Pickup time has not been confirmed yet.</p>}
       {order.estimatedReadyAt && !['CANCELLED','COMPLETED'].includes(order.status) && <p>Estimated pickup: {new Date(order.estimatedReadyAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>}
       {order.cancellationReason && <p>{order.cancellationReason}</p>}
-      {order.items.map((line,index) => <p key={index}>{line.quantity} × {line.dishName} ({line.variationName}) — {money(line.quantity * line.unitPriceMinor)}</p>)}
+      {order.items.map((line,index) => <CheckoutSummary key={line.id ?? index} line={line} historical />)}
       <p>Total: <strong>{money(order.totalMinor)}</strong></p>
       {receipt && <PaymentForm order={order} receipt={receipt} />}
       <p>Pickup: 233 Glenferrie Rd, Malvern VIC 3144.</p>

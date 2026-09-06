@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useCart } from '../model/CartContext';
 import { cartTotal, money } from '../model/cartReducer';
+import CheckoutSummary from './CheckoutSummary';
 
 function QuantityInput({ quantity, onCommit }) {
   const [value, setValue] = useState(String(quantity));
@@ -82,25 +83,25 @@ export default function Cart({ checkoutEnabled = true }) {
   return <section className="order-panel" aria-label="Your pickup order">
     <h2>Your pickup order</h2>
     {!cart.length ? <p>Your cart is empty. Add a dish to get started.</p> : <>
-      {cart.map((line) => <div className="cart-line" key={line.variationId}>
-        <div><strong>{line.dishName}</strong><p>{line.variationName}</p></div>
+      {cart.map((line) => <div className="cart-line" key={line.key}>
+        <CheckoutSummary line={line} />
         <label>Quantity for {line.dishName}
             <QuantityInput
                 quantity={line.quantity}
                 onCommit={(quantity) =>
                   dispatch({
                     type: 'quantity',
-                    id: line.variationId,
+                    id: line.key,
                     quantity
                   })
                 }
   />
         </label>
         <strong>{money(line.unitPriceMinor * line.quantity)}</strong>
-        <button type="button" onClick={() => dispatch({ type: 'remove', id: line.variationId })}>Remove</button>
+        <button type="button" onClick={() => dispatch({ type: 'remove', id: line.key })}>Remove</button>
       </div>)}
       <p className="order-total">Total: {money(cartTotal(cart))}</p>
-      {checkoutEnabled && <a className="button button-primary" href="#/checkout">Checkout for pickup</a>}
+      {checkoutEnabled && <a className="button button-primary" href="#/checkout">{cart.some((line) => line.issue) ? 'Review cart at checkout' : 'Checkout for pickup'}</a>}
     </>}
   </section>;
 }

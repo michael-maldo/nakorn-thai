@@ -5,7 +5,7 @@ import { getOrderingOptions } from '../api/orderApi';
 import Cart from './Cart';
 
 export default function CartDock() {
-  const { cart } = useCart();
+  const { cart, notice, dismissNotice } = useCart();
   const dialog = useRef(null);
   const trigger = useRef(null);
   const [enabled, setEnabled] = useState(null);
@@ -26,6 +26,7 @@ export default function CartDock() {
     try { setEnabled((await getOrderingOptions()).enabled); } catch { setEnabled(false); }
   }
   return <>
+    {notice && <aside className="cart-notice" role="status"><p>{notice}</p><a href="#/menu">Choose dishes</a> <a href="#/checkout">Check saved submission</a> <button type="button" onClick={dismissNotice}>Dismiss</button></aside>}
     {count > 0 && <div className="cart-dock"><button ref={trigger} className="button button-primary" onClick={open} aria-haspopup="dialog"><span>View cart · {count} {count === 1 ? 'item' : 'items'}</span><strong>{money(cartTotal(cart))}</strong></button></div>}
     <dialog ref={dialog} className="cart-dialog" aria-labelledby="cart-dialog-title" onClose={() => trigger.current?.focus()} onClick={(event) => { if (event.target === dialog.current) dialog.current.close(); }}>
       <div className="cart-dialog-heading"><h2 id="cart-dialog-title">Your shopping cart</h2><button type="button" autoFocus onClick={() => dialog.current.close()} aria-label="Close shopping cart">Close ×</button></div>

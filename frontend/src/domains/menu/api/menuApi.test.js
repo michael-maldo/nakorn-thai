@@ -1,19 +1,19 @@
 import { afterEach, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { archiveMenuItem, getSignatureDishes, getStaffCsrf, saveMenuItem } from './menuApi.js';
+import { archiveMenuItem, getMenuCollection, getMenuCollections, getStaffCsrf, saveMenuItem } from './menuApi.js';
 
 const originalFetch = globalThis.fetch;
 afterEach(() => { globalThis.fetch = originalFetch; });
 
-test('public menu uses collection API and forwards cancellation without credentials', async () => {
+test('public menu uses selected collection API and forwards cancellation without authorization', async () => {
   const controller = new AbortController();
   globalThis.fetch = async (url, options) => {
-    assert.equal(url, '/api/menu/collections/signature-dishes/items');
+    assert.equal(url, '/api/menu/collections/seasonal-menu/items');
     assert.equal(options.signal, controller.signal);
     assert.equal(options.headers.Authorization, undefined);
     return Response.json({ items: [{ name: 'Database curry' }] });
   };
-  assert.equal((await getSignatureDishes(controller.signal)).items[0].name, 'Database curry');
+  assert.equal((await getMenuCollection('seasonal-menu', controller.signal)).items[0].name, 'Database curry');
 });
 
 test('staff gets a CSRF token with explicit authentication', async () => {
@@ -56,13 +56,13 @@ test('archive includes the version and does not parse an empty response', async 
 for (const [status, message] of [[401, /Sign-in failed/], [409, /changed or its slug/], [502, /unavailable/]]) {
   test(`HTTP ${status} shows an actionable error even when the proxy returns HTML`, async () => {
     globalThis.fetch = async () => new Response('<html>Error</html>', { status });
-    await assert.rejects(getSignatureDishes(), message);
+    await assert.rejects(getMenuCollection('seasonal-menu'), message);
   });
 }
 
  test('HTML served by a missing API proxy produces a readable error', async () => {
   globalThis.fetch = async () => new Response('<html>Restaurant homepage</html>');
-  await assert.rejects(getSignatureDishes(), /invalid response/);
+  await assert.rejects(getMenuCollection('seasonal-menu'), /invalid response/);
 });
 
 test('image upload lets the browser generate multipart boundaries and sends CSRF', async () => {
@@ -109,12 +109,17 @@ test('failed token refresh prevents the write', async () => {
   assert.equal(calls, 1);
 });
 
-test('restaurant menu fetches the chef collection rather than homepage signatures', async () => {
-  const { getMenuCollection } = await import('./menuApi.js');
-  globalThis.fetch = async (url) => {
-    assert.equal(url, '/api/menu/collections/chefs-special-recommendations/items');
-    return Response.json({ items: [{ name: 'Lamb Shank with Curry', variations: [{ name: 'Green Curry', priceMinor: 3190, currency: 'AUD' }] }] });
+test('collection discovery consumes backend slugs and preserves unavailable collections', async () => {
+  const controller = new AbortController();
+  const collections = [{ id: 'new-id', slug: 'new-seasonal-offer', name: 'Seasonal', availability: { available: false, reason: 'OUTSIDE_SCHEDULE' } }];
+  globalThis.fetch = async (url, options) => {
+    assert.equal(url, '/api/menu/collections'); assert.equal(options.signal, controller.signal);
+    return Response.json(collections);
   };
-  const menu = await getMenuCollection('chefs-special-recommendations');
-  assert.equal(menu.items[0].variations[0].priceMinor, 3190);
+  assert.deepEqual(await getMenuCollections(controller.signal), collections);
+});
+
+test('invalid collection discovery fails instead of inventing a fallback menu', async () => {
+  globalThis.fetch = async () => Response.json({ items: [] });
+  await assert.rejects(getMenuCollections(), /invalid collection list/);
 });

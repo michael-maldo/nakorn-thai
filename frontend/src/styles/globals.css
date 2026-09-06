@@ -345,3 +345,24 @@ body.has-cart-dock { padding-bottom: calc(88px + env(safe-area-inset-bottom)); }
 .cart-dialog-heading button { padding: .6rem 1rem; cursor: pointer; }
 .cart-dialog .order-panel { margin-bottom: 0; }
 @media (max-width: 640px) { .cart-dialog { padding: 16px; } .cart-dialog .cart-line { display: flex; flex-wrap: wrap; gap: 1rem; } .cart-dialog .cart-line > div { width: 100%; } }
+
+/* Customer collection configuration and historical order selections. */
+.menu-collection-list button small { display: block; font-size: .75rem; }
+.menu-collection-list button[data-unavailable="true"] { border-style: dashed; }
+.menu-variation, .menu-option-group label { display: flex; flex-direction: column; gap: .5rem; }
+.menu-variation select, .menu-option-group select, .menu-option-group input { max-width: 100%; padding: .6rem; font: inherit; border: 1px solid var(--line); border-radius: 4px; }
+.menu-option-group { min-width: 0; margin: 1rem 0; border: 1px solid var(--line); border-radius: 4px; padding: .8rem; }
+.menu-option-group legend { font-weight: 700; }
+.menu-option-group .menu-option-quantity { flex-direction: row; align-items: center; justify-content: space-between; margin-block: .65rem; gap: .75rem; }
+.menu-option-quantity input { width: 5rem; flex-shrink: 0; }
+.restaurant-menu-item button:disabled { opacity: .5; cursor: default; }
+.menu-choice-message { font-weight: 600; }
+.menu-unit-price, .order-selected-options { font-size: .9rem; }
+.order-selected-options { padding-left: 1.2rem; }
+.order-selected-options li { margin-block: .3rem; }
+.checkout-line-summary { min-width: 0; overflow-wrap: anywhere; }
+.checkout-line-summary p { margin-block: .5rem; }
+.cart-notice { padding: 1rem; margin: 1rem; background: var(--paper); border: 1px solid var(--line); }
+.cart-notice a, .cart-notice button { margin-right: .75rem; }
+.cart-notice { position: fixed; z-index: 25; inset-inline: 1rem; bottom: 1rem; max-width: 44rem; max-height: 35vh; overflow-y: auto; margin-inline: auto; box-shadow: 0 4px 24px #0002; }
+.has-cart-dock .cart-notice { bottom: 6rem; }

@@ -33,7 +33,13 @@ export async function menuRequest(path, { authorization, csrf, ...options } = {}
 
 export const getMenuCollection = (slug, signal) =>
   menuRequest(`/menu/collections/${encodeURIComponent(slug)}/items`, { signal });
-export const getSignatureDishes = (signal) => getMenuCollection('signature-dishes', signal);
+export async function getMenuCollections(signal) {
+  const collections = await menuRequest('/menu/collections', { signal });
+  if (!Array.isArray(collections) || collections.some((entry) => typeof entry.id !== 'string'
+    || typeof entry.slug !== 'string' || typeof entry.name !== 'string' || typeof entry.availability?.available !== 'boolean'))
+    throw new Error('The menu service returned an invalid collection list.');
+  return collections;
+}
 export const getStaffMenu = (authorization) => menuRequest('/staff/menu/items', { authorization });
 export const getStaffCsrf = (authorization) => menuRequest('/staff/menu/csrf', { authorization });
 export const saveMenuItem = (item, authorization, csrf) => menuRequest(

@@ -1,13 +1,18 @@
+import { configurationKey } from './cartModel.js';
+
 export function cartReducer(cart, action) {
   switch (action.type) {
     case 'add': {
-      const existing = cart.find((line) => line.variationId === action.line.variationId);
+      const key = configurationKey(action.line);
+      const existing = cart.find((line) => line.key === key);
       if (!existing && cart.length >= 30) return cart;
-      return existing ? cart.map((line) => line === existing ? { ...line, quantity: Math.min(20, line.quantity + 1) } : line) : [...cart, { ...action.line, quantity: 1 }];
+      return existing ? cart.map((line) => line === existing
+        ? { ...action.line, key, quantity: Math.min(20, line.quantity + 1) } : line)
+        : [...cart, { ...action.line, key, quantity: 1 }];
     }
-    case 'quantity': return cart.map((line) => line.variationId === action.id ? { ...line, quantity: Math.max(1, Math.min(20, Math.trunc(Number(action.quantity)) || 1)) } : line);
-    case 'remove': return cart.filter((line) => line.variationId !== action.id);
-    case 'replace': return action.lines;
+    case 'quantity': return cart.map((line) => line.key === action.id ? { ...line, quantity: Math.max(1, Math.min(20, Math.trunc(Number(action.quantity)) || 1)) } : line);
+    case 'remove': return cart.filter((line) => line.key !== action.id);
+    case 'replace': return action.lines.map((line) => ({ ...line, key: configurationKey(line) }));
     case 'clear': return [];
     default: return cart;
   }

@@ -6,15 +6,15 @@ import SectionTitle from './SectionTitle';
 export default function SignatureDishes() {
   const [openDish, setOpenDish] = useState(null);
   const { items, loading, error, retry } = useMenu();
-  const dishes = items.map(presentDish);
+  const dishes = items.slice(0, 4).map(presentDish);
 
   return (
     <section className="signature section" id="menu">
       <div className="page-width">
-        <SectionTitle eyebrow="Chef’s recommendations">Signature Dishes</SectionTitle>
-        {loading && <p role="status">Loading signature dishes…</p>}
+        <SectionTitle eyebrow="Explore our dishes">From our menu</SectionTitle>
+        {loading && <p role="status">Loading dishes…</p>}
         {error && <div role="alert"><p>{error}</p><button type="button" onClick={retry}>Try again</button></div>}
-        {!loading && !error && dishes.length === 0 && <p>Our signature menu is being updated. Please check back soon.</p>}
+        {!loading && !error && dishes.length === 0 && <p>Our menu is being updated. Please check back soon.</p>}
         <div className="dish-grid">
           {dishes.map((dish) => (
             <article className="dish-card" key={dish.id}>

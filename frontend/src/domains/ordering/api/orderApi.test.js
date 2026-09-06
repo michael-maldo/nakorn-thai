@@ -2,24 +2,26 @@ import { afterEach, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { submitOrder, getOrder, getStaffOrders, changeOrderStatus } from './orderApi.js';
 import { cartReducer, cartTotal } from '../model/cartReducer.js';
+import { configurationKey } from '../model/cartModel.js';
 const originalFetch = globalThis.fetch;
 afterEach(() => { globalThis.fetch = originalFetch; });
 
 test('cart merges variations, preserves cents and caps quantities', () => {
-  const line = { variationId: 'a', unitPriceMinor: 2490 };
+  const line = { collectionId: 'collection', variationId: 'a', selectedOptions: [], unitPriceMinor: 2490 };
+  const key = configurationKey(line);
   let cart = cartReducer([], { type: 'add', line });
   cart = cartReducer(cart, { type: 'add', line });
   assert.equal(cart.length, 1); assert.equal(cartTotal(cart), 4980);
-  assert.equal(cartReducer(cart, { type: 'quantity', id: 'a', quantity: 30 })[0].quantity, 20);
-  assert.equal(cartReducer(cart, { type: 'quantity', id: 'a', quantity: 0 })[0].quantity, 1);
-  assert.deepEqual(cartReducer(cart, { type: 'remove', id: 'a' }), []);
+  assert.equal(cartReducer(cart, { type: 'quantity', id: key, quantity: 30 })[0].quantity, 20);
+  assert.equal(cartReducer(cart, { type: 'quantity', id: key, quantity: 0 })[0].quantity, 1);
+  assert.deepEqual(cartReducer(cart, { type: 'remove', id: key }), []);
 });
 
 test('cart limits distinct lines and can refresh prices', () => {
   let cart = [];
-  for (let i=0;i<31;i++) cart = cartReducer(cart, { type: 'add', line: { variationId: String(i), unitPriceMinor: 100 } });
+  for (let i=0;i<31;i++) cart = cartReducer(cart, { type: 'add', line: { collectionId: 'collection', variationId: String(i), selectedOptions: [], unitPriceMinor: 100 } });
   assert.equal(cart.length, 30);
-  assert.equal(cartTotal(cartReducer(cart, { type: 'replace', lines: [{ quantity: 2, unitPriceMinor: 2605 }] })), 5210);
+  assert.equal(cartTotal(cartReducer(cart, { type: 'replace', lines: [{ collectionId: 'collection', variationId: 'a', selectedOptions: [], quantity: 2, unitPriceMinor: 2605 }] })), 5210);
 });
 
 test('checkout retries preserve the request key and exact payload', async () => {
