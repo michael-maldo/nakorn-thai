@@ -300,3 +300,6 @@ Customer accounts, payment providers/refunds, notification delivery, opening-hou
 configuration and automatic reservation capacity remain scaffolded. There are no
 implemented APIs for those features. See the [domain map](domain-map.md) for ownership
 and the [identity guide](../identity/dashboard-identity.md) for environment setup.
+
+For the frontend-to-backend execution paths and linked source files, see
+[workflow vertical slices](vertical-slices.md).

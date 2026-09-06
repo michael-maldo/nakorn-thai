@@ -1,0 +1,3 @@
+
+TODO
+the Menu page supports several collections, but checkout still rechecks only Chef’s Specials.

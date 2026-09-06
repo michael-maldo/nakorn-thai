@@ -175,3 +175,6 @@ structure change. Documentation of a future domain is not an implemented depende
 - [Functions and venue enquiries](../functions/functions.md)
 - [Backend deployment](../deployment/backend-deployment.md)
 - [Project file inventory](protoype-file-inventory.md)
+
+For the frontend-to-backend execution paths and linked source files, see
+[workflow vertical slices](vertical-slices.md).

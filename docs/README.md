@@ -13,7 +13,7 @@ marked **placeholder** retain the original scaffold and have no content yet.
 | Staff | [Cross-feature staff workflows](staff/staff-workflows.md) — placeholder |
 | Deployment | [Backend VPS setup](deployment/backend-deployment.md), [GitHub/VPS CI/CD](deployment/setup-git-vps-ci-cd.md), [deployment overview](deployment/deployment.md) — placeholder |
 | Development | [Git repository setup](development/git-init-repo.md) |
-| Architecture | [Project file inventory](architecture/protoype-file-inventory.md), [domain map](architecture/domain-map.md), [API reference](architecture/api.md); [architecture](architecture/architecture.md), [system context](architecture/system-context.md), [critical flows](architecture/critical-flows.md) — placeholders |
+| Architecture | [Project file inventory](architecture/protoype-file-inventory.md), [domain map](architecture/domain-map.md), [API reference](architecture/api.md), [workflow vertical slices](architecture/vertical-slices.md); [architecture](architecture/architecture.md), [system context](architecture/system-context.md), [critical flows](architecture/critical-flows.md) — placeholders |
 | Operations | [Runbook](operations/runbook.md), [risk register](operations/risk-register.md) — placeholders |
 
 For local application startup, see the [backend README](../backend/README.md) and
