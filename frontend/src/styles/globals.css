@@ -272,7 +272,47 @@ button, input { font: inherit; }
 .order-panel button:disabled, .restaurant-menu-prices button:disabled { opacity: .5; cursor: default; }
 .cart-line { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; padding-block: 1rem; border-bottom: 1px solid var(--line); }
 .cart-line > div { flex: 1; min-width: 160px; }
-.cart-line input { width: 5rem; }
+
+/* Quantity control */
+.quantity-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.quantity-button {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--paper);
+  font-size: 1.4rem;
+  cursor: pointer;
+}
+
+.cart-line .quantity-input {
+  width: 3.5rem;
+  height: 44px;
+  padding: 0;
+  text-align: center;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+
+/* Hide native number spinner — Chrome, Safari, Edge */
+.quantity-input::-webkit-outer-spin-button,
+.quantity-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Hide native number spinner — Firefox */
+.quantity-input {
+  -moz-appearance: textfield;
+}
+/* .cart-line input { width: 5rem; } */
+
 .order-total { font-size: 1.2rem; font-weight: bold; }
 .order-queue { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 1rem; }
 .order-queue .order-panel { margin: 0; }
