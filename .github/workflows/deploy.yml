@@ -49,6 +49,9 @@ jobs:
           DB_TEST_URL: jdbc:postgresql://localhost:5432/nakorn_menu_test
           DB_TEST_USERNAME: nakorn_test
           DB_TEST_PASSWORD: ci-test-password
+
+          SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 2
+          SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 0
         run: |
           mvn --batch-mode --no-transfer-progress clean verify
           test -s target/nakorn-thai-backend-0.1.0-SNAPSHOT.jar
