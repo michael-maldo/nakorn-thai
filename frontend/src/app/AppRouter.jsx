@@ -1,3 +1,4 @@
+import RestaurantSchedulePage from '../domains/restaurant/pages/RestaurantSchedulePage';
 import OrderTrackingPage from '../domains/ordering/pages/OrderTrackingPage';
 import FunctionsPage from '../website/pages/FunctionsPage';
 import FunctionEnquiriesPage from '../domains/staff/pages/FunctionEnquiriesPage';
@@ -34,6 +35,7 @@ export default function AppRouter() {
   if (hash === '#/track-order') return <OrderTrackingPage />;
   if (hash === '#/checkout') return <CheckoutPage />;
   if (hash === '#/order-confirmation') return <OrderConfirmationPage />;
+  if (hash === '#/staff/restaurant') return <ProtectedRoute roles={['ADMIN']}><RestaurantSchedulePage /></ProtectedRoute>;
   if (hash === '#/staff/users') return <ProtectedRoute roles={['ADMIN']}><UsersPage /></ProtectedRoute>;
   if (hash === '#/staff/menu') return <ProtectedRoute roles={['ADMIN']}><StaffMenuPage /></ProtectedRoute>;
   if (hash === '#/staff/foh') return <ProtectedRoute roles={['ADMIN', 'FOH']}><StaffOrdersPage /></ProtectedRoute>;

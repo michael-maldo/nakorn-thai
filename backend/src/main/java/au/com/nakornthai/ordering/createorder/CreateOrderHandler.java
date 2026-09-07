@@ -10,6 +10,9 @@ import org.springframework.http.HttpStatus;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.Instant;
+import java.time.Clock;
+import au.com.nakornthai.restaurant.availability.RestaurantAvailabilityService;
+import au.com.nakornthai.restaurant.domain.RestaurantClosedException;
 import java.util.*;
 
 @Service
@@ -17,12 +20,14 @@ public class CreateOrderHandler {
     private final EntityManager em;
     private final OrderMapper mapper;
     private final boolean enabled;
+    private final RestaurantAvailabilityService availability;
+    private final Clock clock;
     @Value("${PAYPAL_ENABLED:false}") private boolean paypalEnabled;
     @Value("${PAYID_ENABLED:false}") private boolean payidEnabled;
-    public CreateOrderHandler(EntityManager em, OrderMapper mapper, @Value("${ONLINE_ORDERING_ENABLED:false}") boolean enabled) {
-        this.em=em; this.mapper=mapper; this.enabled=enabled;
+    public CreateOrderHandler(EntityManager em, OrderMapper mapper, @Value("${ONLINE_ORDERING_ENABLED:false}") boolean enabled, RestaurantAvailabilityService availability, Clock clock) {
+        this.em=em; this.mapper=mapper; this.enabled=enabled; this.availability=availability; this.clock=clock;
     }
-    public boolean enabled() { return enabled; }
+    public boolean enabled() { return enabled && availability.isOpen(clock.instant()); }
     public static String hash(String value) {
         try { return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8))); }
         catch (java.security.NoSuchAlgorithmException e) { throw new IllegalStateException(e); }
@@ -44,6 +49,8 @@ public class CreateOrderHandler {
         }
         if (!enabled) throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Online ordering is currently closed");
         if((paymentMethod.equals("PAYPAL")&&!paypalEnabled) || (paymentMethod.equals("PAYID")&&!payidEnabled))throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,"Selected payment method is unavailable");
+        Instant checkoutAt = clock.instant();
+        if (!availability.isOpen(checkoutAt)) throw new RestaurantClosedException();
         var order = new OrderJpaEntity(); order.setId(request.requestId());
         order.setPaymentMethod(paymentMethod);
         order.setTrackingHash(hash(request.trackingToken())); order.setRequestHash(fingerprint);
@@ -52,8 +59,7 @@ public class CreateOrderHandler {
         if (request.items().stream().anyMatch(l -> l.collectionId() == null))
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Collection is required for every new order line");
         MenuCatalogLock.read(em);
-        // One instant for every collection in this checkout, after acquiring the catalog lock.
-        Instant checkoutAt = Instant.now();
+        // Reuse the restaurant availability instant for every collection and snapshot.
         order.setCreatedAt(checkoutAt); order.setUpdatedAt(checkoutAt);
         var seen = new HashSet<String>();
         var lines = request.items().stream().sorted(Comparator.comparing(CreateOrderRequest.Line::configurationKey)).toList();

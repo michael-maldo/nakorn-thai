@@ -41,6 +41,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/staff/kitchen/**").hasAnyRole("ADMIN", "BOH")
                         .requestMatchers("/api/staff/orders/**").hasAnyRole("ADMIN", "FOH", "BOH")
                         .requestMatchers("/api/staff/menu/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/restaurant/availability").permitAll()
+                        .requestMatchers("/api/staff/restaurant/**").hasRole("ADMIN")
                         .anyRequest().denyAll())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .requestCache(AbstractHttpConfigurer::disable)

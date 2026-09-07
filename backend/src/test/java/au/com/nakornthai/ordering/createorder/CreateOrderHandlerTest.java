@@ -51,7 +51,12 @@ class CreateOrderHandlerTest {
             if(invocation.getArgument(0) instanceof au.com.nakornthai.ordering.infrastructure.OrderJpaEntity order) order.setVersion(0L);
             return null;
         }).when(em).persist(org.mockito.ArgumentMatchers.any());
-        var handler=new CreateOrderHandler(em,new au.com.nakornthai.ordering.infrastructure.OrderMapper(),true);
+        var availability=org.mockito.Mockito.mock(au.com.nakornthai.restaurant.availability.RestaurantAvailabilityService.class);
+        var operationInstant=java.time.Instant.parse("2026-09-07T08:00:00Z");
+        var clock=org.mockito.Mockito.mock(java.time.Clock.class);
+        org.mockito.Mockito.when(clock.instant()).thenReturn(operationInstant);
+        org.mockito.Mockito.when(availability.isOpen(operationInstant)).thenReturn(true);
+        var handler=new CreateOrderHandler(em,new au.com.nakornthai.ordering.infrastructure.OrderMapper(),true,availability,clock);
         var request=request(List.of(new CreateOrderRequest.Line(variation.getId(),2,3200,collection.getId(),
                 List.of(new CreateOrderRequest.SelectedOption(option.getId(),2)))));
         var response=handler.handle(request);
@@ -67,8 +72,24 @@ class CreateOrderHandlerTest {
         assertSame(stored.getItems().getFirst(),stored.getItems().getFirst().getSelectedOptions().getFirst().getOrderItem());
         org.mockito.Mockito.when(em.find(au.com.nakornthai.ordering.infrastructure.OrderJpaEntity.class,request.requestId())).thenReturn(stored);
         collection.setActive(false); option.setName("Changed"); option.setPriceDeltaMinor(999);
-        assertEquals(response,new CreateOrderHandler(em,new au.com.nakornthai.ordering.infrastructure.OrderMapper(),false).handle(request));
+        assertEquals(operationInstant,stored.getCreatedAt()); assertEquals(operationInstant,stored.getUpdatedAt());
+        org.mockito.Mockito.when(availability.isOpen(operationInstant)).thenReturn(false);
+        assertEquals(response,new CreateOrderHandler(em,new au.com.nakornthai.ordering.infrastructure.OrderMapper(),false,availability,clock).handle(request));
+        org.mockito.Mockito.verify(availability,org.mockito.Mockito.times(1)).isOpen(operationInstant);
+        org.mockito.Mockito.verify(clock,org.mockito.Mockito.times(1)).instant();
         org.mockito.Mockito.verify(em,org.mockito.Mockito.times(2)).persist(org.mockito.ArgumentMatchers.any());
+    }
+    @Test void newOrderWhileClosedIsRejectedWithoutPersistence() {
+        var em=org.mockito.Mockito.mock(jakarta.persistence.EntityManager.class,org.mockito.Mockito.RETURNS_DEEP_STUBS);
+        var availability=org.mockito.Mockito.mock(au.com.nakornthai.restaurant.availability.RestaurantAvailabilityService.class);
+        var clock=java.time.Clock.fixed(java.time.Instant.parse("2026-09-07T08:00:00Z"),java.time.ZoneOffset.UTC);
+        var handler=new CreateOrderHandler(em,new au.com.nakornthai.ordering.infrastructure.OrderMapper(),true,availability,clock);
+        assertThrows(au.com.nakornthai.restaurant.domain.RestaurantClosedException.class,()->handler.handle(request(List.of())));
+        org.mockito.Mockito.verify(availability).isOpen(clock.instant());
+        org.mockito.Mockito.verify(em,org.mockito.Mockito.never()).persist(org.mockito.ArgumentMatchers.any());
+        assertFalse(handler.enabled());
+        org.mockito.Mockito.when(availability.isOpen(clock.instant())).thenReturn(true);
+        assertTrue(handler.enabled());
     }
     private <T extends au.com.nakornthai.menu.infrastructure.MenuUuidJpaEntity> T identified(T entity) throws Exception {
         var id=au.com.nakornthai.menu.infrastructure.MenuUuidJpaEntity.class.getDeclaredField("id");

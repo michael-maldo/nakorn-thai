@@ -22,6 +22,20 @@ class CreateReservationIntegrationTest {
  @Autowired MockMvc mvc; @Autowired JdbcTemplate jdbc;
  String time=LocalDate.now(ZoneId.of("Australia/Melbourne")).plusDays(2)+"T18:00:00";
  String body(UUID id){return "{\"requestId\":\""+id+"\",\"customerName\":\"Booking Test\",\"phone\":\"0400000000\",\"partySize\":4,\"requestedAt\":\""+time+"\",\"notes\":\"Window please\"}";}
+ @org.junit.jupiter.api.BeforeEach void openingHours() {
+  jdbc.update("DELETE FROM restaurant_closed_date");jdbc.update("DELETE FROM restaurant_opening_hours");
+  for(int day=1;day<=7;day++)jdbc.update("INSERT INTO restaurant_opening_hours(id,day_of_week,opens_at,closes_at) VALUES (?,?,'17:00','22:00')",UUID.randomUUID(),day);
+ }
+ @Test void closedBookingIsRejectedButSuccessfulReplayIsReturned() throws Exception {
+  var id=UUID.randomUUID();
+  mvc.perform(post("/api/reservations").with(csrf()).contentType("application/json").content(body(id))).andExpect(status().isCreated());
+  jdbc.update("INSERT INTO restaurant_closed_date(id,closed_date) VALUES (?,?::date)",UUID.randomUUID(),time.substring(0,10));
+  mvc.perform(post("/api/reservations").with(csrf()).contentType("application/json").content(body(id))).andExpect(status().isCreated());
+  var next=UUID.randomUUID();
+  mvc.perform(post("/api/reservations").with(csrf()).contentType("application/json").content(body(next)))
+   .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("RESTAURANT_CLOSED"));
+  assertEquals(0,jdbc.queryForObject("SELECT count(*) FROM reservation WHERE id=?",Integer.class,next));
+ }
  @Test void persistsRetriesAndRestrictsAccess() throws Exception {
  var id=UUID.randomUUID();
  mvc.perform(post("/api/reservations").contentType("application/json").content(body(id))).andExpect(status().isForbidden());

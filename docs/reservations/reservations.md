@@ -2,11 +2,12 @@
 
 Customers can request a table through the homepage Reservations navigation or
 Book a table buttons at `/#/reservations`. The form takes a name, phone number,
-party size, requested date/time and optional notes. All times are local Melbourne
-time. Requests must be in the future, within 90 days, for 1–20 guests.
+party size, requested date/time and optional notes. All times use the configured restaurant timezone (initially Australia/Melbourne). Requests must be in the future, within 90 days, for 1–20 guests.
 
 This version records **requests, not guaranteed table availability**. Staff must
-check opening hours and seating availability and call the guest before confirming.
+check seating availability and call the guest before confirming. New requests are
+validated against [restaurant scheduling](../restaurant/scheduling.md); closed requested
+times are rejected by the backend.
 There is no table allocation, automatic capacity calculation, deposit, email/SMS
 notification or public booking lookup. Customers should contact the restaurant to
 change or cancel their request, quoting the reference shown after submission.
@@ -15,7 +16,7 @@ change or cancel their request, quoting the reference shown after submission.
 
 Sign in at `/#/staff` using JWT authentication and open Reservations. ADMIN and FOH
 can access `/#/staff/reservations`; BOH cannot view guest booking details. Select a
-Melbourne date and refresh to see requests. Add a staff note when updating status.
+restaurant-local date and refresh to see requests. Add a staff note when updating status.
 
 - REQUESTED → CONFIRMED, DECLINED or CANCELLED
 - CONFIRMED → SEATED, NO_SHOW or CANCELLED

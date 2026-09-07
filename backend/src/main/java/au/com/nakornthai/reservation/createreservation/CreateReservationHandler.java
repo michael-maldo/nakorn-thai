@@ -1,6 +1,8 @@
 package au.com.nakornthai.reservation.createreservation;
 import au.com.nakornthai.reservation.infrastructure.*;
 import lombok.RequiredArgsConstructor;
+import au.com.nakornthai.restaurant.availability.RestaurantAvailabilityService;
+import au.com.nakornthai.restaurant.domain.RestaurantClosedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
@@ -12,6 +14,8 @@ import java.util.*;
 public class CreateReservationHandler {
  private final SpringDataReservationRepository reservations;
  private final EntityManager em;
+ private final RestaurantAvailabilityService availability;
+ private final Clock clock;
  @Transactional public Map<String,Object> handle(CreateReservationRequest request) {
   em.createNativeQuery("SELECT pg_advisory_xact_lock(:key)",Object.class).setParameter("key",request.requestId().getMostSignificantBits()).getSingleResult();
   var existing=reservations.findById(request.requestId());
@@ -21,10 +25,16 @@ public class CreateReservationHandler {
     throw new ResponseStatusException(HttpStatus.CONFLICT,"Request reference already used; start a new booking");
    return receipt(r);
   }
-  var now=LocalDateTime.now(ZoneId.of("Australia/Melbourne"));
+  Instant operationInstant=clock.instant();
+  var schedule=availability.schedule();
+  var now=LocalDateTime.ofInstant(operationInstant,schedule.timezone());
   if(!request.requestedAt().isAfter(now) || request.requestedAt().isAfter(now.plusDays(90)) || request.requestedAt().getSecond()!=0 || request.requestedAt().getNano()!=0)
-   throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Choose a future time within 90 days (Melbourne time)");
-  var r=new ReservationJpaEntity();r.setId(request.requestId());r.setCustomerName(request.customerName().trim());r.setPhone(request.phone().trim());r.setPartySize(request.partySize());r.setRequestedAt(request.requestedAt());r.setNotes(request.notes().trim());
+   throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Choose a future time within 90 days (restaurant local time)");
+  Instant requestedInstant;
+  try { requestedInstant=schedule.requestedInstant(request.requestedAt()); }
+  catch (IllegalArgumentException invalid) { throw new ResponseStatusException(HttpStatus.BAD_REQUEST,invalid.getMessage()); }
+  if(!schedule.isOpen(requestedInstant)) throw new RestaurantClosedException();
+  var r=new ReservationJpaEntity();r.setCreatedAt(operationInstant);r.setUpdatedAt(operationInstant);r.setId(request.requestId());r.setCustomerName(request.customerName().trim());r.setPhone(request.phone().trim());r.setPartySize(request.partySize());r.setRequestedAt(request.requestedAt());r.setNotes(request.notes().trim());
   reservations.saveAndFlush(r);return receipt(r);
  }
  private Map<String,Object> receipt(ReservationJpaEntity r) { return Map.of("reference",r.getId(),"message","Booking request received. Your table is not confirmed until staff contact you."); }

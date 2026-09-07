@@ -31,6 +31,12 @@ class CreateOrderIntegrationTest {
     UUID item, variation, id, collection;
     String token="a".repeat(64);
     @BeforeEach void fixture() {
+        jdbc.update("DELETE FROM restaurant_closed_date");
+        jdbc.update("DELETE FROM restaurant_opening_hours");
+        for (int day=1;day<=7;day++) {
+            jdbc.update("INSERT INTO restaurant_opening_hours(id,day_of_week,opens_at,closes_at) VALUES (?,?,'00:00','12:00')",UUID.randomUUID(),day);
+            jdbc.update("INSERT INTO restaurant_opening_hours(id,day_of_week,opens_at,closes_at) VALUES (?,?,'12:00','00:00')",UUID.randomUUID(),day);
+        }
         item=UUID.randomUUID(); variation=UUID.randomUUID(); id=UUID.randomUUID();
         var category=UUID.randomUUID(); collection=UUID.randomUUID();
         jdbc.update("INSERT INTO menu_category(id,name,slug) VALUES (?,'Order test',?)",category,"order-"+category);
@@ -38,6 +44,16 @@ class CreateOrderIntegrationTest {
         jdbc.update("INSERT INTO menu_item_variation(id,menu_item_id,name,price_minor,is_default) VALUES (?,?,'Standard',2490,true)",variation,item);
         jdbc.update("INSERT INTO menu_collection(id,name,slug,status) VALUES (?,'Order test',?,'PUBLISHED')",collection,"order-"+collection);
         jdbc.update("INSERT INTO menu_collection_item(collection_id,menu_item_id) VALUES (?,?)",collection,item);
+    }
+    @Test void closedRestaurantRejectsNewApiOrderAndStoredReplayStillSucceeds() throws Exception {
+        create();
+        jdbc.update("DELETE FROM restaurant_opening_hours");
+        create();
+        id=UUID.randomUUID();
+        mvc.perform(post("/api/orders").with(csrf()).contentType("application/json").content(payload(2490)))
+                .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("RESTAURANT_CLOSED"));
+        assertEquals(0,jdbc.queryForObject("SELECT count(*) FROM restaurant_order WHERE id=?",Integer.class,id));
+        mvc.perform(get("/api/orders/options")).andExpect(status().isOk()).andExpect(jsonPath("$.enabled").value(false));
     }
     String payload(long price) {
         return """

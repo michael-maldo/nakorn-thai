@@ -14,7 +14,7 @@ public class ReservationJpaEntity {
  private String status="REQUESTED";
  private String staffNote="";
  private String updatedBy;
- private Instant createdAt=Instant.now();
- private Instant updatedAt=Instant.now();
+ private Instant createdAt;
+ private Instant updatedAt;
  @Version private Long version;
 }
