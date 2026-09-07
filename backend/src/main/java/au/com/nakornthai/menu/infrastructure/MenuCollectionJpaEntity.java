@@ -38,6 +38,7 @@ public class MenuCollectionJpaEntity extends MenuUuidJpaEntity {
     private int displayOrder = 0;
     @Column(name = "is_active", nullable = false) private boolean active = true;
     @Column(nullable = false, length = 64) private String timezone = "Australia/Melbourne";
+    private java.time.LocalTime dailyCutoffTime;
     @OneToMany(mappedBy = "collection") @BatchSize(size = 64)
     private List<MenuCollectionScheduleJpaEntity> schedules = new ArrayList<>();
     @OneToMany(mappedBy = "collection") @BatchSize(size = 64)

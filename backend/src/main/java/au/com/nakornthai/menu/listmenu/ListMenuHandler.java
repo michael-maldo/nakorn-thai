@@ -15,12 +15,14 @@ public class ListMenuHandler {
 
     private final Validator validator;
 
-    @Transactional(readOnly = true)
+    // Restaurant schedule reads acquire a consistency lock, requiring a writable transaction.
+    @Transactional
     public java.util.List<au.com.nakornthai.menu.domain.MenuItem.CollectionSummary> discover() {
         return repository.findPublishedCollections();
     }
 
-    @Transactional(readOnly = true)
+    // Restaurant schedule reads acquire a consistency lock, requiring a writable transaction.
+    @Transactional
     public MenuResponse handle(ListMenuQuery query) {
         if (query == null || !validator.validate(query).isEmpty()) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND);

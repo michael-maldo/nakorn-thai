@@ -46,3 +46,17 @@ test('corrupt, duplicate-option and invalid-price storage cannot be submitted', 
     assert.equal(restoreCart(serializeCart([malformed])).lines.length, 0);
   assert.throws(() => orderLines([{ ...line, issue: 'No longer offered' }]), /No longer offered/);
 });
+
+test('Lunch proteins remain separate cart identities and prawns cost 4180 for two', () => {
+  const collection = { id: 'lunch', slug: 'lunch-special', name: 'Lunch Special' };
+  const dish = { id: 'l1', name: 'L1. Pad Thai', optionGroups: [{ id: 'protein', name: 'Protein', selectionType: 'SINGLE', active: true, minSelections: 1, maxSelections: 1,
+    options: [{ id: 'chicken', name: 'Chicken', priceDeltaMinor: 0, available: true }, { id: 'prawns', name: 'Prawns', priceDeltaMinor: 600, available: true }] }] };
+  const variation = { id: 'standard', name: 'Standard', priceMinor: 1490 };
+  const chicken = createCartLine(collection, dish, variation, [{ optionId: 'chicken', quantity: 1 }]);
+  const prawns = createCartLine(collection, dish, variation, [{ optionId: 'prawns', quantity: 1 }]);
+  assert.notEqual(chicken.key, prawns.key); assert.equal(chicken.unitPriceMinor, 1490); assert.equal(prawns.unitPriceMinor, 2090);
+  const [line] = orderLines([{ ...prawns, quantity: 2 }]);
+  assert.equal(line.expectedUnitPriceMinor * line.quantity, 4180); assert.equal(line.collectionId, 'lunch');
+  assert.notEqual(prawns.key, configurationKey({ ...prawns, collectionId: 'main' }));
+  assert.equal(prawns.key, configurationKey({ ...prawns, dishName: 'Renamed', unitPriceMinor: 9999 }));
+});

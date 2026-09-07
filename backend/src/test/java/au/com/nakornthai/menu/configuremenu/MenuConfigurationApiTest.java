@@ -38,6 +38,19 @@ class MenuConfigurationApiTest {
                 """)).andExpect(status().isCreated()).andExpect(jsonPath("$.version").value(0));
         verify(handler).saveCollection(isNull(),any());
     }
+    @Test void dailyCutoffUsesNormalVersionedCollectionContract() throws Exception {
+        var id=UUID.randomUUID();
+        mvc.perform(put("/api/staff/menu/collections/"+id).with(user("admin").roles("ADMIN")).with(csrf())
+                .contentType("application/json").content("""
+                {"name":"Lunch Special","slug":"lunch-special","status":"PUBLISHED","active":true,
+                 "timezone":"UTC","displayOrder":2,"version":3,"dailyCutoffTime":"14:30:00"}
+                """)).andExpect(status().isOk());
+        var request=org.mockito.ArgumentCaptor.forClass(MenuConfigurationRequest.Collection.class);
+        verify(handler).saveCollection(eq(id),request.capture());
+        org.junit.jupiter.api.Assertions.assertEquals(java.time.LocalTime.of(14,30),request.getValue().dailyCutoffTime());
+        org.junit.jupiter.api.Assertions.assertEquals("UTC",request.getValue().timezone());
+        org.junit.jupiter.api.Assertions.assertEquals(3L,request.getValue().version());
+    }
     @Test void malformedConfigurationNeverReachesHandler() throws Exception {
         mvc.perform(post("/api/staff/menu/option-groups").with(user("admin").roles("ADMIN")).with(csrf())
                 .contentType("application/json").content("""

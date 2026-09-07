@@ -29,6 +29,17 @@ public final class CollectionAvailability {
         return new Result(reason == null, reason == null ? "AVAILABLE" : reason, now);
     }
 
+    /** Optional menu restriction expressed in restaurant business time, not store hours. */
+    public static Result withRestaurantCutoff(Result collection, LocalTime cutoff,
+            au.com.nakornthai.restaurant.domain.RestaurantSchedule restaurant) {
+        if (cutoff == null || !collection.available()) return collection;
+        if (restaurant == null || !restaurant.isOpen(collection.evaluatedAt()))
+            return new Result(false, "RESTAURANT_CLOSED", collection.evaluatedAt());
+        if (!collection.evaluatedAt().atZone(restaurant.timezone()).toLocalTime().isBefore(cutoff))
+            return new Result(false, "AFTER_CUTOFF", collection.evaluatedAt());
+        return collection;
+    }
+
     private static boolean matches(Rule rule, LocalDate date, LocalTime time) {
         if (!rule.active()) return false;
         if (rule.start() == null && rule.end() == null) return dayMatches(rule, date);

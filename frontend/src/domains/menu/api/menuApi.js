@@ -54,3 +54,9 @@ export const archiveMenuItem = (item, authorization, csrf) => menuRequest(
 export const saveMenuImage = (id, body, authorization, csrf) => menuRequest(
   `/staff/menu/items/${id}/image`, { method: 'POST', body, authorization, csrf },
 );
+
+export const getCollectionConfiguration = (authorization) => menuRequest('/staff/menu/collections', { authorization });
+export const saveCollectionConfiguration = (collection, authorization) => menuRequest(
+  `/staff/menu/collections/${collection.id}`,
+  { method: 'PUT', body: JSON.stringify({ ...collection.data, version: collection.version }), authorization, csrf: true },
+);

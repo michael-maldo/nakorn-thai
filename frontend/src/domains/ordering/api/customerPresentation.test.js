@@ -51,3 +51,11 @@ test('legacy order snapshots without collection or options remain readable', () 
     line: { dishName: 'Legacy Rice', variationName: 'Standard', quantity: 1, unitPriceMinor: 1000, collectionName: null, selectedOptions: [] } }));
   assert.match(html, /Legacy Rice/); assert.match(html, /\$10\.00/); assert.doesNotMatch(html, /undefined/);
 });
+
+test('backend cutoff and restaurant closure are explained without hiding collection discovery', async () => {
+  const { collectionAvailability, selectCollection } = await import('../../menu/model/menuCollections.js');
+  const lunch = { id: 'lunch', name: 'Lunch Special', availability: { available: false, reason: 'AFTER_CUTOFF' } };
+  assert.match(collectionAvailability(lunch), /ended for today/);
+  assert.equal(selectCollection([lunch], 'lunch'), lunch);
+  assert.match(collectionAvailability({ ...lunch, availability: { available: false, reason: 'RESTAURANT_CLOSED' } }), /restaurant is currently closed/);
+});

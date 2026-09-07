@@ -3,7 +3,8 @@
 The restaurant domain owns the timezone, recurring weekly windows, local closed
 dates and the single `RestaurantSchedule.isOpen(Instant)` evaluator. Ordering and
 reservation creation consume it. Menu-specific availability remains in menu;
-Phase 5 Lunch Special and V22 are not implemented.
+[Phase 5 Lunch Special](../menu/lunch-special.md) composes this capability with a
+menu-owned daily cutoff in V22.
 
 ## Activation and staff administration
 

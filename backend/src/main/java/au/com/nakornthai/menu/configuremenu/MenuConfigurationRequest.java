@@ -10,7 +10,7 @@ public final class MenuConfigurationRequest {
             @NotBlank @Size(max=180) @Pattern(regexp="[a-z0-9]+(-[a-z0-9]+)*") String slug,
             @Size(max=10000) String description, @NotNull @Pattern(regexp="DRAFT|PUBLISHED|ARCHIVED") String status,
             boolean active, @NotBlank @Size(max=64) String timezone, Instant startsAt, Instant endsAt,
-            @Min(0) int displayOrder, @PositiveOrZero Long version) {}
+            @Min(0) int displayOrder, @PositiveOrZero Long version, LocalTime dailyCutoffTime) {}
     public record Schedule(@NotNull @Pattern(regexp="WEEKLY|SPECIFIC_DATE") String ruleType,
             @Min(1) @Max(7) Short dayOfWeek, LocalDate specificDate, LocalTime startTime, LocalTime endTime,
             boolean active, @Min(0) int displayOrder, @PositiveOrZero Long version) {}

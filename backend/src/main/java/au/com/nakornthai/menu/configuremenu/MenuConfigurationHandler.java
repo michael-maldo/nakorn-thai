@@ -43,10 +43,11 @@ public class MenuConfigurationHandler {
         MenuCatalogLock.write(em);
         try { ZoneId.of(r.timezone()); } catch (DateTimeException e) { throw bad("Invalid collection timezone"); }
         if (r.startsAt()!=null && r.endsAt()!=null && !r.startsAt().isBefore(r.endsAt())) throw bad("Collection end must follow start");
+        if (r.dailyCutoffTime()!=null && r.dailyCutoffTime().getNano()!=0) throw bad("Cutoff must use whole seconds");
         var c = id == null ? new MenuCollectionJpaEntity() : required(MenuCollectionJpaEntity.class, id);
         check(c, r.version(), id == null);
         c.setName(r.name()); c.setSlug(r.slug()); c.setDescription(r.description()); c.setStatus(r.status());
-        c.setActive(r.active()); c.setTimezone(r.timezone()); c.setStartsAt(r.startsAt()); c.setEndsAt(r.endsAt()); c.setDisplayOrder(r.displayOrder());
+        c.setActive(r.active()); c.setTimezone(r.timezone()); c.setStartsAt(r.startsAt()); c.setEndsAt(r.endsAt()); c.setDisplayOrder(r.displayOrder()); c.setDailyCutoffTime(r.dailyCutoffTime());
         if (id == null) em.persist(c); em.flush(); return collectionView(c);
     }
     public void archiveCollection(UUID id, Long version) {
@@ -135,7 +136,7 @@ public class MenuConfigurationHandler {
     }
     private static void belongs(UUID actual,UUID expected) { if(!actual.equals(expected))throw bad("Resource belongs to a different parent"); }
     private static ResponseStatusException bad(String message) { return new ResponseStatusException(HttpStatus.BAD_REQUEST,message); }
-    private Resource collectionView(MenuCollectionJpaEntity c) { return new Resource(c.getId(),c.getVersion(),new MenuConfigurationRequest.Collection(c.getName(),c.getSlug(),c.getDescription(),c.getStatus(),c.isActive(),c.getTimezone(),c.getStartsAt(),c.getEndsAt(),c.getDisplayOrder(),c.getVersion())); }
+    private Resource collectionView(MenuCollectionJpaEntity c) { return new Resource(c.getId(),c.getVersion(),new MenuConfigurationRequest.Collection(c.getName(),c.getSlug(),c.getDescription(),c.getStatus(),c.isActive(),c.getTimezone(),c.getStartsAt(),c.getEndsAt(),c.getDisplayOrder(),c.getVersion(),c.getDailyCutoffTime())); }
     private Resource scheduleView(MenuCollectionScheduleJpaEntity s) { return new Resource(s.getId(),s.getVersion(),new MenuConfigurationRequest.Schedule(s.getRuleType(),s.getDayOfWeek(),s.getSpecificDate(),s.getStartTime(),s.getEndTime(),s.isActive(),s.getDisplayOrder(),s.getVersion())); }
     private Resource categoryView(MenuCollectionCategoryJpaEntity c) { return new Resource(c.getId(),c.getVersion(),new MenuConfigurationRequest.Category(c.getCategory().getId(),c.getDisplayOrder(),c.getVersion())); }
     private Resource membershipView(MenuCollectionItemJpaEntity m) { return new Resource(m.getMenuItem().getId(),m.getVersion(),new MenuConfigurationRequest.Membership(m.getCollectionCategory()==null?null:m.getCollectionCategory().getId(),m.getPriceOverrideMinor(),m.getDisplayOrder(),m.getVersion())); }

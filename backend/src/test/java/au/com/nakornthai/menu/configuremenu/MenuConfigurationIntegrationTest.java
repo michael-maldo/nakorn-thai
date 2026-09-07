@@ -35,7 +35,7 @@ class MenuConfigurationIntegrationTest {
         jdbc.update("INSERT INTO menu_item_variation(id,menu_item_id,name,price_minor,is_default) VALUES (?,?,'Standard',2490,true)",variation,item);
     }
     MenuConfigurationHandler.Resource collection() {
-        return handler.saveCollection(null,new MenuConfigurationRequest.Collection("Menu","menu-"+UUID.randomUUID(),null,"PUBLISHED",true,"Australia/Melbourne",null,null,1,null));
+        return handler.saveCollection(null,new MenuConfigurationRequest.Collection("Menu","menu-"+UUID.randomUUID(),null,"PUBLISHED",true,"Australia/Melbourne",null,null,1,null,null));
     }
     UUID id(MenuConfigurationHandler.Resource r) { return (UUID)r.id(); }
     @Test void collectionPlacementOverrideAndLegacyFallbackRoundTrip() {

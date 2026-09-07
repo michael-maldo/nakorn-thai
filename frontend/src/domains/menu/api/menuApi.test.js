@@ -123,3 +123,21 @@ test('invalid collection discovery fails instead of inventing a fallback menu', 
   globalThis.fetch = async () => Response.json({ items: [] });
   await assert.rejects(getMenuCollections(), /invalid collection list/);
 });
+
+// Cutoff management reuses collection writes, identity and a freshly acquired CSRF token.
+test('collection cutoff save preserves independent schedule timezone and optimistic version', async () => {
+  const { saveCollectionConfiguration } = await import('./menuApi.js');
+  const original = globalThis.fetch, calls = [];
+  globalThis.fetch = async (url, options) => {
+    calls.push({ url, options });
+    return Response.json(url.endsWith('/csrf') ? { headerName: 'X-CSRF-TOKEN', token: 'fresh' } : { id: 'collection', version: 4 });
+  };
+  try {
+    await saveCollectionConfiguration({ id: 'collection', version: 3, data: { name: 'Menu', timezone: 'UTC', dailyCutoffTime: '14:30:00' } }, 'Basic test');
+    assert.equal(calls[0].url, '/api/staff/menu/csrf');
+    assert.equal(calls[1].options.headers['X-CSRF-TOKEN'], 'fresh');
+    assert.equal(calls[1].options.credentials, 'same-origin');
+    const body = JSON.parse(calls[1].options.body);
+    assert.equal(body.dailyCutoffTime, '14:30:00'); assert.equal(body.timezone, 'UTC'); assert.equal(body.version, 3);
+  } finally { globalThis.fetch = original; }
+});

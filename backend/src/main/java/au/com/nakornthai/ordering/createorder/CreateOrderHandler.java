@@ -50,7 +50,8 @@ public class CreateOrderHandler {
         if (!enabled) throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Online ordering is currently closed");
         if((paymentMethod.equals("PAYPAL")&&!paypalEnabled) || (paymentMethod.equals("PAYID")&&!payidEnabled))throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,"Selected payment method is unavailable");
         Instant checkoutAt = clock.instant();
-        if (!availability.isOpen(checkoutAt)) throw new RestaurantClosedException();
+        var restaurantSchedule = availability.schedule();
+        if (!restaurantSchedule.isOpen(checkoutAt)) throw new RestaurantClosedException();
         var order = new OrderJpaEntity(); order.setId(request.requestId());
         order.setPaymentMethod(paymentMethod);
         order.setTrackingHash(hash(request.trackingToken())); order.setRequestHash(fingerprint);
@@ -74,7 +75,7 @@ public class CreateOrderHandler {
             if (membership.getCollectionCategory() != null &&
                     !membership.getCollectionCategory().getCollection().getId().equals(collection.getId()))
                 throw new ResponseStatusException(HttpStatus.CONFLICT, "Invalid collection category placement");
-            if (!MenuCatalogRules.availability(collection, checkoutAt).available())
+            if (!MenuCatalogRules.availability(collection, checkoutAt, restaurantSchedule).available())
                 throw new ResponseStatusException(HttpStatus.CONFLICT, "Selected collection is currently unavailable");
             if (!"PUBLISHED".equals(item.getStatus()) || !item.isAvailable() || !membership.effectiveCategory().isActive()
                     || !variation.isActive() || !variation.isAvailable())

@@ -1,3 +1,4 @@
+import MenuCollectionAvailabilityEditor from '../../menu/components/MenuCollectionAvailabilityEditor';
 import { useAuth } from '../../identity/model/AuthContext';
 import { useEffect, useState } from 'react';
 import MenuImageEditor from '../../menu/components/MenuImageEditor';
@@ -58,6 +59,7 @@ export default function StaffMenuPage() {
     <header className="staff-heading"><div><a href="#/staff">← Staff home</a><h1>Menu dashboard</h1></div>
       {menu && <button type="button" disabled={busy} onClick={signOut}>Sign out</button>}
     </header>
+    <MenuCollectionAvailabilityEditor authorization={authorization} />
     {error && <p role="alert" className="staff-error">{error}</p>}
     {notice && <p role="status">{notice}</p>}
     {!menu ? <p role="status">Loading menu administration…</p> : <>

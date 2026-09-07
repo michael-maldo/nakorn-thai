@@ -16,10 +16,10 @@ class MenuConfigurationHandlerTest {
         Query query=mock(Query.class); when(em.createNativeQuery(anyString(),eq(Object.class))).thenReturn(query);
     }
     @Test void rejectsInvalidTimezoneAndInstantRange() {
-        var badZone=new MenuConfigurationRequest.Collection("Menu","menu",null,"PUBLISHED",true,"invalid/zone",null,null,0,null);
+        var badZone=new MenuConfigurationRequest.Collection("Menu","menu",null,"PUBLISHED",true,"invalid/zone",null,null,0,null,null);
         assertEquals(400,assertThrows(ResponseStatusException.class,()->handler.saveCollection(null,badZone)).getStatusCode().value());
         var now=Instant.now();
-        var badRange=new MenuConfigurationRequest.Collection("Menu","menu",null,"PUBLISHED",true,"Australia/Melbourne",now,now,0,null);
+        var badRange=new MenuConfigurationRequest.Collection("Menu","menu",null,"PUBLISHED",true,"Australia/Melbourne",now,now,0,null,null);
         assertThrows(ResponseStatusException.class,()->handler.saveCollection(null,badRange));
         verify(em,never()).persist(any());
     }

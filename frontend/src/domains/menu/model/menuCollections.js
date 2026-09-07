@@ -5,6 +5,8 @@ export function collectionAvailability(collection) {
     NOT_STARTED: 'This menu is not available to order yet.',
     ENDED: 'Ordering from this menu has ended.',
     OUTSIDE_SCHEDULE: 'This menu is currently outside its ordering hours.',
+    RESTAURANT_CLOSED: 'The restaurant is currently closed.',
+    AFTER_CUTOFF: 'Ordering from this menu has ended for today.',
     INACTIVE: 'Ordering from this menu is temporarily unavailable.',
   };
   return messages[collection?.availability?.reason] || 'This menu is currently unavailable to order.';
