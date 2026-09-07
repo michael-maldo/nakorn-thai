@@ -97,10 +97,9 @@ The scheduling integration test checks successful V20/V21 Flyway history,
 persistence, constraints, indexes, audit fields, versions and API behavior. Skipped
 integration tests do not establish that V20/V21 apply successfully.
 
-The pre-existing `MenuSchemaIntegrationTest.v18SeedHasMainMenuDefaultVariationsAndRequiredReusableOptions`
-still expects 40 menu items and 7 categories, while the supplied V20 expects 82 and
-13. This Phase 3 test expectation is not changed by Phase 4 and will need reconciliation
-before claiming the entire PostgreSQL integration suite passes with V20.
+`MenuSchemaIntegrationTest.v20SeedHasCompleteMainMenuDefaultVariationsAndRequiredReusableOptions`
+checks the V20 seed: 82 menu items, 13 categories, 15 dishes with required options,
+and Small/Large Sparkling Water variations with Small as the sole default.
 
 ## Phase 4 implementation file manifest
 

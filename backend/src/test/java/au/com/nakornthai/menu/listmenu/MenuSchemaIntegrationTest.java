@@ -93,16 +93,21 @@ class MenuSchemaIntegrationTest {
     }
 
     @Test
-    void v18SeedHasMainMenuDefaultVariationsAndRequiredReusableOptions() {
+    void v20SeedHasCompleteMainMenuDefaultVariationsAndRequiredReusableOptions() {
         var menu=handler.handle(new ListMenuQuery("main-menu"));
-        assertEquals(40,menu.items().size()); assertEquals(7,menu.categories().size());
+        assertEquals(82,menu.items().size()); assertEquals(13,menu.categories().size());
         assertTrue(menu.availability().available());
-        assertEquals(12,menu.items().stream().filter(i -> !i.optionGroups().isEmpty()).count());
+        assertEquals(15,menu.items().stream().filter(i -> !i.optionGroups().isEmpty()).count());
         for(var dish:menu.items()) {
-            assertEquals(1,dish.variations().size()); assertTrue(dish.variations().getFirst().defaultVariation());
-            assertTrue(dish.variations().getFirst().profile().dietaryTags().isEmpty());
+            assertEquals(dish.slug().equals("sparkling-water") ? 2 : 1,dish.variations().size(),dish.slug());
+            assertEquals(1,dish.variations().stream().filter(MenuItem.Variation::defaultVariation).count(),dish.slug());
+            for(var variation:dish.variations()) assertTrue(variation.profile().dietaryTags().isEmpty());
             for(var group:dish.optionGroups()) { assertEquals(1,group.minSelections()); assertEquals(1,group.maxSelections()); }
         }
+        var sparkling=menu.items().stream().filter(i -> i.slug().equals("sparkling-water")).findFirst().orElseThrow();
+        assertEquals(java.util.Set.of("Small","Large"),sparkling.variations().stream()
+                .map(MenuItem.Variation::name).collect(java.util.stream.Collectors.toSet()));
+        assertEquals("Small",sparkling.variations().stream().filter(MenuItem.Variation::defaultVariation).findFirst().orElseThrow().name());
     }
 
     @Test
