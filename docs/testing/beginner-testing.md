@@ -748,7 +748,17 @@ Yes. The key is to stop thinking in terms of “test the code” and instead ask
 
 **What promises does the system make that would hurt us if they were wrong?**
 
-For your current menu/order release, I would test these categories first: pricing, option rules, availability, collection behavior, order creation, historical snapshots, idempotency, API validation, persistence, and a few end-to-end customer/staff journeys.
+For your current menu/order release, I would test these categories first:
+pricing, 
+option rules, 
+availability, 
+collection behavior, 
+order creation, 
+historical snapshots, 
+idempotency, 
+API validation, 
+persistence, 
+and a few end-to-end customer/staff journeys.
 
 A good starting test matrix is this:
 

@@ -1,4 +1,20 @@
-# Development uses application.yml defaults and an explicitly supplied DB_PASSWORD.
+
+
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/nakorn_thai
+    username: nakorn_test
+    password: nakorn_test
+
 logging:
+  file:
+    name: ${user.home}/logs/nakorn-thai/backend.json.log
+
   level:
     au.com.nakornthai: DEBUG
+
+
+
+
+
+
