@@ -39,13 +39,16 @@ Backend domains under `backend/src/main/java/au/com/nakornthai/` are `identity`,
 - `reservation` owns both table requests and function/venue enquiries.
 - `notification` contains implemented order verification via Twilio Verify;
   confirmation delivery files also exist as scaffolds.
-- Backend `customer`, `restaurant` and `staff` currently contain empty files.
-  Frontend staff screens use APIs owned by the active business domains.
+- `restaurant` owns implemented opening-hours, closed-date and availability logic.
+- Backend `customer` and `staff` currently contain only empty scaffolds. Frontend
+  staff screens use APIs owned by the active business domains rather than a backend
+  `staff` implementation.
 
 Menu reads demonstrate controller → handler → domain repository interface → JPA
-adapter → Spring Data. Ordering uses `EntityManager` directly in handlers;
-reservation creation uses Spring Data and `EntityManager`. Some staff operations
-are transactional controller methods. Preserve these local patterns; do not add
+adapter → Spring Data. Ordering intentionally uses `EntityManager` for creation and
+status-transition writes, while order lookup and staff queues use Spring Data.
+Reservation creation combines Spring Data with an `EntityManager` advisory lock.
+Some staff writes are transactional controller methods. Preserve these local
 layers just to make all slices identical.
 
 # Frontend Structure
@@ -97,7 +100,11 @@ layers just to make all slices identical.
 - `shared/security/` implements JWT authentication, live staff-session checks,
   password encoding and endpoint permissions. Security denies unlisted routes;
   frontend `ProtectedRoute` is only a UI guard. Keep CSRF handling intact.
-  Identity refresh cookies are HttpOnly and SameSite Strict, secure in production.
+  Access JWTs last 15 minutes and are accepted only while their database-backed
+  `staff_session` and `staff_user` remain valid. Staff sessions/refresh credentials
+  last 12 hours and rotate on refresh. Refresh cookies are HttpOnly, SameSite Strict,
+  scoped to `/api/identity`, and secure in production. Browser writes obtain a CSRF
+  token from the owning API before submission.
 - `shared/observability/CorrelationIdFilter.java` implements request logging and
   correlation. Domain-specific exception handlers exist in infrastructure packages;
   several `shared/error` and `shared/config` files remain empty.
@@ -105,30 +112,34 @@ layers just to make all slices identical.
   management and tracing settings. `application-dev.yml` and `application-prod.yml`
   specialize profiles; `backend/.env.dev.example` and `.env.prod.example` document
   environment inputs. Feature settings also appear in Java `@Value` declarations.
-  Defaults use API port 8080 and a separate management port 8081.
+  Defaults use API port 8080 and a separate management port 8081. Ordering, payment
+  providers and verification channels are configuration-gated; configuration files
+  show available settings, not what is enabled in a running environment.
 
 # Database
 
 - PostgreSQL tables use unqualified names in a common schema (integration tests
   inspect `public`), not one PostgreSQL schema per Java domain. CI uses PostgreSQL 16.
 - Flyway migrations live in `backend/src/main/resources/db/migration/` and follow
-  `V<number>__snake_case_description.sql`, currently V1–V16. Some early versions
+  `V<number>__snake_case_description.sql`, currently V1–V22. Some early versions
   reserve domains without creating tables; use the actual SQL, not filenames.
 - **Never modify an already-applied migration. Schema changes require a new
   migration with the next unused version.** V1 explicitly documents this rule.
   Flyway owns DDL; Hibernate uses `ddl-auto: validate`, with Flyway clean disabled.
-- Menu tables cover categories, items, variations, collections, images, allergens
-  and dietary tags. Ordering uses `restaurant_order`, item snapshots and order
-  events. Other active tables include `staff_user`, `staff_session`, `reservation`,
-  `function_enquiry`, `order_payment`, `order_verification` and `order_tracking_grant`.
+- Menu tables cover categories, items, variations, collections/schedules, images,
+  allergens, dietary tags and configurable option groups. Ordering uses
+  `restaurant_order`, item/selected-option snapshots and order events. Other active
+  tables include staff identity/session, reservations/functions, payments/tracking,
+  and restaurant settings/opening-hours/closed-date tables.
 - UUID keys, foreign keys, check constraints, explicit status values and version
   columns are established conventions. Menu/order money uses integer minor units
   and AUD. Preserve server-side price checks and order item snapshots.
 - Writes use version checks and transaction locks where appropriate. Guest request
   UUIDs support retry/idempotency; tracking credentials are distinct from staff JWTs.
 - Audit instants use time-zone-aware timestamps; reservation requested times are
-  local timestamps interpreted in Australia/Melbourne. Hibernate's JDBC time zone
-  is UTC. Do not interchange these meanings.
+  local timestamps interpreted in the configured restaurant timezone (initially
+  Australia/Melbourne). Hibernate's JDBC time zone is UTC. Do not interchange
+  these meanings.
 
 # Architectural Boundaries
 
@@ -166,8 +177,10 @@ Representative implemented flows:
   `CreateOrderController` → `CreateOrderHandler` → `EntityManager` for menu checks
   and order/item/event persistence → `OrderMapper` response.
 
-See `docs/architecture/vertical-slices.md`, `domain-map.md` and `api.md` for more
-paths and contracts; confirm them against current source before changing behavior.
+Use `docs/application-trace-map.md` for current file-by-file request traces. See
+`docs/architecture/vertical-slices.md`, `domain-map.md` and `api.md` for broader
+design context, but confirm documentation against current source before changing
+behavior.
 
 # Existing Patterns Win
 
@@ -177,6 +190,21 @@ because another architecture would also be valid. If an architectural change
 appears necessary, identify and explain it rather than silently introducing it
 as part of an unrelated feature.
 
+# Development and Build
+
+- Frontend: from `frontend/`, run `npm ci --include=optional`, then `npm run dev`.
+  Vite listens on 5173 and expects the backend on `127.0.0.1:8080`.
+- Backend: provision PostgreSQL first, copy/configure `.env.dev` from the example,
+  explicitly load that trusted file into the environment, then run
+  `mvn spring-boot:run` from `backend/`. Spring Boot does not load `.env` files.
+- Build artifacts with `npm run build` in `frontend/` and `mvn verify` in `backend/`.
+  The empty root helper scripts and Docker placeholders are not build or development
+  paths; some infrastructure deployment/backup scripts are placeholders too.
+- `.github/workflows/deploy.yml` validates against PostgreSQL 16 with Java 21 and
+  Node 24, then deploys the backend JAR and frontend assets on pushes to `main`.
+  Infrastructure configuration describes intended deployment; it does not prove
+  the current state of a live server.
+
 # Testing and Validation
 
 Run commands from the indicated directory. CI uses Java 21 and Node 24.
@@ -184,15 +212,15 @@ Run commands from the indicated directory. CI uses Java 21 and Node 24.
 | Directory | Command | Purpose |
 | --- | --- | --- |
 | `frontend/` | `npm ci --include=optional` | Install locked dependencies as CI does |
-| `frontend/` | `npm test` | Node built-in test runner over the explicitly listed domain API tests |
+| `frontend/` | `npm test` | Node built-in test runner over explicitly listed domain tests |
 | `frontend/` | `npm run build` | Vite production build |
 | `backend/` | `mvn test` | Maven/Surefire tests |
 | `backend/` | `mvn verify` | Tests and executable Spring Boot JAR build |
 | `backend/` | `mvn --batch-mode --no-transfer-progress clean verify` | CI backend validation/build |
 | Repository root | `python3 scripts/check-observability.py` | Optional packaged-backend observability smoke check after Maven verify |
 
-Frontend tests are colocated `src/domains/*/api/*.test.js` files using `node:test`,
-assertions and mocked fetch; the npm script enumerates files explicitly.
+Frontend tests are colocated domain API/model `.test.js` files using `node:test`,
+assertions and mocked fetch where appropriate; the npm script enumerates files explicitly.
 `frontend/tests/{unit,integration,e2e}` contain placeholders, not configured suites.
 Backend tests live under `src/test/java/au/com/nakornthai/`, generally mirroring
 domain/use-case packages, using JUnit, Mockito and Spring/MockMvc integration tests.
@@ -234,5 +262,16 @@ integration tests as verified behavior.
 - Payment webhook/refund and alternative-provider filenames include scaffolds;
   their presence does not establish working integrations. Inspect implementations
   before extending an integration or claiming it is supported.
+- `/api/identity/me` is implemented but the frontend currently restores identity
+  through `/api/identity/refresh`; do not assume the `me` endpoint is in its active path.
+- `MenuConfigurationController` implements schedules, collection categories and
+  memberships, option groups/options and assignments, but the current React menu
+  dashboard exposes only collection availability from that configuration surface.
+- Empty command/query/handler files are often bypassed by working slices. Some
+  implemented staff writes intentionally keep `@Transactional` logic directly in
+  controllers; trace the actual caller before adding or moving layers.
+- Confirmation delivery, refund/webhook, alternative payment provider, customer,
+  and backend staff-dashboard/queue files include empty scaffolds. Twilio Verify
+  order-tracking recovery is implemented; empty SMS/email sender files are not.
 - Repository configuration establishes intended deployment behavior, not current
   live infrastructure, enabled feature flags or applied database versions.
