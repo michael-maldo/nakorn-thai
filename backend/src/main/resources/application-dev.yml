@@ -3,8 +3,8 @@
 spring:
   datasource:
     url: jdbc:postgresql://localhost:5432/nakorn_thai
-    username: nakorn_test
-    password: nakorn_test
+    username: nakorn_app
+    password: nakorn_app
 
 logging:
   file:

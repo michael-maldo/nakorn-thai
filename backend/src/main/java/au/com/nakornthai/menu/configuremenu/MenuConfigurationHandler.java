@@ -14,18 +14,34 @@ import java.util.*;
 @Service @RequiredArgsConstructor @Transactional
 public class MenuConfigurationHandler {
     private final EntityManager em;
+    private final au.com.nakornthai.restaurant.availability.RestaurantAvailabilityService restaurant;
+    private final Clock clock;
     public record Resource(Object id, Long version, Object data) {}
-    public record CollectionView(Resource collection, List<Resource> schedules, List<Resource> categories, List<Resource> memberships) {}
+    public record CollectionView(Resource collection, List<Resource> schedules, List<Resource> categories, List<Resource> memberships,
+            au.com.nakornthai.menu.domain.CollectionAvailability.Result availability,
+            au.com.nakornthai.menu.domain.CollectionAvailability.Result orderingAvailability,
+            String restaurantTimezone, boolean restaurantOpen) {}
     public record GroupView(Resource group, List<Resource> options) {}
 
-    @Transactional(readOnly=true)
     public List<CollectionView> collections() {
+        // Match checkout lock order: restaurant snapshot before menu catalog.
+        var schedule = restaurant.schedule();
+        MenuCatalogLock.read(em);
+        var now = clock.instant();
+        boolean open = schedule.isOpen(now);
         return em.createQuery("from MenuCollectionJpaEntity order by displayOrder, id", MenuCollectionJpaEntity.class)
-                .getResultList().stream().map(c -> new CollectionView(collectionView(c),
+                .getResultList().stream().map(c -> {
+                    var availability = MenuCatalogRules.availability(c, now, schedule);
+                    var ordering = availability.available() && !open
+                            ? new au.com.nakornthai.menu.domain.CollectionAvailability.Result(false, "RESTAURANT_CLOSED", now)
+                            : availability;
+                    return new CollectionView(collectionView(c),
                         c.getSchedules().stream().sorted(Comparator.comparingInt(MenuCollectionScheduleJpaEntity::getDisplayOrder).thenComparing(MenuCollectionScheduleJpaEntity::getId)).map(this::scheduleView).toList(),
                         c.getCategories().stream().sorted(Comparator.comparingInt(MenuCollectionCategoryJpaEntity::getDisplayOrder).thenComparing(MenuCollectionCategoryJpaEntity::getId)).map(this::categoryView).toList(),
                         em.createQuery("from MenuCollectionItemJpaEntity where collection.id=:id order by displayOrder, menuItem.id", MenuCollectionItemJpaEntity.class)
-                                .setParameter("id", c.getId()).getResultList().stream().map(this::membershipView).toList())).toList();
+                                .setParameter("id", c.getId()).getResultList().stream().map(this::membershipView).toList(),
+                        availability, ordering, schedule.timezone().getId(), open);
+                }).toList();
     }
     @Transactional(readOnly=true)
     public List<GroupView> groups() {
@@ -46,7 +62,7 @@ public class MenuConfigurationHandler {
         if (r.dailyCutoffTime()!=null && r.dailyCutoffTime().getNano()!=0) throw bad("Cutoff must use whole seconds");
         var c = id == null ? new MenuCollectionJpaEntity() : required(MenuCollectionJpaEntity.class, id);
         check(c, r.version(), id == null);
-        c.setName(r.name()); c.setSlug(r.slug()); c.setDescription(r.description()); c.setStatus(r.status());
+        c.setName(r.name()); c.setSlug(r.slug()); c.setDescription(r.description()==null || r.description().isBlank() ? null : r.description()); c.setStatus(r.status());
         c.setActive(r.active()); c.setTimezone(r.timezone()); c.setStartsAt(r.startsAt()); c.setEndsAt(r.endsAt()); c.setDisplayOrder(r.displayOrder()); c.setDailyCutoffTime(r.dailyCutoffTime());
         if (id == null) em.persist(c); em.flush(); return collectionView(c);
     }
@@ -58,6 +74,7 @@ public class MenuConfigurationHandler {
         boolean weekly="WEEKLY".equals(r.ruleType());
         if (weekly ? r.dayOfWeek()==null || r.specificDate()!=null : r.specificDate()==null || r.dayOfWeek()!=null) throw bad("Invalid schedule date shape");
         if ((r.startTime()==null)!=(r.endTime()==null) || r.startTime()!=null && r.startTime().equals(r.endTime())) throw bad("Supply distinct start and end times, or neither");
+        if (r.startTime()!=null && (r.startTime().getNano()!=0 || r.endTime().getNano()!=0)) throw bad("Schedule times must use whole seconds");
         var s=id==null?new MenuCollectionScheduleJpaEntity():required(MenuCollectionScheduleJpaEntity.class,id);
         if(id!=null) belongs(s.getCollection().getId(),collectionId); check(s,r.version(),id==null);
         s.setCollection(c); s.setRuleType(r.ruleType()); s.setDayOfWeek(r.dayOfWeek()); s.setSpecificDate(r.specificDate());

@@ -141,3 +141,78 @@ test('collection cutoff save preserves independent schedule timezone and optimis
     assert.equal(body.dailyCutoffTime, '14:30:00'); assert.equal(body.timezone, 'UTC'); assert.equal(body.version, 3);
   } finally { globalThis.fetch = original; }
 });
+
+test('staff collection listing retains drafts, memberships and server availability', async () => {
+  const { getCollectionConfiguration } = await import('./menuApi.js');
+  const rows = [{ collection: { id: 'draft', data: { status: 'DRAFT', active: false } }, memberships: [{ id: 'item' }],
+    availability: { available: false, reason: 'NOT_PUBLISHED' }, restaurantTimezone: 'Australia/Perth' }];
+  globalThis.fetch = async (url, options) => {
+    assert.equal(url, '/api/staff/menu/collections'); assert.equal(options.headers.Authorization, 'Basic test');
+    return Response.json(rows);
+  };
+  assert.deepEqual(await getCollectionConfiguration('Basic test'), rows);
+});
+
+test('create collection sends metadata and null version with fresh CSRF', async () => {
+  const { saveCollectionConfiguration } = await import('./menuApi.js');
+  const data = { name: 'Seasonal', slug: 'seasonal', description: null, status: 'DRAFT', active: false,
+    displayOrder: 4, timezone: 'UTC', startsAt: '2026-12-01T00:00:00Z', endsAt: null, dailyCutoffTime: '14:30:00' };
+  globalThis.fetch = async (url, options) => {
+    if (url.endsWith('/csrf')) return Response.json({ headerName: 'X-CSRF-TOKEN', token: 'fresh' });
+    assert.equal(url, '/api/staff/menu/collections'); assert.equal(options.method, 'POST');
+    assert.equal(options.headers['X-CSRF-TOKEN'], 'fresh');
+    assert.deepEqual(JSON.parse(options.body), { ...data, version: null });
+    return Response.json({ id: 'new', version: 0 }, { status: 201 });
+  };
+  assert.equal((await saveCollectionConfiguration({ data, version: null }, 'Basic test')).id, 'new');
+});
+
+for (const override of [null, 0, 1590]) {
+  test(`membership save preserves ${override} price override and collection-specific placement`, async () => {
+    const { saveCollectionMembership } = await import('./menuApi.js');
+    globalThis.fetch = async (url, options) => {
+      if (url.endsWith('/csrf')) return Response.json({ headerName: 'X-CSRF-TOKEN', token: 'fresh' });
+      assert.equal(url, '/api/staff/menu/collections/lunch/items/shared-item'); assert.equal(options.method, 'PUT');
+      assert.equal(options.headers['X-CSRF-TOKEN'], 'fresh');
+      assert.deepEqual(JSON.parse(options.body), { collectionCategoryId: 'lunch-placement', priceOverrideMinor: override, displayOrder: 3, version: 7 });
+      return Response.json({ id: 'shared-item', version: 8 });
+    };
+    await saveCollectionMembership('lunch', 'shared-item', { version: 7, data: { collectionCategoryId: 'lunch-placement', priceOverrideMinor: override, displayOrder: 3 } }, 'Basic test');
+  });
+}
+
+for (const kind of ['schedules', 'categories', 'items']) {
+  test(`removing ${kind} targets only the selected collection and resource version`, async () => {
+    const { removeCollectionChild } = await import('./menuApi.js');
+    globalThis.fetch = async (url, options) => {
+      if (url.endsWith('/csrf')) return Response.json({ headerName: 'X-CSRF-TOKEN', token: 'fresh' });
+      assert.equal(url, `/api/staff/menu/collections/selected/${kind}/resource?version=2`);
+      assert.equal(options.method, 'DELETE'); assert.equal(options.headers['X-CSRF-TOKEN'], 'fresh');
+      return new Response(null, { status: 204 });
+    };
+    await removeCollectionChild('selected', kind, { id: 'resource', version: 2 }, 'Basic test');
+  });
+}
+
+for (const kind of ['schedules', 'categories']) for (const id of [undefined, 'existing']) {
+  test(`${kind} ${id ? 'update' : 'create'} preserves its payload and version`, async () => {
+    const { saveCollectionChild } = await import('./menuApi.js');
+    const data = kind === 'schedules' ? { ruleType: 'SPECIFIC_DATE', dayOfWeek: null, specificDate: '2026-12-24', startTime: '17:00', endTime: '01:00', active: false, displayOrder: 2 } : { categoryId: 'canonical', displayOrder: 2 };
+    globalThis.fetch = async (url, options) => {
+      if (url.endsWith('/csrf')) return Response.json({ headerName: 'X-CSRF-TOKEN', token: 'fresh' });
+      assert.equal(url, `/api/staff/menu/collections/selected/${kind}${id ? '/existing' : ''}`);
+      assert.equal(options.method, id ? 'PUT' : 'POST');
+      assert.deepEqual(JSON.parse(options.body), { ...data, version: id ? 3 : null });
+      return Response.json({ id: id || 'new', version: id ? 4 : 0 });
+    };
+    await saveCollectionChild('selected', kind, { id, version: id ? 3 : null, data }, 'Basic test');
+  });
+}
+
+test('collection validation and stale-edit errors retain server explanation and status', async () => {
+  const { saveCollectionConfiguration } = await import('./menuApi.js');
+  for (const [status, message] of [[400, 'Supply distinct start and end times, or neither'], [409, 'Menu resource changed; reload before saving']]) {
+    globalThis.fetch = async url => url.endsWith('/csrf') ? Response.json({ headerName: 'X-CSRF-TOKEN', token: 'fresh' }) : Response.json({ message }, { status });
+    await assert.rejects(saveCollectionConfiguration({ id: 'collection', version: 2, data: {} }, 'Basic test'), error => error.status === status && error.message === message);
+  }
+});

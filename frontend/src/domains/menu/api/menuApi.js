@@ -20,9 +20,11 @@ export async function menuRequest(path, { authorization, csrf, ...options } = {}
       401: 'Sign-in failed or expired. Check your admin credentials.',
       403: 'Access denied or security token expired. Sign out and sign in again.',
       404: 'The requested menu could not be found.',
-      409: 'This dish has changed or its slug already exists. Reload the menu before saving.',
+      409: 'This menu resource has changed or its slug already exists. Reload before saving; category placements must be unique and unused before removal.',
     };
-    const error = new Error(messages[response.status] || 'The menu service is unavailable. Please try again.');
+    let detail;
+    try { detail = (await response.json()).message; } catch { /* Proxy errors may be HTML. */ }
+    const error = new Error((typeof detail === 'string' && detail) || messages[response.status] || 'The menu service is unavailable. Please try again.');
     error.status = response.status;
     throw error;
   }
@@ -57,6 +59,19 @@ export const saveMenuImage = (id, body, authorization, csrf) => menuRequest(
 
 export const getCollectionConfiguration = (authorization) => menuRequest('/staff/menu/collections', { authorization });
 export const saveCollectionConfiguration = (collection, authorization) => menuRequest(
-  `/staff/menu/collections/${collection.id}`,
-  { method: 'PUT', body: JSON.stringify({ ...collection.data, version: collection.version }), authorization, csrf: true },
+  `/staff/menu/collections${collection.id ? `/${collection.id}` : ''}`,
+  { method: collection.id ? 'PUT' : 'POST', body: JSON.stringify({ ...collection.data, version: collection.version }), authorization, csrf: true },
+);
+
+export const saveCollectionMembership = (collectionId, itemId, resource, authorization) => menuRequest(
+  `/staff/menu/collections/${collectionId}/items/${itemId}`,
+  { method: 'PUT', body: JSON.stringify({ ...resource.data, version: resource.version }), authorization, csrf: true },
+);
+export const saveCollectionChild = (collectionId, kind, resource, authorization) => menuRequest(
+  `/staff/menu/collections/${collectionId}/${kind}${resource.id ? `/${resource.id}` : ''}`,
+  { method: resource.id ? 'PUT' : 'POST', body: JSON.stringify({ ...resource.data, version: resource.version }), authorization, csrf: true },
+);
+export const removeCollectionChild = (collectionId, kind, resource, authorization) => menuRequest(
+  `/staff/menu/collections/${collectionId}/${kind}/${resource.id}?version=${resource.version}`,
+  { method: 'DELETE', authorization, csrf: true },
 );

@@ -51,6 +51,45 @@ class MenuConfigurationApiTest {
         org.junit.jupiter.api.Assertions.assertEquals("UTC",request.getValue().timezone());
         org.junit.jupiter.api.Assertions.assertEquals(3L,request.getValue().version());
     }
+    @Test void allCollectionWritesEnforceRolesAndCsrf() throws Exception {
+        String root="/api/staff/menu/collections/"+UUID.randomUUID();
+        for (String path:List.of(root,root+"/items/"+UUID.randomUUID(),root+"/categories/"+UUID.randomUUID(),root+"/schedules/"+UUID.randomUUID())) {
+            for(String role:List.of("FOH","BOH")) {
+                mvc.perform(put(path).with(user("staff").roles(role)).with(csrf()).contentType("application/json").content("{}"))
+                        .andExpect(status().isForbidden());
+                mvc.perform(delete(path+"?version=0").with(user("staff").roles(role)).with(csrf())).andExpect(status().isForbidden());
+            }
+            mvc.perform(put(path).with(csrf()).contentType("application/json").content("{}"))
+                    .andExpect(status().isUnauthorized());
+            mvc.perform(delete(path+"?version=0").with(user("admin").roles("ADMIN"))).andExpect(status().isForbidden());
+        }
+        verifyNoInteractions(handler);
+    }
+    @Test void invalidCollectionAndNegativeOverrideAreRejected() throws Exception {
+        mvc.perform(post("/api/staff/menu/collections").with(user("admin").roles("ADMIN")).with(csrf())
+                .contentType("application/json").content("""
+                {"name":" ","slug":"INVALID SLUG","status":"OTHER","timezone":"UTC","displayOrder":-1}
+                """)).andExpect(status().isBadRequest());
+        mvc.perform(put("/api/staff/menu/collections/"+UUID.randomUUID()+"/items/"+UUID.randomUUID())
+                .with(user("admin").roles("ADMIN")).with(csrf()).contentType("application/json")
+                .content("{\"priceOverrideMinor\":-1,\"displayOrder\":0}"))
+                .andExpect(status().isBadRequest());
+        verifyNoInteractions(handler);
+    }
+    @Test void membershipAndScheduleWritesPassTheirOwnVersions() throws Exception {
+        UUID collection=UUID.randomUUID(),item=UUID.randomUUID(),placement=UUID.randomUUID(),schedule=UUID.randomUUID();
+        mvc.perform(put("/api/staff/menu/collections/"+collection+"/items/"+item)
+                .with(user("admin").roles("ADMIN")).with(csrf()).contentType("application/json")
+                .content("{\"collectionCategoryId\":\""+placement+"\",\"priceOverrideMinor\":0,\"displayOrder\":2,\"version\":3}"))
+                .andExpect(status().isOk());
+        verify(handler).saveMembership(collection,item,new MenuConfigurationRequest.Membership(placement,0L,2,3L));
+        mvc.perform(put("/api/staff/menu/collections/"+collection+"/schedules/"+schedule)
+                .with(user("admin").roles("ADMIN")).with(csrf()).contentType("application/json")
+                .content("""
+                {"ruleType":"WEEKLY","dayOfWeek":1,"startTime":"17:00:00","endTime":"01:00:00","active":false,"displayOrder":4,"version":2}
+                """)).andExpect(status().isOk());
+        verify(handler).saveSchedule(eq(collection),eq(schedule),argThat(r -> r.version()==2 && !r.active() && r.dayOfWeek()==1));
+    }
     @Test void malformedConfigurationNeverReachesHandler() throws Exception {
         mvc.perform(post("/api/staff/menu/option-groups").with(user("admin").roles("ADMIN")).with(csrf())
                 .contentType("application/json").content("""

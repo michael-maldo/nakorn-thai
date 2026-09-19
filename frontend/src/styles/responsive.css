@@ -97,3 +97,38 @@
   .newsletter { grid-column: 1 / -1; grid-row: auto; }
   .footer-bottom { gap: 15px; flex-direction: column; }
 }
+
+@media (max-width: 1100px) {
+  .menu-admin main { padding-inline: 24px; }
+  .menu-admin-table td, .menu-admin-table th { padding-inline: 12px; }
+  .menu-admin-table .menu-admin-actions { align-items: stretch; flex-direction: column; }
+}
+@media (max-width: 900px) {
+  .menu-admin-availability { grid-template-columns: 1fr; gap: 8px; }
+}
+@media (max-width: 680px) {
+  .menu-admin-topbar { padding: 12px 16px; }
+  .menu-admin-topbar > div > span { display: none; }
+  .menu-admin main { padding: 20px 16px 48px; }
+  .menu-admin h1 { font-size: 1.5rem; }
+  .menu-admin-page-heading, .menu-admin-section-heading { align-items: start; flex-wrap: wrap; gap: 12px; }
+  .menu-admin-toolbar { padding: 16px; }
+  .menu-admin-toolbar label { flex: 1; }
+  .menu-admin-toolbar > a { width: 100%; }
+  .menu-admin-subnav { gap: 18px; }
+  .menu-admin-form { padding: 20px 16px; }
+  .menu-admin-fields, .menu-admin-choice-list { grid-template-columns: 1fr; }
+  .menu-admin-form-actions span { flex-basis: 100%; margin-left: 0; }
+  .menu-admin-table-wrap { overflow: visible; border: 0; background: none; }
+  .menu-admin-table, .menu-admin-table tbody { display: block; }
+  .menu-admin-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .menu-admin-table tr { display: block; border: 1px solid var(--admin-line); border-radius: 8px; background: #fff; margin-bottom: 12px; padding: 8px 16px; }
+  .menu-admin-table td { display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 6px 12px; padding: 9px 0; border: 0; overflow-wrap: anywhere; }
+  .menu-admin-table td::before { content: attr(data-label); color: #657381; font-size: .75rem; align-self: center; }
+  .menu-admin-table td > small { grid-column: 2; margin-top: 0; }
+  .menu-admin-table td .menu-admin-resource-link { padding-block: 8px; min-height: 44px; }
+  .menu-admin-table td .menu-admin-actions { align-items: start; }
+  .menu-admin-table td .menu-admin-badge { justify-self: start; }
+  .menu-admin-table td:has(> small:first-child) > small:first-child { grid-column: 2; }
+  .menu-admin-availability { padding: 18px; }
+}

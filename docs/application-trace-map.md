@@ -59,7 +59,7 @@ Application composition is `frontend/src/main.jsx` → `App` in `frontend/src/ap
 | Staff order transition | `StaffOrdersPage.apply` | `PATCH /api/staff/orders/{id}/status` | `ChangeOrderStatusController` | `ChangeOrderStatusHandler` | `EntityManager` pessimistic lock | `restaurant_order`, `restaurant_order_event` |
 | Menu item administration | `StaffMenuPage` | `GET/POST /api/staff/menu/items`; `PUT/DELETE /api/staff/menu/items/{id}` | get/create/update/delete menu controllers | corresponding handlers → `MenuAdminService` | menu Spring Data repositories and `EntityManager` | core menu, variation, and collection-membership tables |
 | Menu image administration | `MenuImageEditor.save` | `POST /api/staff/menu/items/{id}/image`; `GET /media/menu/{name}` | `MenuImageController` | `MenuImageService` | `EntityManager` plus media filesystem | `menu_item_image`, `menu_item`; JPEG under configured media directory |
-| Collection availability editor | `MenuCollectionAvailabilityEditor` | `GET /api/staff/menu/collections`; `PUT .../collections/{id}` | `MenuConfigurationController` | `MenuConfigurationHandler` | `EntityManager` | `menu_collection` and related configuration tables |
+| Collection management | `MenuAdminPage`, collection detail views | `GET/POST /api/staff/menu/collections`; `PUT/DELETE .../collections/{id}`; category/schedule/membership writes | `MenuConfigurationController` | `MenuConfigurationHandler` | `EntityManager` | `menu_collection` and related configuration tables |
 | Function enquiry + staff workflow | `FunctionsPage`; `FunctionEnquiriesPage` | `POST /api/functions`; `GET/PATCH /api/staff/functions...` | `CreateFunctionEnquiryController`; `FunctionEnquiriesController` | create handler; transactional controller update | Spring Data and `EntityManager` | `function_enquiry` |
 | Staff account administration | `UsersPage` | `GET/POST /api/identity/users`; `PUT .../{id}` | `StaffUsersController` | transactional controller methods | staff/session Spring Data repositories, `EntityManager` | `staff_user`, `staff_session` |
 | Payments | `PaymentForm`; `PaymentStatus` | `/api/payments/...`; `/api/staff/payments/...` | `CreatePaymentController` | `CreatePaymentHandler`, `PayPalPaymentProvider` | `EntityManager`, `OrderAccessService` | `restaurant_order`, `order_payment` |
@@ -173,29 +173,56 @@ Routes: `#/staff/foh` for ADMIN/FOH and `#/staff/kitchen` for ADMIN/BOH (`Kitche
 5. Domain checks require pickup minutes on acceptance, verified online payment before acceptance/handover, a cancellation reason, and explicit payment-collected confirmation at completion. It updates the order and persists `OrderEventJpaEntity` with actor/status/time.
 6. Although the handler returns `CreateOrderResponse`, the controller discards it and sends 204. `StaffOrdersPage.apply` therefore explicitly reloads via `getStaffOrders`, then updates state and re-renders. V11 owns the order/event tables; status history is retained in `restaurant_order_event`.
 
-## 9. Menu management CRUD
+## 9. Menu administration
 
-Route: `#/staff/menu`, ADMIN in both `ProtectedRoute` and `SecurityConfig`.
+All `#/staff/menu` routes remain ADMIN-only through `ProtectedRoute`; staff menu APIs remain ADMIN-only in `SecurityConfig`.
 
-### Dashboard read
+### Navigation and reads
 
-`StaffMenuPage` mount effect → `getStaffCsrf` and `getStaffMenu` → `GET /api/staff/menu/items` → `GetMenuItemController.list` (`@RestController`, `@RequestMapping`, `@GetMapping`) → `GetMenuItemHandler` (`@Service`) → `MenuAdminService.list` (`@Service`, `@Transactional(readOnly=true)`) → Spring Data item/category/collection/membership repositories → menu entities/tables → `MenuItemResponse.Dashboard` → `setMenu(data)` → table/summary render.
+`AppRouter` uses the existing hash router. `StaffMenuPage` delegates to the menu-owned `MenuAdminPage`, which renders `MenuAdminLayout` and a dedicated list or detail view:
 
-### Create/update/archive
+- `#/staff/menu` and `#/staff/menu/items`: `MenuItemList`.
+- `#/staff/menu/items/new`: create item.
+- `#/staff/menu/items/{id}` or `/{id}/overview|pricing|collections|images`: `MenuItemEditor`.
+- `#/staff/menu/collections`: `MenuCollectionList`.
+- `#/staff/menu/collections/new`: create collection.
+- `#/staff/menu/collections/{id}` or `/{id}/overview|items|categories|availability`: `MenuCollectionDetail`, delegating to one focused section component.
 
-- Create form submit calls `StaffMenuPage.mutate(() => saveMenuItem(...))`. `menuApi.saveMenuItem` selects POST for a new draft and PUT for an existing one. Writes refresh CSRF immediately before the request.
-- POST `/api/staff/menu/items` maps to `CreateMenuItemController.create` (`@PostMapping`) with `CreateMenuItemRequest`, then `CreateMenuItemHandler` (`@Service`) → `MenuAdminService.create` (`@Transactional`). It takes the menu catalog write lock, checks new-resource version semantics, validates category/collections, creates `MenuItemJpaEntity`, syncs `MenuCollectionItemJpaEntity`, and creates/updates `MenuItemVariationJpaEntity` prices. Response is 201 `{id}`.
-- PUT `/api/staff/menu/items/{id}` maps through `UpdateMenuItemController` (`@PutMapping`) and `UpdateMenuItemHandler` to `MenuAdminService.update`. It pessimistically locks/checks version, invalidates food-review verification when name/description changes, applies fields, memberships, and prices, then returns 204.
-- DELETE `/api/staff/menu/items/{id}?version=...` maps through `DeleteMenuItemController` (`@DeleteMapping`) and handler to `MenuAdminService.archive`; this is a soft archive (`status = ARCHIVED`), not a row delete.
-- After each successful mutation, `mutate` reloads the dashboard and calls `setMenu`; if reload fails, `needsReload` prevents accidentally repeating a successful write.
+Lists link to resources; local section navigation uses real links with `aria-current`. Refresh preserves the resource/section URL, and browser Back follows hash history. Unknown menu routes show an explicit not-found state. The layout provides compact Items/Collections navigation above the content, breadcrumbs and a main-content skip link, without a sidebar. Tables become labelled rows on narrow screens.
 
-`CreateMenuItemRequest` is the shared active create/update DTO. `MenuAdminService` uses `SpringDataMenuItemRepository`, category, collection, and membership repositories plus `EntityManager`. Tables and migrations are the menu set described in the menu trace.
+`useMenuAdminData` loads `getStaffMenu` and `getCollectionConfiguration` through the existing menu API wrapper. Returning to a view reloads its data/version. Item reads continue through `GetMenuItemController` → `GetMenuItemHandler` → `MenuAdminService.list` → existing Spring Data repositories. Collection reads continue through `MenuConfigurationController` → `MenuConfigurationHandler.collections`.
 
-### Images and collection availability
+`useMenuAdminForm` holds only the current form draft. `menuAdminNavigation` registers active form guards with the existing router: links and browser history ask before discarding unsaved edits; in-flight saves block navigation; browser refresh/close uses `beforeunload`. Successful create navigation is deferred until the completed save has rendered so a stale busy guard cannot block it. Form errors receive focus, and local editors focus their legend.
 
-- `MenuImageEditor.save` creates `FormData` and calls `saveMenuImage`; POST `/api/staff/menu/items/{id}/image` reaches `MenuImageController.save` (`@PostMapping multipart`) → `MenuImageService.save` (`@Service`, `@Transactional`). It locks/version-checks the item, validates/decodes JPEG or PNG, writes a normalized JPEG to the configured filesystem, updates/persists `MenuItemImageJpaEntity`, and increments item version. `/media/menu/{name}` is the public `@GetMapping` read. The database stores `storage_key`, metadata, and focus; the bytes are not in PostgreSQL.
-- `MenuCollectionAvailabilityEditor` calls `getCollectionConfiguration` and `saveCollectionConfiguration`. These reach `MenuConfigurationController.collections` (`@GetMapping`) and `updateCollection` (`@PutMapping`) → `MenuConfigurationHandler` (`@Service`, class-level `@Transactional`) → `EntityManager` and `MenuCatalogLock`. Response `Resource` records update local `collections` state after a reload.
-- `MenuConfigurationController` also exposes implemented CRUD for schedules, collection categories/memberships, option groups/options, and item assignments. The current React editor only wires collection reads/updates; those additional backend endpoints have no matching current UI and are therefore not active browser paths.
+### Item writes and images
+
+`MenuItemEditor` groups existing capabilities into Overview, Pricing / variations, Collections and Images. It does not add option or food-declaration editors. Name/description edits still trigger the backend dietary-review invalidation behavior.
+
+- POST `/api/staff/menu/items` → `CreateMenuItemController` → `CreateMenuItemHandler` → `MenuAdminService.create`.
+- PUT `/api/staff/menu/items/{id}` → `UpdateMenuItemController` → `UpdateMenuItemHandler` → `MenuAdminService.update`.
+- DELETE `/api/staff/menu/items/{id}?version=...` → delete controller/handler → `MenuAdminService.archive`, which sets ARCHIVED rather than deleting the row. The detail view confirms archiving explicitly.
+
+The service retains catalog locking, version checks, variation prices, collection membership synchronization and food-review invalidation. Item saves still send the complete existing item DTO; section views preserve fields belonging to other sections.
+
+`MenuImageEditor` retains JPEG/PNG upload, alt text, focus and zoom via POST `/api/staff/menu/items/{id}/image` → `MenuImageController` → `MenuImageService`. Image edits have independent save/cancel and navigation guards. A successful image write cannot be repeated if reloading its preview fails. The server still stores image metadata in `menu_item_image` and normalized JPEG bytes in the configured media directory.
+
+### Collection management
+
+`MenuCollectionOverview` uses the existing POST/PUT collection endpoints for metadata, publication, active state and display order. ARCHIVED status and deactivation remain non-destructive. Availability fields are preserved when saving overview metadata.
+
+`MenuCollectionItems` uses existing PUT/DELETE membership endpoints. Memberships retain canonical item identity, nullable category placement with canonical fallback, nullable price overrides including zero, and collection-specific ordering. Overrides affect only the default/base variation. Confirmation explicitly distinguishes removing a membership from deleting the canonical menu item.
+
+`MenuCollectionCategories` uses existing POST/PUT/DELETE collection category endpoints. In-use placements cannot be removed from the UI; the database foreign key remains authoritative. The UI reuses canonical categories and does not create new ones.
+
+`MenuCollectionAvailability` separates server-evaluated availability from configuration, broad instant bounds via explicitly labelled UTC date/time pickers, daily cutoff and the collection schedule timezone. It links to restaurant scheduling for restaurant hours/closed dates. `MenuScheduleEditor` uses existing schedule POST/PUT/DELETE endpoints and retains weekly/specific-date rules, all-day null time pairs, inclusive start/exclusive end, overnight starting-day semantics, and active state. No rules means unrestricted; all inactive rules means unavailable.
+
+`MenuConfigurationHandler.collections` reads the restaurant-owned schedule before the catalog lock and returns catalog availability, combined collection/restaurant availability, restaurant timezone and open state. Public Main Menu/Lunch Special semantics are unchanged. Combined availability describes collection/restaurant rules, not global ordering flags or individual item eligibility.
+
+All writes refresh CSRF and submit the resource version. A committed write followed by a failed read disables further editing until reload. Conflicts also require reload; validation errors retain the draft. Options, option groups and item assignments retain their existing backend APIs without a staff editor.
+
+### Frontend validation
+
+`npm test` includes menu API contracts and `menuAdminNavigation.test.js` for route identity, creation routes, invalid paths, availability presentation and navigation guards. `npm run test:menu-browser` runs `tests/e2e/menuAdmin.browser.mjs`, a dependency-free Chromium DevTools workflow check with mocked menu/identity APIs. Start Vite on port 5174 and Chromium with `--remote-debugging-port=9223`, or provide `MENU_ADMIN_TEST_URL` and `CHROME_DEBUG_URL`. It exercises real React navigation/forms, save/error handling, membership isolation and responsive layouts without writing to an application database.
 
 ## 10. Other implemented end-to-end flows
 
@@ -255,7 +282,7 @@ Follow these in order with “go to file”/symbol search:
 - Ordering creation uses `EntityManager` directly; reads use `SpringDataOrderRepository`. Menu public reads use a domain repository adapter; menu administration uses both Spring Data and `EntityManager`. These are active local patterns, not competing duplicate implementations.
 - `CreateOrderHandler.fingerprintLines` retains a legacy replay fingerprint for old lines without collection/options. Current frontend `orderLines` always sends collection identity. New orders explicitly reject missing collection IDs, so the legacy branch only assists replay compatibility.
 - `CurrentUserController /api/identity/me` is implemented but not called by the frontend. The active restoration path is refresh-token rotation.
-- The menu configuration backend exposes more CRUD than the current UI: schedule/category/membership/option-group/option/assignment endpoints are implemented and secured, but only collection availability is wired into `StaffMenuPage`.
+- Collection metadata, schedule, category placement and membership CRUD are wired into `StaffMenuPage`. Option-group/option/assignment endpoints remain implemented and secured without a dashboard editor.
 - Confirmation-sending files (`SendOrderConfirmationHandler` and command) are empty. Reservation/function pages explicitly state that no automatic notification is sent. Twilio Verify is active only for tracking-access verification when configured.
 - Payment provider behavior is gated by configuration. PayPal create/details/capture and staff PayID confirmation are implemented; similarly named webhook/refund or alternative-provider placeholders do not form an active end-to-end path.
 - Public media bytes live on the filesystem while metadata lives in PostgreSQL. This is the one mapped feature whose persistence is intentionally split.

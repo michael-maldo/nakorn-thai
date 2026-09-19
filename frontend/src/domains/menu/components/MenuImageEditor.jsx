@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useMenuNavigationGuard } from '../hooks/useMenuAdminForm';
 import { presentDish } from '../model/menuModel';
 import { saveMenuImage } from '../api/menuApi';
 
@@ -12,6 +13,10 @@ export default function MenuImageEditor({ item, authorization, csrf, onSaved, on
   const [zoom, setZoom] = useState(item.image?.zoom ?? 1);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [saved, setSaved] = useState(false);
+  const dirty = !saved && (file !== null || alt !== (item.image?.alt || item.name) || x !== (item.image?.focusX ?? 50) || y !== (item.image?.focusY ?? 50) || zoom !== (item.image?.zoom ?? 1));
+  const guard = useMenuNavigationGuard(dirty, busy);
+
   useEffect(() => {
     if (!file) return;
     const objectUrl = URL.createObjectURL(file);
@@ -32,11 +37,12 @@ export default function MenuImageEditor({ item, authorization, csrf, onSaved, on
       body.append('version', item.version);
       body.append('alt', alt); body.append('focusX', x); body.append('focusY', y); body.append('zoom', zoom);
       await saveMenuImage(item.id, body, authorization, csrf);
+      guard.current.dirty = false; setSaved(true);
       await onSaved();
     } catch (failure) { setError(failure.message); }
     finally { setBusy(false); onBusy(false); }
   }
-  return <fieldset className="staff-wide" disabled={disabled || busy}>
+  return <fieldset className="staff-wide" disabled={disabled || busy || saved}>
     <legend>Menu photograph</legend>
     <p>Choose a JPEG or PNG up to 8 MB and 16 megapixels. Focus controls adjust the card crop.</p>
     {error && <p role="alert">{error}</p>}
@@ -54,6 +60,11 @@ export default function MenuImageEditor({ item, authorization, csrf, onSaved, on
     <label>Vertical focus: {y}%<input type="range" min="0" max="100" value={y} onChange={(e) => setY(Number(e.target.value))} /></label>
     <label>Zoom: {zoom.toFixed(2)}×<input type="range" min="1" max="3" step="0.05" value={zoom} onChange={(e) => setZoom(Number(e.target.value))} /></label>
     <button type="button" disabled={!url || !alt.trim()} onClick={save}>{busy ? 'Saving photo…' : 'Save photo and focus'}</button>
-    <p>Photo changes save separately. Save any dish text changes first.</p>
+    <button type="button" disabled={!dirty} onClick={() => {
+      setFile(null); setUrl(original.image); setAlt(item.image?.alt || item.name);
+      setX(item.image?.focusX ?? 50); setY(item.image?.focusY ?? 50); setZoom(item.image?.zoom ?? 1); setError('');
+    }}>Cancel photo changes</button>
+    {saved && <p role="status">Photo saved. Refresh data if the updated preview has not loaded.</p>}
+    <p>Photo changes save separately from item details.</p>
   </fieldset>;
 }

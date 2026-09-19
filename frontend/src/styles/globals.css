@@ -366,3 +366,81 @@ body.has-cart-dock { padding-bottom: calc(88px + env(safe-area-inset-bottom)); }
 .cart-notice a, .cart-notice button { margin-right: .75rem; }
 .cart-notice { position: fixed; z-index: 25; inset-inline: 1rem; bottom: 1rem; max-width: 44rem; max-height: 35vh; overflow-y: auto; margin-inline: auto; box-shadow: 0 4px 24px #0002; }
 .has-cart-dock .cart-notice { bottom: 6rem; }
+
+/* Staff menu workspace: resource navigation and focused management views. */
+.menu-admin { min-height: 100vh; background: #f5f6f8; color: #25313d; font-size: 14px; --admin-line: #dce2e7; --admin-accent: #214f43; }
+.menu-admin a, .menu-admin button, .menu-admin input, .menu-admin select, .menu-admin textarea { -webkit-tap-highlight-color: transparent; }
+.menu-admin :focus-visible { outline: 3px solid #397b9d; outline-offset: 3px; }
+.menu-admin h1:focus, .menu-admin main:focus { outline: none; }
+.menu-admin button, .menu-admin-primary { display: inline-flex; align-items: center; justify-content: center; min-height: 42px; padding: .55rem .9rem; border: 1px solid #c7d0d8; border-radius: 6px; background: #fff; color: #25313d; font: inherit; font-weight: 600; cursor: pointer; line-height: 1.4; }
+.menu-admin button:hover { background: #eef2f4; }
+.menu-admin button:disabled { opacity: .5; cursor: not-allowed; }
+.menu-admin .menu-admin-primary { background: var(--admin-accent); border-color: var(--admin-accent); color: #fff; }
+.menu-admin .menu-admin-primary:hover { background: #173d33; }
+.menu-admin .menu-admin-danger { color: #9c302b; border-color: #dcbfbc; background: #fff; }
+.menu-admin h1 { font-size: 1.8rem; line-height: 1.25; letter-spacing: -.03em; margin: .25rem 0 0; }
+.menu-admin h2, .menu-admin legend { font-size: 1.15rem; font-weight: 650; letter-spacing: -.015em; margin: 0 0 .65rem; }
+.menu-admin h3 { font-size: 1rem; margin: 1.5rem 0 .5rem; }
+.menu-admin p { margin: .5rem 0 1rem; }
+.menu-admin small { color: #596675; font-size: .8rem; line-height: 1.5; }
+.menu-admin-topbar { min-height: 76px; padding: 14px 32px; background: #fff; border-bottom: 1px solid var(--admin-line); display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+.menu-admin-brand { font-size: 1.15rem; font-weight: 700; letter-spacing: -.03em; }
+.menu-admin-brand span { display: block; font-size: .75rem; font-weight: 400; letter-spacing: .02em; color: #647181; }
+.menu-admin-topbar > div { display: flex; gap: 20px; align-items: center; }
+.menu-admin-shell { max-width: 1400px; margin-inline: auto; min-height: calc(100vh - 76px); }
+.menu-admin main { min-width: 0; padding: 26px 36px 64px; }
+.menu-admin-breadcrumbs { display: flex; gap: 10px; flex-wrap: wrap; font-size: .8rem; color: #657281; margin-bottom: 24px; }
+.menu-admin-breadcrumbs a:hover, .menu-admin-text-link, .menu-admin-hint a { text-decoration: underline; text-underline-offset: 3px; }
+.menu-admin-page-heading, .menu-admin-section-heading { display: flex; justify-content: space-between; align-items: center; gap: 24px; margin-bottom: 24px; }
+.menu-admin-eyebrow { font-size: .68rem; letter-spacing: .14em; color: #687786; font-weight: 700; margin: 0 !important; }
+.menu-admin-meta, .menu-admin-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.menu-admin-meta { color: #617080; font-size: .85rem; margin-bottom: 18px; }
+.menu-admin-subnav { display: flex; gap: 24px; border-bottom: 1px solid var(--admin-line); margin-bottom: 28px; overflow-x: auto; }
+.menu-admin-subnav a { min-height: 46px; padding: 12px 2px; white-space: nowrap; color: #596878; border-bottom: 3px solid transparent; }
+.menu-admin-subnav a[aria-current] { color: #214f43; border-color: #214f43; font-weight: 700; }
+.menu-admin-toolbar { display: flex; align-items: end; flex-wrap: wrap; gap: 16px; padding: 18px 20px; background: #fff; border: 1px solid var(--admin-line); border-radius: 8px; }
+.menu-admin-toolbar > label:first-child { flex: 1; min-width: 200px; }
+.menu-admin label { display: flex; flex-direction: column; gap: 6px; font-size: .85rem; font-weight: 600; }
+.menu-admin label small { font-weight: 400; }
+.menu-admin input, .menu-admin select, .menu-admin textarea { font: inherit; color: #25313d; background: #fff; border: 1px solid #aebbc7; padding: 10px 11px; border-radius: 5px; min-width: 0; width: 100%; min-height: 42px; }
+.menu-admin textarea { resize: vertical; }
+.menu-admin .menu-admin-check { flex-direction: row; align-items: center; gap: 10px; font-weight: 500; min-height: 44px; }
+.menu-admin-check input { width: 18px; min-height: 18px; height: 18px; accent-color: var(--admin-accent); }
+.menu-admin-muted { color: #627181; font-size: .85rem; }
+.menu-admin-search { max-width: 360px; margin-bottom: 18px; }
+.menu-admin-table-wrap { overflow-x: auto; background: white; border: 1px solid var(--admin-line); border-radius: 8px; }
+.menu-admin-table { width: 100%; border-collapse: collapse; text-align: left; }
+.menu-admin-table th { font-size: .72rem; font-weight: 650; color: #586677; background: #f9fafb; padding: 13px 16px; white-space: nowrap; }
+.menu-admin-table td { padding: 16px; border-top: 1px solid #e6ebef; vertical-align: middle; font-size: .85rem; }
+.menu-admin-table tbody tr:hover { background: #fafcfb; }
+.menu-admin-table small { display: block; margin-top: 3px; }
+.menu-admin-resource-link { display: inline-block; padding-block: 8px; font-weight: 650; color: #214f43; text-decoration: underline; text-decoration-color: #b5c8bf; text-underline-offset: 4px; }
+.menu-admin-badge { display: inline-block; max-width: 100%; padding: 4px 9px; border-radius: 5px; background: #eef1f4; color: #536070; font-size: .7rem; font-weight: 650; line-height: 1.4; }
+.menu-admin-badge.is-positive { background: #e6f1ec; color: #246148; }
+.menu-admin-form { background: white; border: 1px solid var(--admin-line); border-radius: 8px; padding: 26px; max-width: 850px; }
+.menu-admin-form fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
+.menu-admin-form fieldset:disabled { opacity: .75; }
+.menu-admin-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px; margin: 20px 0; }
+.menu-admin-wide { grid-column: 1 / -1; }
+.menu-admin-hint { font-size: .85rem; color: #596979; border-left: 3px solid #b8cbc2; padding: 8px 14px; margin-top: 20px !important; }
+.menu-admin-form-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; border-top: 1px solid #e5eaee; padding-top: 20px; margin-top: 24px; }
+.menu-admin-form-actions span { color: #677687; font-size: .8rem; margin-left: auto; }
+.menu-admin-choice-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 20px; }
+.menu-admin-error, .menu-admin-success { border-radius: 6px; padding: 14px 18px; }
+.menu-admin-error { background: #fff0ee; border: 1px solid #e8c8c3; color: #8d2920; }
+.menu-admin-success { background: #e9f4ed; color: #255e40; }
+.menu-admin-empty { padding: 38px 24px; text-align: center; color: #657381; border: 1px dashed #c7d0d7; border-radius: 8px; background: #fff; }
+.menu-admin-empty h2 { color: #344453; }
+.menu-admin-confirm { border-left: 3px solid #a44437; background: #fff4f1; padding: 18px 24px; margin-bottom: 20px; }
+.menu-admin-confirm h3 { margin-top: 0; }
+.menu-admin-danger-zone { max-width: 850px; margin-top: 34px; padding-top: 24px; border-top: 1px solid #ddc9c5; }
+.menu-admin-availability { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; padding: 24px; background: #edf2ef; border-radius: 8px; }
+.menu-admin-availability p { font-size: .8rem; color: #5b6d65; }
+.menu-admin-availability dl { margin: 0; }
+.menu-admin-availability dl > div { display: flex; gap: 16px; justify-content: space-between; padding: 7px 0; font-size: .85rem; }
+.menu-admin-availability dd { margin: 0; text-align: right; font-weight: 600; }
+.menu-admin-schedules { margin-top: 36px; }
+.menu-admin-skip { position: absolute; left: 16px; top: -100px; background: white; padding: 12px; z-index: 100; }
+.menu-admin-skip:focus { top: 12px; }
+.menu-admin .menu-focus-preview { max-width: 360px; margin-block: 18px; }
+.menu-admin-form > fieldset > label { margin-block: 16px; }

@@ -38,6 +38,22 @@ class MenuConfigurationIntegrationTest {
         return handler.saveCollection(null,new MenuConfigurationRequest.Collection("Menu","menu-"+UUID.randomUUID(),null,"PUBLISHED",true,"Australia/Melbourne",null,null,1,null,null));
     }
     UUID id(MenuConfigurationHandler.Resource r) { return (UUID)r.id(); }
+    @Test void collectionMetadataCutoffAndVersionsRoundTrip() {
+        var c=collection(); var other=collection();
+        Instant start=Instant.parse("2026-09-01T00:00:00Z"),end=start.plusSeconds(86400);
+        var saved=handler.saveCollection(id(c),new MenuConfigurationRequest.Collection("Edited","edited-"+UUID.randomUUID(),"Details","ARCHIVED",false,"UTC",start,end,9,c.version(),LocalTime.of(14,30)));
+        em.clear();
+        var rows=handler.collections();
+        var loaded=rows.stream().filter(r -> r.collection().id().equals(c.id())).findFirst().orElseThrow();
+        var data=(MenuConfigurationRequest.Collection)loaded.collection().data();
+        assertEquals("Edited",data.name()); assertEquals("Details",data.description()); assertEquals("ARCHIVED",data.status());
+        assertFalse(data.active()); assertEquals("UTC",data.timezone()); assertEquals(9,data.displayOrder());
+        assertEquals(start,data.startsAt()); assertEquals(end,data.endsAt()); assertEquals(LocalTime.of(14,30),data.dailyCutoffTime());
+        assertEquals(saved.version(),loaded.collection().version()); assertTrue(saved.version()>c.version());
+        var unchanged=(MenuConfigurationRequest.Collection)rows.stream().filter(r -> r.collection().id().equals(other.id())).findFirst().orElseThrow().collection().data();
+        assertEquals("PUBLISHED",unchanged.status()); assertTrue(unchanged.active()); assertNull(unchanged.dailyCutoffTime());
+        assertEquals("NOT_PUBLISHED",loaded.availability().reason());
+    }
     @Test void collectionPlacementOverrideAndLegacyFallbackRoundTrip() {
         var c=collection(); var second=collection();
         UUID alternative=UUID.randomUUID();
@@ -53,6 +69,7 @@ class MenuConfigurationIntegrationTest {
         var fallback=menu.handle(new ListMenuQuery(((MenuConfigurationRequest.Collection)second.data()).slug())).items().getFirst();
         assertEquals(category,fallback.category().id()); assertEquals(2490,fallback.variations().getFirst().priceMinor());
         handler.deleteMembership(id(c),item,membership.version()); em.flush(); em.clear();
+        assertEquals(1,jdbc.queryForObject("select count(*) from menu_item where id=?",Integer.class,item));
         assertTrue(menu.handle(new ListMenuQuery(slug)).items().isEmpty());
         assertFalse(menu.handle(new ListMenuQuery(((MenuConfigurationRequest.Collection)second.data()).slug())).items().isEmpty());
     }
