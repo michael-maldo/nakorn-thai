@@ -1,6 +1,6 @@
 # Application Trace Map
 
-This guide is a code-navigation aid for the application that currently exists. It was built by following the wiring from `frontend/src/main.jsx` and `frontend/src/app/AppRouter.jsx`, then matching each frontend request to Spring mappings, security rules, persistence code, entities, and Flyway DDL. A filename is not treated as implemented behavior.
+This guide is a code-navigation aid for the application that currently exists. It was built by following the wiring from `../../frontend/src/main.jsx` and `../../frontend/src/app/AppRouter.jsx`, then matching each frontend request to Spring mappings, security rules, persistence code, entities, and Flyway DDL. A filename is not treated as implemented behavior.
 
 ## How a request moves through this application
 
@@ -34,15 +34,15 @@ response record/map/entity → ResponseEntity/HTTP status
 API decoder → React state/context update → render
 ```
 
-Application composition is `frontend/src/main.jsx` → `App` in `frontend/src/app/App.jsx` → `AuthProvider` → `CartProvider` → `AppRouter` plus the global `CartDock`. Routing is a `hashchange` listener in `AppRouter`; React Router is not installed or used. In development, `frontend/vite.config.js` proxies `/api` and `/media` to port 8080.
+Application composition is `../../frontend/src/main.jsx` → `App` in `../../frontend/src/app/App.jsx` → `AuthProvider` → `CartProvider` → `AppRouter` plus the global `CartDock`. Routing is a `hashchange` listener in `AppRouter`; React Router is not installed or used. In development, `../../frontend/vite.config.js` proxies `/api` and `/media` to port 8080.
 
 ## Security and cross-cutting checkpoints
 
-- `backend/src/main/java/au/com/nakornthai/shared/security/SecurityConfig.java`, `securityFilterChain(...)` (`@Configuration`, `@Bean`): permits the explicitly listed public menu, ordering, payment, verification, function, reservation, and availability operations; applies role checks to staff paths; denies everything else. Spring CSRF remains enabled. This is the authoritative authorization layer; `ProtectedRoute` is only a UI guard.
-- `backend/src/main/java/au/com/nakornthai/shared/security/JwtAuthenticationFilter.java`, `doFilterInternal(...)`: for a Bearer request, verifies the JWT, reads `staff_session` through `SpringDataStaffSessionRepository.findById`, follows its eager `user` relationship to `staff_user`, checks session expiry/revocation and user enablement, and installs `ROLE_ADMIN`, `ROLE_FOH`, or `ROLE_BOH` in the security context. It returns 401 before a controller on failure.
-- Frontend staff wrappers call `fetchWithIdentity(...)` in `frontend/src/domains/identity/api/identityApi.js`. It refreshes an expiring access token and retries once after 401. Access tokens live in module/React memory; the rotating refresh token is an HttpOnly cookie.
+- `../../backend/src/main/java/au/com/nakornthai/shared/security/SecurityConfig.java`, `securityFilterChain(...)` (`@Configuration`, `@Bean`): permits the explicitly listed public menu, ordering, payment, verification, function, reservation, and availability operations; applies role checks to staff paths; denies everything else. Spring CSRF remains enabled. This is the authoritative authorization layer; `ProtectedRoute` is only a UI guard.
+- `../../backend/src/main/java/au/com/nakornthai/shared/security/JwtAuthenticationFilter.java`, `doFilterInternal(...)`: for a Bearer request, verifies the JWT, reads `staff_session` through `SpringDataStaffSessionRepository.findById`, follows its eager `user` relationship to `staff_user`, checks session expiry/revocation and user enablement, and installs `ROLE_ADMIN`, `ROLE_FOH`, or `ROLE_BOH` in the security context. It returns 401 before a controller on failure.
+- Frontend staff wrappers call `fetchWithIdentity(...)` in `../../frontend/src/domains/identity/api/identityApi.js`. It refreshes an expiring access token and retries once after 401. Access tokens live in module/React memory; the rotating refresh token is an HttpOnly cookie.
 - Browser writes first obtain a CSRF token. Identity uses `/api/identity/csrf`; menu uses `/api/staff/menu/csrf`; orders and payments use `/api/orders/csrf`; reservations and functions use their own `/csrf` endpoints; restaurant administration uses `/api/staff/restaurant/csrf`.
-- `backend/src/main/java/au/com/nakornthai/shared/observability/CorrelationIdFilter.java` and `LoggingAspect.java` wrap requests/service calls for correlation and logging but do not change feature data flow.
+- `../../backend/src/main/java/au/com/nakornthai/shared/observability/CorrelationIdFilter.java` and `LoggingAspect.java` wrap requests/service calls for correlation and logging but do not change feature data flow.
 
 ## Tracing index
 
@@ -70,15 +70,15 @@ Application composition is `frontend/src/main.jsx` → `App` in `frontend/src/ap
 
 Route: `#/menu`.
 
-1. `frontend/src/app/AppRouter.jsx`, `AppRouter()`, renders `MenuPage` when the hash is `#/menu`. It is called by `App`; its next step is mounting the page.
-2. `frontend/src/domains/menu/pages/MenuPage.jsx`, `MenuPage()`, calls `useMenu(selectedId)`. Collection buttons/select call local `select(id)`; search input changes `search`; `menuSections(menu, search)` prepares render sections. It also calls `getOrderingOptions()` separately to decide whether Add buttons are enabled.
-3. `frontend/src/domains/menu/hooks/useMenu.js`, `useMenu(...)` and effect-local `load()`, first call `getMenuCollections(signal)`, choose a collection with `selectCollection(...)`, then call `getMenuCollection(selected.slug, signal)`. The hook owns `{collections, menu, loading, error}` and calls `setState`, causing `MenuPage` to render loading, error, empty, or menu UI.
-4. `frontend/src/domains/menu/api/menuApi.js`, `getMenuCollections`, `getMenuCollection`, and `menuRequest`, use browser `fetch` through `fetchWithIdentity`. These public requests carry cookies but no Bearer token. They issue `GET /api/menu/collections` and `GET /api/menu/collections/{encodedSlug}/items`, validate basic response shape, and return JSON.
+1. `../../frontend/src/app/AppRouter.jsx`, `AppRouter()`, renders `MenuPage` when the hash is `#/menu`. It is called by `App`; its next step is mounting the page.
+2. `../../frontend/src/domains/menu/pages/MenuPage.jsx`, `MenuPage()`, calls `useMenu(selectedId)`. Collection buttons/select call local `select(id)`; search input changes `search`; `menuSections(menu, search)` prepares render sections. It also calls `getOrderingOptions()` separately to decide whether Add buttons are enabled.
+3. `../../frontend/src/domains/menu/hooks/useMenu.js`, `useMenu(...)` and effect-local `load()`, first call `getMenuCollections(signal)`, choose a collection with `selectCollection(...)`, then call `getMenuCollection(selected.slug, signal)`. The hook owns `{collections, menu, loading, error}` and calls `setState`, causing `MenuPage` to render loading, error, empty, or menu UI.
+4. `../../frontend/src/domains/menu/api/menuApi.js`, `getMenuCollections`, `getMenuCollection`, and `menuRequest`, use browser `fetch` through `fetchWithIdentity`. These public requests carry cookies but no Bearer token. They issue `GET /api/menu/collections` and `GET /api/menu/collections/{encodedSlug}/items`, validate basic response shape, and return JSON.
 5. `SecurityConfig.securityFilterChain` permits both GET patterns. No staff authentication is required; CSRF does not affect GET.
-6. `backend/src/main/java/au/com/nakornthai/menu/listmenu/ListMenuController.java` (`@RestController`, `@RequestMapping("/api/menu/collections")`): `discover()` (`@GetMapping`) calls `ListMenuHandler.discover()`; `list(slug)` (`@GetMapping("/{slug}/items")`) creates `ListMenuQuery` and calls `handle`.
-7. `backend/src/main/java/au/com/nakornthai/menu/listmenu/ListMenuQuery.java` is the collection-slug input record. The handler explicitly validates its nonblank/length/slug-pattern constraints.
-8. `backend/src/main/java/au/com/nakornthai/menu/listmenu/ListMenuHandler.java` (`@Service`): `discover()` and `handle(...)` are `@Transactional` because schedule evaluation takes a database consistency lock. They call the `MenuItemRepository` domain interface.
-9. `backend/src/main/java/au/com/nakornthai/menu/infrastructure/JpaMenuItemRepository.java` (`@Repository`):
+6. `../../backend/src/main/java/au/com/nakornthai/menu/listmenu/ListMenuController.java` (`@RestController`, `@RequestMapping("/api/menu/collections")`): `discover()` (`@GetMapping`) calls `ListMenuHandler.discover()`; `list(slug)` (`@GetMapping("/{slug}/items")`) creates `ListMenuQuery` and calls `handle`.
+7. `../../backend/src/main/java/au/com/nakornthai/menu/listmenu/ListMenuQuery.java` is the collection-slug input record. The handler explicitly validates its nonblank/length/slug-pattern constraints.
+8. `../../backend/src/main/java/au/com/nakornthai/menu/listmenu/ListMenuHandler.java` (`@Service`): `discover()` and `handle(...)` are `@Transactional` because schedule evaluation takes a database consistency lock. They call the `MenuItemRepository` domain interface.
+9. `../../backend/src/main/java/au/com/nakornthai/menu/infrastructure/JpaMenuItemRepository.java` (`@Repository`):
    - `findPublishedCollections()` calls `SpringDataMenuCollectionRepository.findByStatusOrderByDisplayOrderAscIdAsc`, optionally gets the restaurant schedule, and applies `MenuCatalogRules.availability`.
    - `findVisibleCollection(slug)` calls `findVisibleBySlug`, `SpringDataMenuCollectionItemRepository.findPublishedMemberships`, filters inactive/invalid placement, invokes `MenuItemMapper.map`, and assembles ordered categories.
 10. Domain rules are in `menu/domain/CollectionAvailability.java` (`evaluate`, `withRestaurantCutoff`), `menu/infrastructure/MenuCatalogRules.java`, and `menu/domain/MenuPricing.java`. `MenuItemMapper` maps initialized JPA relationships to immutable records in `menu/domain/MenuItem.java`, including variations, images, food declarations, collection placement, and option groups.
@@ -91,11 +91,11 @@ Route: `#/menu`.
 
 There is deliberately no backend or database step until checkout.
 
-1. In `MenuItemCard` (`frontend/src/domains/menu/components/MenuItemCard.jsx`), variation `<select>` updates local `variationId`; `MenuItemOptions` updates local `selections`. `evaluateOptions(...)` in `frontend/src/domains/menu/model/menuOptions.js` validates group cardinality and computes option deltas.
-2. Clicking **Add to order** calls the card's `onAdd(line)`. `createCartLine(...)` in `frontend/src/domains/ordering/model/cartModel.js` creates a display/offer snapshot containing collection, dish, variation, selected options, unit price, and a stable `configurationKey`.
+1. In `MenuItemCard` (`../../frontend/src/domains/menu/components/MenuItemCard.jsx`), variation `<select>` updates local `variationId`; `MenuItemOptions` updates local `selections`. `evaluateOptions(...)` in `../../frontend/src/domains/menu/model/menuOptions.js` validates group cardinality and computes option deltas.
+2. Clicking **Add to order** calls the card's `onAdd(line)`. `createCartLine(...)` in `../../frontend/src/domains/ordering/model/cartModel.js` creates a display/offer snapshot containing collection, dish, variation, selected options, unit price, and a stable `configurationKey`.
 3. `MenuPage` supplies `onAdd`, which dispatches `{type: 'add', line}` through `useCart()` and updates its `added` live-region message.
-4. `CartProvider` in `frontend/src/domains/ordering/model/CartContext.jsx` owns `useReducer(cartReducer, ...)`. `cartReducer` in `cartReducer.js` merges an identical configuration, caps quantity at 20, and caps distinct configurations at 30.
-5. `Cart` in `frontend/src/domains/ordering/components/Cart.jsx` supplies quantity `commit`, increment/decrement, and remove handlers. They dispatch `quantity` or `remove`; `cartTotal` derives the total. `CartDock` consumes the same context and renders globally outside the router.
+4. `CartProvider` in `../../frontend/src/domains/ordering/model/CartContext.jsx` owns `useReducer(cartReducer, ...)`. `cartReducer` in `cartReducer.js` merges an identical configuration, caps quantity at 20, and caps distinct configurations at 30.
+5. `Cart` in `../../frontend/src/domains/ordering/components/Cart.jsx` supplies quantity `commit`, increment/decrement, and remove handlers. They dispatch `quantity` or `remove`; `cartTotal` derives the total. `CartDock` consumes the same context and renders globally outside the router.
 6. Every cart update triggers the `CartProvider` effect, which calls `serializeCart(cart)` and writes `sessionStorage['nakorn-pickup-cart']`. Initial state calls `restoreCart`. The reducer state update re-renders all `useCart` consumers.
 7. These prices are not trusted by the server. `CheckoutPage` refreshes them against the menu, and `CreateOrderHandler` recalculates authoritative prices.
 
@@ -105,7 +105,7 @@ Route: `#/checkout`. A detailed editor-following trace appears later; this secti
 
 - UI/event/state: `CheckoutPage.place(event)` reads controlled name/phone/email/payment/notes fields and `cart` from `CartContext`. `prepareCheckout(cart)` refreshes every referenced collection, rebuilds lines with `createCartLine`, rejects changed display terms, and converts lines through `orderLines` to `{collectionId, variationId, quantity, expectedUnitPriceMinor, selectedOptions}`.
 - Retry/idempotency: `CheckoutPage` creates `requestId` and a 64-hex-character `trackingToken`, saves the entire payload under `nakorn-pending-pickup` before network submission, and reuses it. `resumeOrder` first tries a lookup before replaying. This is active behavior, not just a backend facility.
-- API: `submitOrder` in `frontend/src/domains/ordering/api/orderApi.js` gets `/api/orders/csrf`, then posts JSON to `POST /api/orders`. `request` decodes errors and responses.
+- API: `submitOrder` in `../../frontend/src/domains/ordering/api/orderApi.js` gets `/api/orders/csrf`, then posts JSON to `POST /api/orders`. `request` decodes errors and responses.
 - Security: both the CSRF GET and order POST are public in `SecurityConfig`, but the POST must pass Spring CSRF. No JWT is required.
 - Controller/input: `CreateOrderController` (`@RestController`, `@RequestMapping("/api/orders")`) has `create(...)` (`@PostMapping`) with `@Valid CreateOrderRequest`; it returns 201. The request record validates identity/contact, 1–30 lines, quantities 1–20, expected nonnegative prices, selected option IDs/quantities, and payment method.
 - Use case: `CreateOrderHandler` (`@Service`), `handle(...)` (`@Transactional`), takes a PostgreSQL advisory lock derived from `requestId`, fingerprints the request, safely returns an identical existing order, and rejects a conflicting replay. It checks feature flags and `RestaurantAvailabilityService.schedule()`.
@@ -142,7 +142,7 @@ Route: `#/checkout`. A detailed editor-following trace appears later; this secti
 
 ## 6. Staff authentication
 
-1. Any protected staff route reaches `ProtectedRoute` in `frontend/src/domains/identity/components/ProtectedRoute.jsx`. It reads `AuthContext`; while loading it shows a check message, without a user it renders `LoginPage`/`LoginForm`, and it applies a convenience role check before rendering children.
+1. Any protected staff route reaches `ProtectedRoute` in `../../frontend/src/domains/identity/components/ProtectedRoute.jsx`. It reads `AuthContext`; while loading it shows a check message, without a user it renders `LoginPage`/`LoginForm`, and it applies a convenience role check before rendering children.
 2. `AuthProvider` mounts globally and calls `identity.refreshAccess()` once. A valid HttpOnly refresh cookie restores an in-memory access token; a timer refreshes shortly before expiry.
 3. `LoginForm.submit` reads FormData, calls context `login`, and updates busy/error state. `identityApi.login(username,password)` gets CSRF, posts `{username,password}` to `/api/identity/login`, and `publish(data)` notifies the context subscriber.
 4. `SecurityConfig` permits login/refresh/logout. `LoginController` (`@RestController`, `@RequestMapping("/api/identity")`, `@PostMapping("/login")`) validates `LoginRequest`, calls `LoginHandler`, sets the refresh cookie, and returns `LoginResponse`.
@@ -248,25 +248,25 @@ All writes refresh CSRF and submit the resource version. A committed write follo
 
 Follow these in order with “go to file”/symbol search:
 
-1. Open `frontend/src/app/AppRouter.jsx`, `AppRouter()`. Confirm `#/checkout` returns `<CheckoutPage />` and `#/order-confirmation` returns `<OrderConfirmationPage />`.
-2. Open `frontend/src/domains/ordering/pages/CheckoutPage.jsx`, `CheckoutPage()`. `useCart()` supplies current lines and `dispatch`; local state owns customer/payment fields. The user submits the `<form onSubmit={place}>`.
+1. Open `../../frontend/src/app/AppRouter.jsx`, `AppRouter()`. Confirm `#/checkout` returns `<CheckoutPage />` and `#/order-confirmation` returns `<OrderConfirmationPage />`.
+2. Open `../../frontend/src/domains/ordering/pages/CheckoutPage.jsx`, `CheckoutPage()`. `useCart()` supplies current lines and `dispatch`; local state owns customer/payment fields. The user submits the `<form onSubmit={place}>`.
 3. Stay in `CheckoutPage.place(event)`. For a new attempt it calls `prepareCheckout(cart)` before constructing the payload. Note that it persists `PENDING_ORDER` before sending: this makes a lost HTTP response safely recoverable.
-4. Open `frontend/src/domains/ordering/api/checkoutApi.js`, `prepareCheckout(cart)`. It first calls `orderLines(cart)` for structural validation, then `refreshCartPrices(cart)`.
-5. In `refreshCartPrices`, follow `getMenuCollections` and `getMenuCollection` to `frontend/src/domains/menu/api/menuApi.js`. These invoke the same public menu endpoints as browsing, so checkout uses a fresh server offer rather than only the stored browser snapshot.
+4. Open `../../frontend/src/domains/ordering/api/checkoutApi.js`, `prepareCheckout(cart)`. It first calls `orderLines(cart)` for structural validation, then `refreshCartPrices(cart)`.
+5. In `refreshCartPrices`, follow `getMenuCollections` and `getMenuCollection` to `../../frontend/src/domains/menu/api/menuApi.js`. These invoke the same public menu endpoints as browsing, so checkout uses a fresh server offer rather than only the stored browser snapshot.
 6. Return to `refreshCartPrices`. It matches collection, dish, variation, and selections, checks collection/item availability, and rebuilds each line with `createCartLine`. Back in `prepareCheckout`, `displayedTerms` detects changed price/names/options and forces the customer to review rather than silently accept a change.
-7. Open `frontend/src/domains/ordering/model/cartModel.js`, `orderLines(cart)`. This is the exact wire conversion: display fields disappear; the server receives `collectionId`, `variationId`, `quantity`, `expectedUnitPriceMinor`, and normalized `{optionId, quantity}` selections.
+7. Open `../../frontend/src/domains/ordering/model/cartModel.js`, `orderLines(cart)`. This is the exact wire conversion: display fields disappear; the server receives `collectionId`, `variationId`, `quantity`, `expectedUnitPriceMinor`, and normalized `{optionId, quantity}` selections.
 8. Return to `CheckoutPage.place`. Inspect the final payload: stable `requestId`, random 64-hex `trackingToken`, contact fields, optional email, payment method, notes, and reviewed items. Then follow `submitOrder(payload)`.
-9. Open `frontend/src/domains/ordering/api/orderApi.js`, `submitOrder`. It GETs `/api/orders/csrf`, then `request('/orders', ...)` sends `POST /api/orders` with JSON, cookies, and the CSRF header.
-10. Open `backend/src/main/java/au/com/nakornthai/shared/security/SecurityConfig.java`, `securityFilterChain`. Locate the public GET `/api/orders/csrf` and POST `/api/orders` matchers. Authentication is not required, but Spring's enabled CSRF filter validates the token before controller invocation.
-11. Open `backend/src/main/java/au/com/nakornthai/ordering/createorder/CreateOrderController.java`, `create(...)`. The `@RestController`/`@RequestMapping("/api/orders")` plus `@PostMapping` form the endpoint. `@Valid @RequestBody` triggers DTO validation; successful output is HTTP 201.
+9. Open `../../frontend/src/domains/ordering/api/orderApi.js`, `submitOrder`. It GETs `/api/orders/csrf`, then `request('/orders', ...)` sends `POST /api/orders` with JSON, cookies, and the CSRF header.
+10. Open `../../backend/src/main/java/au/com/nakornthai/shared/security/SecurityConfig.java`, `securityFilterChain`. Locate the public GET `/api/orders/csrf` and POST `/api/orders` matchers. Authentication is not required, but Spring's enabled CSRF filter validates the token before controller invocation.
+11. Open `../../backend/src/main/java/au/com/nakornthai/ordering/createorder/CreateOrderController.java`, `create(...)`. The `@RestController`/`@RequestMapping("/api/orders")` plus `@PostMapping` form the endpoint. `@Valid @RequestBody` triggers DTO validation; successful output is HTTP 201.
 12. Open `CreateOrderRequest.java`. Compare every JSON field with the frontend payload and note nested validation bounds. `Line.configurationKey()` canonicalizes selection order for duplicate/idempotency logic.
 13. Open `CreateOrderHandler.java`, `handle(...)` (`@Service`, `@Transactional`). First follow the advisory lock and fingerprint. An already-committed identical `requestId` maps the existing order; a mismatched replay returns conflict.
 14. Continue through feature/payment flags and `RestaurantAvailabilityService.schedule()`. Open `restaurant/availability/RestaurantAvailabilityService.java`, then `restaurant/infrastructure/JpaRestaurantRepository.java`, to see the read of `restaurant_settings`, `restaurant_opening_hours`, and `restaurant_closed_date` and the domain `RestaurantSchedule.isOpen` decision.
 15. Return to `CreateOrderHandler`. Follow `MenuCatalogLock.read(em)`, then each line's `EntityManager.find(MenuItemVariationJpaEntity...)` and `find(MenuCollectionItemJpaEntity...)`. Navigate into those entity classes to see variation → item and membership → collection/item/category relationships.
-16. Open `backend/src/main/java/au/com/nakornthai/menu/infrastructure/MenuCatalogRules.java` and `menu/domain/MenuPricing.java`. Availability is evaluated at one checkout instant; `MenuPricing.calculate` validates option ownership/cardinality/availability, applies a collection override only to the default variation, and uses checked arithmetic.
+16. Open `../../backend/src/main/java/au/com/nakornthai/menu/infrastructure/MenuCatalogRules.java` and `menu/domain/MenuPricing.java`. Availability is evaluated at one checkout instant; `MenuPricing.calculate` validates option ownership/cardinality/availability, applies a collection override only to the default variation, and uses checked arithmetic.
 17. Return to the handler and find `expectedUnitPriceMinor != price.unitPrice()`. This is the server-side anti-stale-price check. Then inspect construction of `OrderJpaEntity`, `OrderItemJpaEntity`, and `OrderItemOptionJpaEntity`: human-readable names and prices are immutable order snapshots, not later menu joins.
 18. Open those three classes under `ordering/infrastructure`, plus `OrderEventJpaEntity`. Their `@Entity`/`@Table` annotations map to `restaurant_order`, `restaurant_order_item`, `restaurant_order_item_option`, and `restaurant_order_event`. Parent-to-items and item-to-options use cascade persist; the handler explicitly persists the NEW event.
-19. Open `backend/src/main/resources/db/migration/V11__create_pickup_ordering.sql`, then V17 and V19. Verify base order/item/event constraints, option snapshots, and collection provenance. Menu tables read during validation originate in V2/V17; schedule tables originate in V21.
+19. Open `../../backend/src/main/resources/db/migration/V11__create_pickup_ordering.sql`, then V17 and V19. Verify base order/item/event constraints, option snapshots, and collection provenance. Menu tables read during validation originate in V2/V17; schedule tables originate in V21.
 20. Back in `CreateOrderHandler`, `em.persist(order); em.flush()` writes the aggregate, then the event is persisted. `OrderMapper.map(order, false)` creates `CreateOrderResponse`; open both `OrderMapper.java` and `CreateOrderResponse.java` to inspect the customer-visible JSON.
 21. Return through `CreateOrderController` to `orderApi.request`, which JSON-decodes the 201 response. `CheckoutPage` does not use returned fields directly because its locally held receipt key is the durable capability; it calls `complete(payload)`.
 22. In `complete`, observe the state effects: store `{requestId, trackingToken}` in `RECEIPT`, remove `PENDING_ORDER`, dispatch cart `clear`, clear local pending state, and set `window.location.hash = '/order-confirmation'`. `CartProvider` persists the empty cart and subscribed components re-render.
@@ -275,7 +275,7 @@ Follow these in order with “go to file”/symbol search:
 
 ## Active versus scaffolded, duplicate, or limited paths
 
-- Active HTTP clients are domain modules using `fetch`. `frontend/src/shared/api/httpClient.js`, `app/Providers.jsx`, and `app/routes.js` are empty and unused.
+- Active HTTP clients are domain modules using `fetch`. `../../frontend/src/shared/api/httpClient.js`, `app/Providers.jsx`, and `app/routes.js` are empty and unused.
 - Empty command/query/handler/response files in several backend slices are scaffolds. The trace above names the actual invoked class even where this skips an intended layer.
 - Reservations and function staff updates, plus staff-user CRUD, deliberately contain transactional business logic in controllers. There is no hidden active handler behind their empty handler files.
 - `JpaUserRepository` is a `@Service`, not a Spring Data interface; the actual Spring Data interfaces are `SpringDataUserRepository` and `SpringDataStaffSessionRepository`.

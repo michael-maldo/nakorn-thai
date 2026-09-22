@@ -177,7 +177,7 @@ Representative implemented flows:
   `CreateOrderController` → `CreateOrderHandler` → `EntityManager` for menu checks
   and order/item/event persistence → `OrderMapper` response.
 
-Use `docs/application-trace-map.md` for current file-by-file request traces. See
+Use `docs/tracing/application-trace-map.md` for current file-by-file request traces. See
 `docs/architecture/vertical-slices.md`, `domain-map.md` and `api.md` for broader
 design context, but confirm documentation against current source before changing
 behavior.
