@@ -1,0 +1,398 @@
+I think public menu is a better first slice for learning. It gives you a clean end-to-end path—React → API → Controller → Handler → Repository → JPA → PostgreSQL → response → React—without checkout, payments, JWT, mutations, or complicated transaction behavior.
+
+I would also create a separate learning document, rather than expanding application-trace-map.md. Something like:
+
+docs/tracing/public-menu-trace.md
+
+Use this prompt with Codex:
+
+I want to learn the Nakorn Thai application one vertical slice at a time.
+
+Start with the simplest useful slice:
+
+PUBLIC MENU BROWSING
+
+Use docs/application-trace-map.md as a high-level reference, but independently verify everything against the current source code.
+
+Do NOT modify application source code.
+
+Create:
+
+docs/tracing/public-menu-trace.md
+
+This document is not intended to be general architecture documentation. It should be a detailed learning and code-tracing guide that I can follow manually in my editor.
+
+Assume I am learning how this application actually executes.
+
+Focus only on the public menu flow, beginning when a customer navigates to:
+
+#/menu
+
+and ending when menu items are rendered in the browser.
+
+Trace the actual execution path through:
+
+Browser
+→ React routing
+→ MenuPage
+→ React hooks/state
+→ frontend API functions
+→ HTTP request
+→ Spring Security boundary
+→ Controller
+→ request/query object if applicable
+→ Handler/service
+→ domain repository interface
+→ repository implementation
+→ Spring Data repositories / JPA
+→ entities
+→ PostgreSQL tables
+→ domain models
+→ response DTO
+→ HTTP response
+→ frontend JSON handling
+→ React state update
+→ final rendering
+
+Do not skip intermediate calls merely because they appear simple.
+
+For every important step include:
+
+Step N — descriptive name
+
+File
+Exact repository-relative path
+
+Symbol
+Exact class/function/method
+
+Called by
+What caused this code to execute
+
+Input
+Important arguments/state/data entering this step
+
+What happens
+Explain the code in plain language.
+
+Calls next
+Exact function/method that execution follows next.
+
+Output
+Important value/data returned to the caller.
+
+What I should learn here
+Explain the JavaScript, React, HTTP, Spring, Java, JPA, SQL, or architectural concept demonstrated by this step.
+
+Things to inspect in the debugger
+List useful variables, objects, state, request data, or return values I could inspect while stepping through the application.
+
+Where relevant, include short excerpts or signatures from the actual code, but do not duplicate large source files.
+
+---
+
+Trace the frontend in detail
+
+Explain the actual path beginning with:
+
+frontend/src/main.jsx
+→ App
+→ AppRouter
+→ MenuPage
+
+Then trace:
+
+useMenu(...)
+→ getMenuCollections(...)
+→ collection selection
+→ getMenuCollection(...)
+→ menuRequest(...)
+→ fetchWithIdentity(...)
+→ browser fetch(...)
+
+Verify these names against the current implementation.
+
+Explain:
+
+- component mounting
+- React rendering
+- useEffect
+- state
+- asynchronous calls
+- why fetching causes later re-renders
+- collection selection
+- how menu data eventually reaches MenuItemCard
+- which code is application logic versus presentation logic
+
+I especially want to understand WHEN code executes and WHY it executes.
+
+---
+
+Show the HTTP boundary clearly
+
+When execution leaves React, stop and clearly show:
+
+GET <actual endpoint>
+
+Include:
+
+- HTTP method
+- URL
+- relevant headers/cookies
+- request body, if any
+- example response shape based on the actual DTO
+- Vite proxy behavior in development
+
+Explain that this is the point where frontend JavaScript execution ends and a separate backend HTTP request begins.
+
+---
+
+Trace the backend in detail
+
+Starting from the HTTP request, trace the actual Spring Boot execution path.
+
+Include SecurityConfig only to the extent necessary to explain why this public GET request is allowed.
+
+Do not expand into JWT/session/CSRF internals unless they actually affect this GET request.
+
+Then trace:
+
+Controller
+→ Handler/service
+→ repository abstraction
+→ JPA repository adapter
+→ Spring Data repository
+→ entities
+→ PostgreSQL
+
+For each Spring component explain important annotations encountered, such as:
+
+@RestController
+@RequestMapping
+@GetMapping
+@Service
+@Repository
+@Transactional
+@Entity
+
+Explain what Spring is doing for us at each boundary.
+
+---
+
+Trace the database access
+
+Identify the actual PostgreSQL tables involved in public menu retrieval.
+
+Show relationships between the important tables in a small text diagram, for example:
+
+menu_collection
+|
++--- menu_collection_item
+|
++--- menu_item
+|
++--- menu_item_variation
+
+Use the ACTUAL schema rather than assuming this example is complete.
+
+For each important table explain:
+
+- what it represents
+- relevant primary/foreign keys
+- which JPA entity maps to it
+- which repository/query loads it
+
+Identify the relevant Flyway migrations, but do not turn this into a migration-history document.
+
+Explain where SQL is generated by Hibernate/Spring Data versus where explicit queries exist.
+
+---
+
+Trace the return journey
+
+Do not stop once PostgreSQL has been reached.
+
+Trace the data all the way back:
+
+PostgreSQL
+→ JPA entities
+→ repository
+→ domain model
+→ handler
+→ response DTO
+→ controller
+→ JSON
+→ frontend fetch
+→ menuRequest
+→ useMenu
+→ setState
+→ React re-render
+→ MenuPage
+→ MenuItemCard
+
+This return path is particularly important for my learning.
+
+Explain how the representation of the data changes at important boundaries.
+
+---
+
+Include a data transformation map
+
+Choose ONE representative menu item and conceptually follow it through the system.
+
+Do not invent database values. Use field names/types or actual development data if available.
+
+Show transformations such as:
+
+Database row
+→ JPA entity
+→ domain MenuItem
+→ response DTO
+→ JSON
+→ JavaScript object
+→ React props
+→ rendered UI
+
+Identify where information is filtered, calculated, renamed, grouped, or discarded.
+
+---
+
+Include an execution sequence diagram
+
+Create a plain-text sequence diagram representing the actual flow, similar to:
+
+Customer
+|
+v
+MenuPage
+|
+v
+useMenu
+|
+v
+menuApi
+|
+| GET /api/...
+v
+Spring Boot
+|
+v
+Controller
+|
+v
+Handler
+|
+v
+Repository
+|
+v
+PostgreSQL
+|
+| result
+v
+Repository
+|
+v
+Handler
+|
+v
+Controller
+|
+| JSON
+v
+useMenu
+|
+| setState
+v
+MenuPage
+|
+v
+MenuItemCard
+
+Replace this with the actual classes/functions involved.
+
+---
+
+Include a debugger walkthrough
+
+At the end create:
+
+Manual Debugging Exercise
+
+Give me a numbered exercise for tracing ONE menu request myself.
+
+For each breakpoint tell me:
+
+1. File
+2. Exact method/function
+3. Suggested breakpoint location
+4. Important variables to inspect
+5. What I should expect to happen when I continue
+
+Cover both frontend browser debugging and Spring Boot debugging where practical.
+
+Do not require debugging framework internals.
+
+---
+
+Include learning checkpoints
+
+After each major boundary include several questions I should be able to answer myself, such as:
+
+- What caused useMenu to execute?
+- Why did the useEffect execute?
+- Where does React stop and HTTP begin?
+- Which Spring controller receives this request?
+- How did Spring choose that controller?
+- Why is ListMenuHandler a Spring service?
+- What is the difference between MenuItemRepository and JpaMenuItemRepository?
+- Where does Spring Data enter the execution?
+- Which class is actually a JPA entity?
+- When does PostgreSQL get queried?
+- Where does the database representation become a domain object?
+- Where does the domain object become JSON?
+- What causes React to render again?
+
+Do not immediately provide answers in the checkpoint section. The explanations earlier in the document should allow me to answer them.
+
+---
+
+Keep the scope narrow
+
+Do NOT expand this document into:
+
+- checkout
+- cart implementation
+- ordering
+- reservations
+- staff authentication
+- JWT
+- payments
+- staff dashboard
+- menu administration
+
+Mention another subsystem only when the public menu flow directly depends on it.
+
+The objective is depth, not breadth.
+
+I want to finish this document understanding ONE vertical slice extremely well.
+
+Before writing the document, inspect the actual implementation and verify that the path described in docs/application-trace-map.md is still accurate.
+
+If the trace map disagrees with current code, follow the current code and mention the discrepancy.
+
+After creating the document, report only:
+
+1. File created
+2. Number of trace steps
+3. Main execution path discovered
+4. Any discrepancy with application-trace-map.md
+5. Any part of the flow that could not be traced confidentlyI particularly recommend the “What I should learn here” section at every step. That changes the document from a code inventory into a tutorial based on your own application.
+
+There is also an important distinction I want Codex to teach you here. You don't just want to know:
+
+MenuPage → useMenu → API → Controller → Handler
+
+You want to understand why control moves to the next thing. For example, MenuPage() doesn't simply “call PostgreSQL eventually.” Component rendering causes the hook to execute; an effect causes asynchronous work; fetch() crosses an HTTP boundary; Spring's request mapping selects a controller; dependency injection supplies the handler; JPA/Spring Data eventually causes SQL; returned JSON leads to setState; and that state change causes another React render.
+
+Once you've worked through this slice, I would move progressively to cart → checkout/order creation → order tracking → staff authentication → staff order workflow. Each introduces another architectural concept without throwing all the cross-cutting concerns at you at once.
