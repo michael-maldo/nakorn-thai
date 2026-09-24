@@ -22,10 +22,10 @@ export default function MenuAdminLayout({ route, title, children }) {
   useEffect(() => { document.querySelector('.menu-admin h1')?.focus(); }, []);
   return <div className="menu-admin">
     <a className="menu-admin-skip" href="#menu-admin-content" onClick={e => { e.preventDefault(); document.getElementById('menu-admin-content')?.focus(); }}>Skip to content</a>
-    <header className="menu-admin-topbar"><a href="#/staff" className="menu-admin-brand">Nakorn Thai <span>Staff workspace</span></a><div><span>{user?.username}</span><button type="button" onClick={() => { if (allowMenuNavigation()) logout(); }}>Sign out</button></div></header>
+    <header className="menu-admin-topbar"><a href="#home" className="menu-admin-brand">Nakorn Thai <span>Staff workspace</span></a><div><span>{user?.username}</span><button type="button" onClick={() => { if (allowMenuNavigation()) logout(); }}>Sign out</button></div></header>
     <div className="menu-admin-shell">
       <main id="menu-admin-content" tabIndex={-1}>
-        <nav className="menu-admin-breadcrumbs" aria-label="Breadcrumb"><a href="#/staff">Staff</a><span>/</span><a href={menuAdminHref()}>Menu</a>{route && <><span>/</span>{route.id ? <a href={menuAdminHref(route.resource)}>{route.resource === 'items' ? 'Items' : 'Collections'}</a> : <span>{route.resource === 'items' ? 'Items' : 'Collections'}</span>}{route.id && <><span>/</span><span aria-current="page">{title}</span></>}</>}</nav>
+        <nav className="menu-admin-breadcrumbs" aria-label="Breadcrumb"><a href="#home">Restaurant website</a><span>/</span><a href={menuAdminHref()}>Menu</a>{route && <><span>/</span>{route.id ? <a href={menuAdminHref(route.resource)}>{route.resource === 'items' ? 'Items' : 'Collections'}</a> : <span>{route.resource === 'items' ? 'Items' : 'Collections'}</span>}{route.id && <><span>/</span><span aria-current="page">{title}</span></>}</>}</nav>
         <nav className="menu-admin-subnav" aria-label="Menu navigation"><a href={menuAdminHref('items')} aria-current={route?.resource === 'items' ? 'page' : undefined}>Items</a><a href={menuAdminHref('collections')} aria-current={route?.resource === 'collections' ? 'page' : undefined}>Collections</a></nav>
         {children}
       </main>

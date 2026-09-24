@@ -44,7 +44,7 @@ export default function FunctionEnquiriesPage() {
   }
 
   return <main className="staff-menu page-width">
-    <a href="#/staff">Staff home</a><h1>Functions &amp; venue enquiries</h1>
+    <a href="#home">Restaurant website</a><h1>Functions &amp; venue enquiries</h1>
     <p>Follow up with the customer, check availability and agree arrangements before confirming. Record the agreed date and details below. No automatic email or SMS is sent.</p>
     <div className="staff-toolbar">
       <label>Status<select value={status} disabled={busy} onChange={(event) => { setStatus(event.target.value); setPage(0); setNotice(''); }}>

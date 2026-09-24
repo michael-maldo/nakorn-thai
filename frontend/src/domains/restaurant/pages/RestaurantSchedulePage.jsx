@@ -34,7 +34,7 @@ export default function RestaurantSchedulePage() {
     const { id, closedDate, reason, version } = closureDraft;
     save(`/closed-dates${id ? `/${id}` : ''}`, id ? 'PUT' : 'POST', { closedDate, reason, version });
   }
-  return <main className="staff-menu page-width"><a href="#/staff">Staff home</a><header className="staff-heading"><h1>Restaurant scheduling</h1><button disabled={busy} onClick={reload}>Reload schedule</button></header>
+  return <main className="staff-menu page-width"><a href="#home">Restaurant website</a><header className="staff-heading"><h1>Restaurant scheduling</h1><button disabled={busy} onClick={reload}>Reload schedule</button></header>
     {error && <p role="alert" className="staff-error">{error}</p>}{notice && <p role="status">{notice}</p>}{busy && <p role="status">Updating schedule…</p>}
     <p>Opening hours control new pickup orders and requested table times. A day with no active windows is closed. Closed dates override every opening window on that local date.</p>
     {schedule && <>

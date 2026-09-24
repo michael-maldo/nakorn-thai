@@ -9,9 +9,6 @@ import ProtectedRoute from '../domains/identity/components/ProtectedRoute';
 import UsersPage from '../domains/identity/pages/UsersPage';
 import CheckoutPage from '../domains/ordering/pages/CheckoutPage';
 import OrderConfirmationPage from '../domains/ordering/pages/OrderConfirmationPage';
-import StaffDashboardPage from '../domains/staff/pages/StaffDashboardPage';
-import StaffOrdersPage from '../domains/staff/pages/StaffOrdersPage';
-import KitchenDashboardPage from '../domains/staff/pages/KitchenDashboardPage';
 import { useEffect, useState } from 'react';
 import MenuPage from '../domains/menu/pages/MenuPage';
 import HomePage from '../website/pages/HomePage';
@@ -68,8 +65,5 @@ export default function AppRouter() {
   if (hash === '#/staff/restaurant') return <ProtectedRoute roles={['ADMIN']}><RestaurantSchedulePage /></ProtectedRoute>;
   if (hash === '#/staff/users') return <ProtectedRoute roles={['ADMIN']}><UsersPage /></ProtectedRoute>;
   if (hash === '#/staff/menu' || hash.startsWith('#/staff/menu/')) return <ProtectedRoute roles={['ADMIN']}><StaffMenuPage hash={hash} /></ProtectedRoute>;
-  if (hash === '#/staff/foh') return <ProtectedRoute roles={['ADMIN', 'FOH']}><StaffOrdersPage /></ProtectedRoute>;
-  if (hash === '#/staff/kitchen') return <ProtectedRoute roles={['ADMIN', 'BOH']}><KitchenDashboardPage /></ProtectedRoute>;
-  if (hash.startsWith('#/staff')) return <ProtectedRoute><StaffDashboardPage /></ProtectedRoute>;
   return <HomePage />;
 }

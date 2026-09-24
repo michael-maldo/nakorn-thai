@@ -13,7 +13,7 @@ export default function UsersPage() {
       setDraft(null);setNotice('Staff account saved. Updated accounts must sign in again.');setUsers(await usersRequest());
     } catch(e) {setError(e.message);}finally{setBusy(false);}
   }
-  return <main className="staff-menu page-width"><header className="staff-heading"><div><a href="#/staff">Staff home</a><h1>Staff accounts</h1></div><button disabled={busy} onClick={logout}>Sign out</button></header>
+  return <main className="staff-menu page-width"><header className="staff-heading"><div><a href="#home">Restaurant website</a><h1>Staff accounts</h1></div><button disabled={busy} onClick={logout}>Sign out</button></header>
     {error && <p role="alert" className="staff-error">{error}</p>}{notice && <p role="status">{notice}</p>}
     <div className="staff-toolbar"><button disabled={busy} onClick={() => {setDraft({username:'',role:'FOH',password:''});setError('');}}>Add staff account</button><button disabled={busy} onClick={reload}>Reload accounts</button></div>
     {draft && <form className="staff-panel" onSubmit={save}><h2>{draft.id ? 'Edit account' : 'New account'}</h2><fieldset disabled={busy}>
