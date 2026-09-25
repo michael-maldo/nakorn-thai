@@ -22,14 +22,14 @@ export default function MenuItemOptions({ groups, selections, onChange, disabled
             </option>)}
           </select>
         </label> : <>
-          <p>Choose {group.minSelections}–{group.maxSelections} in total per dish. Selected: {total}.</p>
+          <p>Choose {group.minSelections}–{group.maxSelections} options per dish. Selected: {total}.</p>
           {group.options.map((option) => {
             const quantity = selections.find((selection) => selection.optionId === option.id)?.quantity ?? 0;
-            return <label className="menu-option-quantity" key={option.id}>
-              <span>{option.name} (+{money(option.priceDeltaMinor)} each){!option.available && ' — unavailable'}</span>
-              <input aria-label={`${group.name}: ${option.name} quantity per dish`} type="number" min="0"
-                max={Math.min(20, group.maxSelections - total + quantity)} step="1" value={quantity} disabled={!option.available}
-                onChange={(event) => onChange(changeOptionSelection(groups, selections, group.id, option.id, Number(event.target.value)))} />
+            return <label className="menu-option-checkbox" key={option.id}>
+              <span>{option.name} (+{money(option.priceDeltaMinor)}){!option.available && ' — unavailable'}</span>
+              <input aria-label={`${group.name}: ${option.name}`} type="checkbox" checked={quantity > 0}
+                disabled={!option.available || (quantity === 0 && total >= group.maxSelections)}
+                onChange={(event) => onChange(changeOptionSelection(groups, selections, group.id, option.id, event.target.checked ? 1 : 0))} />
             </label>;
           })}
         </>}

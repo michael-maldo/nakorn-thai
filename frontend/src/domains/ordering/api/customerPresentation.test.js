@@ -73,7 +73,7 @@ test('closed ordering keeps required choices, extras and variations browsable', 
       variations: [{ ...dish.variations[0], available: collectionAvailable }, { id: 'large', name: 'Large', priceMinor: 3000, available: collectionAvailable }] };
     const html = renderToStaticMarkup(createElement(MenuItemCard, { item, collection: { ...collection, availability: { available: collectionAvailable } }, enabled: false, cart: [], onAdd() {} }));
     assert.match(html, /Choose Protein/);
-    assert.match(html, /Extras: Rice quantity per dish/);
+    assert.match(html, /Extras: Rice/);
     assert.match(html, /value="large"/);
     assert.doesNotMatch(html, /<(?:fieldset|select|option|input)[^>]*disabled/);
     assert.match(html, /disabled="">Add to order/);
@@ -87,4 +87,27 @@ test('fixed-price dishes show only their price without a one-choice selector or 
   assert.match(html, /<strong>\$26\.90<\/strong>/);
   assert.doesNotMatch(html, /<select|Base |options \$| = |per dish/);
   assert.doesNotMatch(html, /disabled="">Add to order/);
+});
+
+test('multiple options use independent checkboxes and keep selected choices removable at the limit', () => {
+  const groups = [{ id: 'g', name: 'Veggies options', active: true, selectionType: 'MULTIPLE', minSelections: 0, maxSelections: 2,
+    options: ['Veggies', 'Tofu', 'Mushrooms'].map((name, index) => ({ id: `o${index}`, name, available: true, priceDeltaMinor: 300 })) }];
+  let selections = [];
+  const inputs = () => {
+    const tree = MenuItemOptions({ groups, selections, onChange(next) { selections = next; } });
+    const fieldset = tree.props.children[0];
+    return fieldset.props.children[2].props.children[1].map((label) => label.props.children[1]);
+  };
+  inputs()[0].props.onChange({ target: { checked: true } });
+  inputs()[1].props.onChange({ target: { checked: true } });
+  assert.deepEqual(selections, [{ optionId: 'o0', quantity: 1 }, { optionId: 'o1', quantity: 1 }]);
+  assert.equal(inputs()[0].props.disabled, false);
+  assert.equal(inputs()[2].props.disabled, true);
+  const html = renderToStaticMarkup(createElement(MenuItemOptions, { groups, selections, onChange() {} }));
+  assert.equal((html.match(/type="checkbox"/g) ?? []).length, 3);
+  assert.equal((html.match(/checked=""/g) ?? []).length, 2);
+  assert.doesNotMatch(html, /type="number"/);
+  inputs()[0].props.onChange({ target: { checked: false } });
+  assert.deepEqual(selections, [{ optionId: 'o1', quantity: 1 }]);
+  assert.equal(inputs()[2].props.disabled, false);
 });
