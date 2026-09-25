@@ -89,6 +89,10 @@ public class MenuConfigurationController {
     public void deleteMembership(@PathVariable UUID collectionId, @PathVariable UUID itemId, @RequestParam Long version) {
         handler.deleteMembership(collectionId, itemId, version);
     }
+    @PostMapping("/items/{itemId}/option-groups")
+    public ResponseEntity<MenuConfigurationHandler.Resource> createAssignedGroup(@PathVariable UUID itemId, @Valid @RequestBody MenuConfigurationRequest.CreateAssignedGroup request) {
+        return ResponseEntity.status(201).cacheControl(CacheControl.noStore()).body(handler.createAssignedGroup(itemId, request));
+    }
     @PutMapping("/items/{itemId}/option-groups/{groupId}")
     public ResponseEntity<MenuConfigurationHandler.Resource> saveAssignment(@PathVariable UUID itemId, @PathVariable UUID groupId, @Valid @RequestBody MenuConfigurationRequest.Assignment request) {
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(handler.saveAssignment(itemId, groupId, request));

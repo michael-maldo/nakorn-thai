@@ -121,8 +121,8 @@ Request fields (all writes include nullable-on-create `version`):
 | Collection category | `categoryId` (existing canonical category), `displayOrder` |
 | Membership | nullable `collectionCategoryId`, nullable `priceOverrideMinor`, `displayOrder` |
 | Option group | `code`, `name`, `selectionType`, `active` |
-| Option | `code`, `name`, `priceDeltaMinor` (AUD), `active`, `displayOrder` |
-| Assignment | `minSelections`, `maxSelections`, `displayOrder` |
+| Option | `code`, `name`, `active`, `displayOrder` (shared definition; no price) |
+| Assignment | `minSelections`, `maxSelections`, `displayOrder`, `groupVersion`, `prices: [{optionId, priceDeltaMinor}]` (AUD cents for this item) |
 
 Updates/deletes require the resource's current version; stale versions return 409.
 Parent ownership is checked. SINGLE assignments require maxSelections=1 and
@@ -130,6 +130,42 @@ minSelections in 0–1. Group conversion to SINGLE rejects incompatible assignme
 Existing item CRUD preserves retained memberships' category, override and display
 order. Membership changes through the new endpoints also advance the item version
 so an old dashboard cannot silently overwrite the membership set.
+
+## Item-specific option pricing (V23)
+
+`menu_option` defines reusable choices without prices. `menu_item_option_price`
+links an item/group assignment to its priced choices. A blank/unconfigured choice
+is unavailable on that item; an explicit zero price enables an included choice.
+V23 copies every old shared option price onto each existing item assignment before
+removing the global price column. Public menu and checkout response shapes remain
+unchanged; their option prices now come from the selected item. Historical order
+snapshots are untouched. Deploy the backend/migration and updated staff frontend
+together; the previous backend expects the removed global price column.
+
+Assignment PUT replaces that item's complete price list. Supply the assignment
+`version` (null when new) and the current shared `groupVersion`. Shared choice
+changes advance the group version; stale assignments return 409. Duplicate,
+foreign and negative prices are rejected. Removing an assignment removes only
+its item prices, preserving the shared group/options and other assignments.
+
+`POST /api/staff/menu/items/{itemId}/option-groups` atomically creates a reusable
+group, its choices and its assignment/prices for this item. Body:
+
+```json
+{
+  "code": "protein", "name": "Protein", "selectionType": "SINGLE",
+  "maxSelections": 1, "displayOrder": 0,
+  "options": [
+    {"code": "pork", "name": "Pork", "priceDeltaMinor": 0},
+    {"code": "beef", "name": "Beef", "priceDeltaMinor": 200}
+  ]
+}
+```
+
+SINGLE creates a required one-choice assignment; MULTIPLE creates optional extras
+with zero minimum and the requested maximum. Here prices belong to the new item
+assignment, never the shared definitions. All writes retain ADMIN authorization,
+CSRF, catalog locking and transactional version checks.
 
 ## Scheduling and transaction consistency
 

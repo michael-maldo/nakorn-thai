@@ -10,7 +10,7 @@ test('detail and section URLs survive refresh and support arbitrary data-driven 
   for (const id of ['main-id', 'lunch-id', 'seasonal-id']) for (const section of ['overview', 'items', 'categories', 'availability']) {
     assert.deepEqual(parseMenuAdminRoute(menuAdminHref('collections', id, section)), { resource: 'collections', id, section });
   }
-  for (const section of ['overview', 'pricing', 'collections', 'images']) assert.deepEqual(parseMenuAdminRoute(menuAdminHref('items', 'dish', section)), { resource: 'items', id: 'dish', section });
+  for (const section of ['overview', 'pricing', 'options', 'collections', 'images']) assert.deepEqual(parseMenuAdminRoute(menuAdminHref('items', 'dish', section)), { resource: 'items', id: 'dish', section });
 });
 test('creation is separate from item and collection lists', () => {
   assert.equal(parseMenuAdminRoute(menuAdminHref('items', 'new')).id, 'new');

@@ -132,3 +132,16 @@
   .menu-admin-table td:has(> small:first-child) > small:first-child { grid-column: 2; }
   .menu-admin-availability { padding: 18px; }
 }
+
+@media (max-width: 760px) {
+  .staff-topbar { padding: 16px 20px; align-items: flex-start; flex-wrap: wrap; gap: 16px; }
+  .staff-account-nav { flex-wrap: wrap; gap: 16px; font-size: .85rem; }
+  .staff-workspace-body { grid-template-columns: minmax(0, 1fr); min-height: auto; }
+  .staff-sidebar { padding: 12px 20px; border-right: 0; border-bottom: 1px solid var(--staff-border); }
+  .staff-nav-toggle { display: flex; justify-content: space-between; width: 100%; align-items: center; }
+  .staff-sidebar nav { display: none; padding-top: 20px; }
+  .staff-sidebar nav.is-expanded { display: block; }
+  .staff-overview { padding: 28px 20px; }
+  .staff-shell-welcome { padding: 24px; }
+  .staff-login-card { padding: 28px 24px; }
+}

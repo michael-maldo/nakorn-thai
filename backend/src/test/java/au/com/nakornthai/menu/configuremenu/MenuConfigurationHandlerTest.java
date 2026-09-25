@@ -104,7 +104,7 @@ class MenuConfigurationHandlerTest {
         var item=UUID.randomUUID(); var group=UUID.randomUUID();
         when(em.find(MenuItemJpaEntity.class,item)).thenReturn(new MenuItemJpaEntity());
         when(em.find(MenuOptionGroupJpaEntity.class,group)).thenReturn(new MenuOptionGroupJpaEntity());
-        assertThrows(ResponseStatusException.class,()->handler.saveAssignment(item,group,new MenuConfigurationRequest.Assignment(0,2,0,null)));
+        assertThrows(ResponseStatusException.class,()->handler.saveAssignment(item,group,new MenuConfigurationRequest.Assignment(0,2,0,null,0L,java.util.List.of())));
         verify(em,never()).persist(any());
     }
 }

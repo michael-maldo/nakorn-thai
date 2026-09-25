@@ -14,7 +14,6 @@ public class MenuOptionJpaEntity extends MenuUuidJpaEntity {
     private MenuOptionGroupJpaEntity optionGroup;
     @Column(nullable = false, length = 100) private String code;
     @Column(nullable = false, length = 100) private String name;
-    @Column(nullable = false) private long priceDeltaMinor;
     @Column(nullable = false, length = 3) private String currency = "AUD";
     @Column(name = "is_active", nullable = false) private boolean active = true;
     @Column(nullable = false) private int displayOrder;

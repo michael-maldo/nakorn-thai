@@ -1,6 +1,8 @@
 package au.com.nakornthai.menu.configuremenu;
 
 import jakarta.validation.constraints.*;
+import jakarta.validation.Valid;
+import java.util.List;
 import java.time.*;
 import java.util.UUID;
 
@@ -21,8 +23,17 @@ public final class MenuConfigurationRequest {
             @NotBlank @Size(max=100) String name, @NotNull @Pattern(regexp="SINGLE|MULTIPLE") String selectionType,
             boolean active, @PositiveOrZero Long version) {}
     public record Option(@NotBlank @Size(max=100) @Pattern(regexp="[a-z0-9]+(-[a-z0-9]+)*") String code,
-            @NotBlank @Size(max=100) String name, @PositiveOrZero long priceDeltaMinor,
+            @NotBlank @Size(max=100) String name,
             boolean active, @Min(0) int displayOrder, @PositiveOrZero Long version) {}
-    public record Assignment(@Min(0) int minSelections, @Min(1) int maxSelections,
-            @Min(0) int displayOrder, @PositiveOrZero Long version) {}
+    public record Assignment(@Min(0) @Max(100) int minSelections, @Min(1) @Max(100) int maxSelections,
+            @Min(0) int displayOrder, @PositiveOrZero Long version,
+            @NotNull @PositiveOrZero Long groupVersion,
+            @NotNull @Size(max=100) List<@NotNull @Valid OptionPrice> prices) {}
+    public record OptionPrice(@NotNull UUID optionId, @Min(0) @Max(999999999) long priceDeltaMinor) {}
+    public record NewChoice(@NotBlank @Size(max=100) @Pattern(regexp="[a-z0-9]+(-[a-z0-9]+)*") String code,
+            @NotBlank @Size(max=100) String name, @Min(0) @Max(999999999) long priceDeltaMinor) {}
+    public record CreateAssignedGroup(@NotBlank @Size(max=100) @Pattern(regexp="[a-z0-9]+(-[a-z0-9]+)*") String code,
+            @NotBlank @Size(max=100) String name, @NotNull @Pattern(regexp="SINGLE|MULTIPLE") String selectionType,
+            @Min(1) @Max(100) int maxSelections, @Min(0) int displayOrder,
+            @NotEmpty @Size(max=100) List<@NotNull @Valid NewChoice> options) {}
 }

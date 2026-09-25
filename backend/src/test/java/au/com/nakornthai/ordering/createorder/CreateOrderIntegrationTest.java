@@ -140,11 +140,28 @@ class CreateOrderIntegrationTest {
     }
     UUID option(UUID group, long delta) {
         UUID option=UUID.randomUUID();
-        jdbc.update("INSERT INTO menu_option(id,option_group_id,code,name,price_delta_minor) VALUES (?,?,?,'Prawns',?)",option,group,"option-"+option,delta);
+        jdbc.update("INSERT INTO menu_option(id,option_group_id,code,name) VALUES (?,?,?,'Prawns')",option,group,"option-"+option);
+        jdbc.update("INSERT INTO menu_item_option_price(menu_item_id,option_group_id,option_id,price_delta_minor) VALUES (?,?,?,?)",item,group,option,delta);
         return option;
     }
     String withOption(long price, UUID option, int quantity) {
         return payload(price).replace("\"selectedOptions\":[]", "\"selectedOptions\":[{\"optionId\":\""+option+"\",\"quantity\":"+quantity+"}]");
+    }
+    @Test void sameSharedOptionUsesTheSelectedDishPriceAtCheckout() throws Exception {
+        UUID group=optionGroup("SINGLE",1,1), choice=option(group,200);
+        UUID second=UUID.randomUUID(),secondVariation=UUID.randomUUID();
+        jdbc.update("INSERT INTO menu_item(id,category_id,name,slug,description,status) SELECT ?,category_id,'Second dish',?,'Test','PUBLISHED' FROM menu_item WHERE id=?",second,"second-"+second,item);
+        jdbc.update("INSERT INTO menu_item_variation(id,menu_item_id,name,price_minor,is_default) VALUES (?,?,'Standard',2490,true)",secondVariation,second);
+        jdbc.update("INSERT INTO menu_collection_item(collection_id,menu_item_id) VALUES (?,?)",collection,second);
+        jdbc.update("INSERT INTO menu_item_option_group(menu_item_id,option_group_id,min_selections,max_selections) VALUES (?,?,1,1)",second,group);
+        jdbc.update("INSERT INTO menu_item_option_price(menu_item_id,option_group_id,option_id,price_delta_minor) VALUES (?,?,?,300)",second,group,choice);
+        mvc.perform(post("/api/orders").with(csrf()).contentType("application/json").content(withOption(2690,choice,1)))
+                .andExpect(status().isCreated()).andExpect(jsonPath("$.items[0].selectedOptions[0].priceDeltaMinor").value(200));
+        id=UUID.randomUUID(); variation=secondVariation;
+        mvc.perform(post("/api/orders").with(csrf()).contentType("application/json").content(withOption(2690,choice,1))).andExpect(status().isConflict());
+        mvc.perform(post("/api/orders").with(csrf()).contentType("application/json").content(withOption(2790,choice,1)))
+                .andExpect(status().isCreated()).andExpect(jsonPath("$.totalMinor").value(5580))
+                .andExpect(jsonPath("$.items[0].selectedOptions[0].priceDeltaMinor").value(300));
     }
     @Test void snapshotsOptionsAndCollectionSurviveEditsDeletionAndReplay() throws Exception {
         UUID option=option(optionGroup("MULTIPLE",2,3),600);
@@ -158,7 +175,8 @@ class CreateOrderIntegrationTest {
                 .andExpect(jsonPath("$.items[0].collectionPriceOverrideMinor").value(2000))
                 .andExpect(jsonPath("$.items[0].selectedOptions[0].quantity").value(2));
         assertEquals(1,jdbc.queryForObject("SELECT count(*) FROM restaurant_order_item_option o JOIN restaurant_order_item i ON i.id=o.order_item_id WHERE i.order_id=?",Integer.class,id));
-        jdbc.update("UPDATE menu_option SET name='Changed', price_delta_minor=999, is_active=false WHERE id=?",option);
+        jdbc.update("UPDATE menu_option SET name='Changed', is_active=false WHERE id=?",option);
+        jdbc.update("UPDATE menu_item_option_price SET price_delta_minor=999 WHERE option_id=? AND menu_item_id=?",option,item);
         jdbc.update("UPDATE menu_option_group SET name='Changed group' WHERE id=(SELECT option_group_id FROM menu_option WHERE id=?)",option);
         jdbc.update("DELETE FROM menu_collection WHERE id=?",collection); em.clear();
         mvc.perform(post("/api/orders").with(csrf()).contentType("application/json").content(request))

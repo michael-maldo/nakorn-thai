@@ -42,8 +42,8 @@ public class MenuItemMapper {
                     return new MenuItem.OptionGroup(g.getId(), g.getCode(), g.getName(), g.getSelectionType(), g.isActive(),
                             a.getMinSelections(), a.getMaxSelections(), a.getDisplayOrder(), g.getOptions().stream()
                             .sorted(Comparator.comparingInt(MenuOptionJpaEntity::getDisplayOrder).thenComparing(MenuOptionJpaEntity::getId))
-                            .map(o -> new MenuItem.Option(o.getId(), o.getCode(), o.getName(), o.getPriceDeltaMinor(),
-                                    o.getCurrency(), g.isActive() && o.isActive(), o.getDisplayOrder())).toList());
+                            .map(o -> new MenuItem.Option(o.getId(), o.getCode(), o.getName(), a.getOptionPrices().getOrDefault(o.getId(), 0L),
+                                    o.getCurrency(), g.isActive() && o.isActive() && a.getOptionPrices().containsKey(o.getId()), o.getDisplayOrder())).toList());
                 }).toList();
         boolean configurable = groups.stream().allMatch(g -> g.minSelections() == 0 ||
                 (g.active() && (g.selectionType().equals("SINGLE") ?

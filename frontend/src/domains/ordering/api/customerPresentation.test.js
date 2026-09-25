@@ -23,7 +23,7 @@ test('unavailable collection disables adding even if variation is available', ()
 });
 test('effective zero price renders without falling back to original variation price', () => {
   const html = renderToStaticMarkup(createElement(MenuItemCard, { item: dish, collection, enabled: true, cart: [], onAdd() {} }));
-  assert.match(html, /\$0\.00 per dish/); assert.doesNotMatch(html, /24\.90/);
+  assert.match(html, /<strong>\$0\.00<\/strong>/); assert.doesNotMatch(html, /24\.90/);
   assert.doesNotMatch(html, /disabled="">Add to order/);
 });
 test('required SINGLE renders a prompt and disables adding before selection', () => {
@@ -58,4 +58,33 @@ test('backend cutoff and restaurant closure are explained without hiding collect
   assert.match(collectionAvailability(lunch), /ended for today/);
   assert.equal(selectCollection([lunch], 'lunch'), lunch);
   assert.match(collectionAvailability({ ...lunch, availability: { available: false, reason: 'RESTAURANT_CLOSED' } }), /restaurant is currently closed/);
+});
+
+
+test('closed ordering keeps required choices, extras and variations browsable', () => {
+  const groups = [
+    { id: 'protein', name: 'Protein', active: true, selectionType: 'SINGLE', minSelections: 1, maxSelections: 1,
+      options: [{ id: 'beef', name: 'Beef', priceDeltaMinor: 200, available: true }] },
+    { id: 'extras', name: 'Extras', active: true, selectionType: 'MULTIPLE', minSelections: 0, maxSelections: 3,
+      options: [{ id: 'rice', name: 'Rice', priceDeltaMinor: 300, available: true }] },
+  ];
+  for (const collectionAvailable of [true, false]) {
+    const item = { ...dish, available: collectionAvailable, optionGroups: groups,
+      variations: [{ ...dish.variations[0], available: collectionAvailable }, { id: 'large', name: 'Large', priceMinor: 3000, available: collectionAvailable }] };
+    const html = renderToStaticMarkup(createElement(MenuItemCard, { item, collection: { ...collection, availability: { available: collectionAvailable } }, enabled: false, cart: [], onAdd() {} }));
+    assert.match(html, /Choose Protein/);
+    assert.match(html, /Extras: Rice quantity per dish/);
+    assert.match(html, /value="large"/);
+    assert.doesNotMatch(html, /<(?:fieldset|select|option|input)[^>]*disabled/);
+    assert.match(html, /disabled="">Add to order/);
+    if (!collectionAvailable) assert.doesNotMatch(html, /Currently unavailable|unavailable to order/);
+  }
+});
+
+test('fixed-price dishes show only their price without a one-choice selector or equation', () => {
+  const item = { ...dish, variations: [{ ...dish.variations[0], priceMinor: 2690 }] };
+  const html = renderToStaticMarkup(createElement(MenuItemCard, { item, collection, enabled: true, cart: [], onAdd() {} }));
+  assert.match(html, /<strong>\$26\.90<\/strong>/);
+  assert.doesNotMatch(html, /<select|Base |options \$| = |per dish/);
+  assert.doesNotMatch(html, /disabled="">Add to order/);
 });

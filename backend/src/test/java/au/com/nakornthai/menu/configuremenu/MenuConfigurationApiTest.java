@@ -100,4 +100,22 @@ class MenuConfigurationApiTest {
                 .content("{\"minSelections\":-1,\"maxSelections\":0}" )).andExpect(status().isBadRequest());
         verifyNoInteractions(handler);
     }
+    @Test void itemOptionCreationAndPricingRequireAdminCsrfAndValidPayloads() throws Exception {
+        String root="/api/staff/menu/items/"+UUID.randomUUID()+"/option-groups";
+        String create="""
+                {"name":"Protein","code":"protein","selectionType":"SINGLE","maxSelections":1,"displayOrder":0,
+                 "options":[{"name":"Beef","code":"beef","priceDeltaMinor":200}]}
+                """;
+        mvc.perform(post(root).with(csrf()).contentType("application/json").content(create)).andExpect(status().isUnauthorized());
+        for(String role:List.of("FOH","BOH"))
+            mvc.perform(post(root).with(user("staff").roles(role)).with(csrf()).contentType("application/json").content(create)).andExpect(status().isForbidden());
+        mvc.perform(post(root).with(user("admin").roles("ADMIN")).contentType("application/json").content(create)).andExpect(status().isForbidden());
+        mvc.perform(post(root).with(user("admin").roles("ADMIN")).with(csrf()).contentType("application/json").content(create.replace("200","-1"))).andExpect(status().isBadRequest());
+        mvc.perform(put(root+"/"+UUID.randomUUID()).with(user("admin").roles("ADMIN")).with(csrf()).contentType("application/json")
+                .content("{\"minSelections\":1,\"maxSelections\":1,\"prices\":[]}" )).andExpect(status().isBadRequest());
+        verifyNoInteractions(handler);
+        mvc.perform(post(root).with(user("admin").roles("ADMIN")).with(csrf()).contentType("application/json").content(create)).andExpect(status().isCreated());
+        verify(handler).createAssignedGroup(any(),argThat(r -> r.options().getFirst().priceDeltaMinor()==200));
+    }
+
 }

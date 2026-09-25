@@ -75,3 +75,19 @@ export const removeCollectionChild = (collectionId, kind, resource, authorizatio
   `/staff/menu/collections/${collectionId}/${kind}/${resource.id}?version=${resource.version}`,
   { method: 'DELETE', authorization, csrf: true },
 );
+
+export const getOptionGroups = authorization => menuRequest('/staff/menu/option-groups', { authorization });
+export const getItemOptionGroups = (itemId, authorization) => menuRequest(`/staff/menu/items/${itemId}/option-groups`, { authorization });
+export const saveItemOptionGroup = (itemId, groupId, data, authorization) => menuRequest(
+  `/staff/menu/items/${itemId}/option-groups/${groupId}`, { method: 'PUT', body: JSON.stringify(data), authorization, csrf: true },
+);
+export const createItemOptionGroup = (itemId, data, authorization) => menuRequest(
+  `/staff/menu/items/${itemId}/option-groups`, { method: 'POST', body: JSON.stringify(data), authorization, csrf: true },
+);
+export const removeItemOptionGroup = (itemId, assignment, authorization) => menuRequest(
+  `/staff/menu/items/${itemId}/option-groups/${assignment.id}?version=${assignment.version}`, { method: 'DELETE', authorization, csrf: true },
+);
+export const saveSharedOption = (groupId, resource, authorization) => menuRequest(
+  `/staff/menu/option-groups/${groupId}/options${resource.id ? `/${resource.id}` : ''}`,
+  { method: resource.id ? 'PUT' : 'POST', body: JSON.stringify({ ...resource.data, version: resource.version }), authorization, csrf: true },
+);

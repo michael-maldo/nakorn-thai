@@ -26,17 +26,17 @@ export default function MenuItemCard({ item, collection, enabled, cart, onAdd })
       style={{ objectPosition: dish.imagePosition, transformOrigin: dish.imageOrigin, transform: `scale(${dish.imageScale ?? 1})` }} /></div>}
     <div className="restaurant-menu-item-content">
       <h3>{dish.name}</h3><p>{dish.description}</p>
-      {!item.available && <p className="dish-unavailable">Currently unavailable</p>}
+      {collection.availability.available && !item.available && <p className="dish-unavailable">Currently unavailable</p>}
       {!variation ? <p>Ask us for pricing.</p> : <>
-        <label className="menu-variation">Variation
+        {item.variations.length > 1 && <label className="menu-variation">Variation
           <select value={variationId} onChange={(event) => setVariationId(event.target.value)}>
-            {item.variations.map((entry) => <option key={entry.id} value={entry.id} disabled={!entry.available}>
-              {entry.name} — {money(entry.priceMinor)}{!entry.available && ' — unavailable'}
+            {item.variations.map((entry) => <option key={entry.id} value={entry.id}>
+              {entry.name} — {money(entry.priceMinor)}{collection.availability.available && !entry.available && ' — unavailable to order'}
             </option>)}
           </select>
-        </label>
-        <MenuItemOptions groups={item.optionGroups} selections={selections} onChange={setSelections} disabled={!orderable} />
-        <p className="menu-unit-price">Base {money(variation.priceMinor)} + options {money(evaluation.deltaMinor)} = <strong>{money(line?.unitPriceMinor ?? variation.priceMinor + evaluation.deltaMinor)} per dish</strong></p>
+        </label>}
+        <MenuItemOptions groups={item.optionGroups} selections={selections} onChange={setSelections} />
+        <p className="menu-unit-price" aria-live="polite" aria-atomic="true"><strong>{money(line?.unitPriceMinor ?? variation.priceMinor + evaluation.deltaMinor)}</strong></p>
         {problem && <p className="menu-choice-message">{problem}</p>}
         {limit && <p>{limit}</p>}
         <button className="button button-primary" type="button" disabled={!orderable || !line || !!limit} onClick={() => onAdd(line)}>Add to order</button>

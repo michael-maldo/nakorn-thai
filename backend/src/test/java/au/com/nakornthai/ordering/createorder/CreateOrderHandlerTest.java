@@ -40,10 +40,10 @@ class CreateOrderHandlerTest {
         var group=identified(new au.com.nakornthai.menu.infrastructure.MenuOptionGroupJpaEntity());
         group.setName("Protein"); group.setSelectionType("MULTIPLE");
         var option=identified(new au.com.nakornthai.menu.infrastructure.MenuOptionJpaEntity());
-        option.setOptionGroup(group); option.setName("Prawns"); option.setPriceDeltaMinor(600); group.getOptions().add(option);
+        option.setOptionGroup(group); option.setName("Prawns"); group.getOptions().add(option);
         var assignment=new au.com.nakornthai.menu.infrastructure.MenuItemOptionGroupJpaEntity();
         assignment.setMenuItem(item); assignment.setOptionGroup(group); assignment.setMinSelections(2); assignment.setMaxSelections(3);
-        item.getOptionGroups().add(assignment);
+        assignment.getOptionPrices().put(option.getId(),600L); item.getOptionGroups().add(assignment);
         org.mockito.Mockito.when(em.find(au.com.nakornthai.menu.infrastructure.MenuItemVariationJpaEntity.class,variation.getId())).thenReturn(variation);
         org.mockito.Mockito.when(em.find(au.com.nakornthai.menu.infrastructure.MenuCollectionItemJpaEntity.class,
                 new au.com.nakornthai.menu.infrastructure.MenuAssociationId(collection.getId(),item.getId()))).thenReturn(membership);
@@ -71,7 +71,7 @@ class CreateOrderHandlerTest {
         var stored=(au.com.nakornthai.ordering.infrastructure.OrderJpaEntity)captured.getAllValues().getFirst();
         assertSame(stored.getItems().getFirst(),stored.getItems().getFirst().getSelectedOptions().getFirst().getOrderItem());
         org.mockito.Mockito.when(em.find(au.com.nakornthai.ordering.infrastructure.OrderJpaEntity.class,request.requestId())).thenReturn(stored);
-        collection.setActive(false); option.setName("Changed"); option.setPriceDeltaMinor(999);
+        collection.setActive(false); option.setName("Changed"); assignment.getOptionPrices().put(option.getId(),999L);
         assertEquals(operationInstant,stored.getCreatedAt()); assertEquals(operationInstant,stored.getUpdatedAt());
         org.mockito.Mockito.when(availability.schedule()).thenReturn(schedule(false));
         assertEquals(response,new CreateOrderHandler(em,new au.com.nakornthai.ordering.infrastructure.OrderMapper(),false,availability,clock).handle(request));

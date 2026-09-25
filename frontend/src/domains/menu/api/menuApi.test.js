@@ -216,3 +216,25 @@ test('collection validation and stale-edit errors retain server explanation and 
     await assert.rejects(saveCollectionConfiguration({ id: 'collection', version: 2, data: {} }, 'Basic test'), error => error.status === status && error.message === message);
   }
 });
+
+test('item option writes keep prices and versions on the assignment with fresh CSRF', async () => {
+  const { saveItemOptionGroup, createItemOptionGroup, saveSharedOption, removeItemOptionGroup } = await import('./menuApi.js');
+  const calls = [];
+  globalThis.fetch = async (url, options) => {
+    calls.push({ url, options });
+    if (url.endsWith('/csrf')) return Response.json({ headerName: 'X-CSRF-TOKEN', token: `csrf-${calls.length}` });
+    assert.equal(options.credentials, 'same-origin');
+    assert.equal(options.headers['X-CSRF-TOKEN'], `csrf-${calls.length - 1}`);
+    return options.method === 'DELETE' ? new Response(null, { status: 204 }) : Response.json({ id: 'group', version: 4 });
+  };
+  const assignment = { minSelections: 1, maxSelections: 1, displayOrder: 0, version: 3, groupVersion: 2, prices: [{ optionId: 'beef', priceDeltaMinor: 200 }] };
+  await saveItemOptionGroup('dish', 'group', assignment, 'Basic test');
+  assert.equal(calls[1].url, '/api/staff/menu/items/dish/option-groups/group');
+  assert.deepEqual(JSON.parse(calls[1].options.body), assignment);
+  await createItemOptionGroup('dish', { name: 'Protein', options: [{ name: 'Beef', code: 'beef', priceDeltaMinor: 300 }] }, 'Basic test');
+  assert.equal(calls[3].url, '/api/staff/menu/items/dish/option-groups');
+  await saveSharedOption('group', { id: 'beef', version: 1, data: { name: 'Beef', code: 'beef', active: true, displayOrder: 0 } }, 'Basic test');
+  assert.equal(JSON.parse(calls[5].options.body).priceDeltaMinor, undefined);
+  await removeItemOptionGroup('dish', { id: 'group', version: 4 }, 'Basic test');
+  assert.equal(calls[7].url, '/api/staff/menu/items/dish/option-groups/group?version=4');
+});

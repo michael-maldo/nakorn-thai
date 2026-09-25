@@ -124,19 +124,48 @@ public class MenuConfigurationHandler {
         MenuCatalogLock.write(em); var g=required(MenuOptionGroupJpaEntity.class,groupId);
         var o=id==null?new MenuOptionJpaEntity():required(MenuOptionJpaEntity.class,id);
         if(id!=null)belongs(o.getOptionGroup().getId(),groupId); check(o,r.version(),id==null);
-        o.setOptionGroup(g); o.setCode(r.code()); o.setName(r.name()); o.setPriceDeltaMinor(r.priceDeltaMinor()); o.setCurrency("AUD"); o.setActive(r.active()); o.setDisplayOrder(r.displayOrder());
-        if(id==null)em.persist(o); em.flush(); return optionView(o);
+        o.setOptionGroup(g); o.setCode(r.code()); o.setName(r.name()); o.setCurrency("AUD"); o.setActive(r.active()); o.setDisplayOrder(r.displayOrder());
+        if(id==null) { g.getOptions().add(o); em.persist(o); }
+        em.lock(g,LockModeType.PESSIMISTIC_FORCE_INCREMENT);
+        em.flush(); return optionView(o);
     }
     public void deactivateOption(UUID groupId, UUID id, Long version) {
-        MenuCatalogLock.write(em); var o=required(MenuOptionJpaEntity.class,id); belongs(o.getOptionGroup().getId(),groupId); check(o,version,false); o.setActive(false);
+        MenuCatalogLock.write(em); var o=required(MenuOptionJpaEntity.class,id); belongs(o.getOptionGroup().getId(),groupId); check(o,version,false); o.setActive(false); em.lock(o.getOptionGroup(),LockModeType.PESSIMISTIC_FORCE_INCREMENT);
     }
     public Resource saveAssignment(UUID itemId, UUID groupId, MenuConfigurationRequest.Assignment r) {
         MenuCatalogLock.write(em); var item=required(MenuItemJpaEntity.class,itemId); var g=required(MenuOptionGroupJpaEntity.class,groupId);
         if(r.maxSelections()<r.minSelections() || "SINGLE".equals(g.getSelectionType()) && (r.minSelections()>1 || r.maxSelections()!=1)) throw bad("Invalid option selection limits");
         var a=em.find(MenuItemOptionGroupJpaEntity.class,new MenuAssociationId(itemId,groupId)); boolean fresh=a==null;
+        check(g,r.groupVersion(),false);
+        if(r.prices()==null) throw bad("Supply this item's option prices");
+        var prices=new HashMap<UUID,Long>();
+        var optionIds=g.getOptions().stream().map(MenuOptionJpaEntity::getId).collect(java.util.stream.Collectors.toSet());
+        for(var price:r.prices()) {
+            if(!optionIds.contains(price.optionId()) || price.priceDeltaMinor()<0 || prices.putIfAbsent(price.optionId(),price.priceDeltaMinor())!=null)
+                throw bad("Invalid, duplicate or foreign option price");
+        }
+        if(r.minSelections()>0 && g.getOptions().stream().noneMatch(o -> o.isActive() && prices.containsKey(o.getId())))
+            throw bad("Price at least one active choice for a required group");
         if(fresh)a=new MenuItemOptionGroupJpaEntity(); check(a,r.version(),fresh);
         a.setMenuItem(item); a.setOptionGroup(g); a.setMinSelections(r.minSelections()); a.setMaxSelections(r.maxSelections()); a.setDisplayOrder(r.displayOrder());
-        if(fresh)em.persist(a); em.flush(); return assignmentView(a);
+        a.getOptionPrices().clear(); a.getOptionPrices().putAll(prices);
+        if(fresh)em.persist(a);
+        else em.lock(a,LockModeType.PESSIMISTIC_FORCE_INCREMENT);
+        em.flush(); return assignmentView(a);
+    }
+    public Resource createAssignedGroup(UUID itemId, MenuConfigurationRequest.CreateAssignedGroup r) {
+        MenuCatalogLock.write(em); required(MenuItemJpaEntity.class,itemId);
+        if("SINGLE".equals(r.selectionType()) && r.maxSelections()!=1) throw bad("Required choices allow one selection");
+        var group=saveGroup(null,new MenuConfigurationRequest.Group(r.code(),r.name(),r.selectionType(),true,null));
+        var groupId=(UUID)group.id();
+        var prices=new ArrayList<MenuConfigurationRequest.OptionPrice>();
+        int order=0;
+        for(var choice:r.options()) {
+            var option=saveOption(groupId,null,new MenuConfigurationRequest.Option(choice.code(),choice.name(),true,order++,null));
+            prices.add(new MenuConfigurationRequest.OptionPrice((UUID)option.id(),choice.priceDeltaMinor()));
+        }
+        return saveAssignment(itemId,groupId,new MenuConfigurationRequest.Assignment("SINGLE".equals(r.selectionType())?1:0,
+                r.maxSelections(),r.displayOrder(),null,required(MenuOptionGroupJpaEntity.class,groupId).getVersion(),prices));
     }
     public void deleteAssignment(UUID itemId, UUID groupId, Long version) {
         MenuCatalogLock.write(em); var a=required(MenuItemOptionGroupJpaEntity.class,new MenuAssociationId(itemId,groupId)); check(a,version,false); em.remove(a);
@@ -158,6 +187,7 @@ public class MenuConfigurationHandler {
     private Resource categoryView(MenuCollectionCategoryJpaEntity c) { return new Resource(c.getId(),c.getVersion(),new MenuConfigurationRequest.Category(c.getCategory().getId(),c.getDisplayOrder(),c.getVersion())); }
     private Resource membershipView(MenuCollectionItemJpaEntity m) { return new Resource(m.getMenuItem().getId(),m.getVersion(),new MenuConfigurationRequest.Membership(m.getCollectionCategory()==null?null:m.getCollectionCategory().getId(),m.getPriceOverrideMinor(),m.getDisplayOrder(),m.getVersion())); }
     private Resource groupView(MenuOptionGroupJpaEntity g) { return new Resource(g.getId(),g.getVersion(),new MenuConfigurationRequest.Group(g.getCode(),g.getName(),g.getSelectionType(),g.isActive(),g.getVersion())); }
-    private Resource optionView(MenuOptionJpaEntity o) { return new Resource(o.getId(),o.getVersion(),new MenuConfigurationRequest.Option(o.getCode(),o.getName(),o.getPriceDeltaMinor(),o.isActive(),o.getDisplayOrder(),o.getVersion())); }
-    private Resource assignmentView(MenuItemOptionGroupJpaEntity a) { return new Resource(a.getOptionGroup().getId(),a.getVersion(),new MenuConfigurationRequest.Assignment(a.getMinSelections(),a.getMaxSelections(),a.getDisplayOrder(),a.getVersion())); }
+    private Resource optionView(MenuOptionJpaEntity o) { return new Resource(o.getId(),o.getVersion(),new MenuConfigurationRequest.Option(o.getCode(),o.getName(),o.isActive(),o.getDisplayOrder(),o.getVersion())); }
+    private Resource assignmentView(MenuItemOptionGroupJpaEntity a) { return new Resource(a.getOptionGroup().getId(),a.getVersion(),new MenuConfigurationRequest.Assignment(a.getMinSelections(),a.getMaxSelections(),a.getDisplayOrder(),a.getVersion(),a.getOptionGroup().getVersion(),
+            a.getOptionPrices().entrySet().stream().sorted(Map.Entry.comparingByKey()).map(p -> new MenuConfigurationRequest.OptionPrice(p.getKey(),p.getValue())).toList())); }
 }

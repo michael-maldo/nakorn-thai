@@ -1,5 +1,5 @@
 const root = '#/staff/menu';
-export const itemSections = ['overview', 'pricing', 'collections', 'images'];
+export const itemSections = ['overview', 'pricing', 'options', 'collections', 'images'];
 export const collectionSections = ['overview', 'items', 'categories', 'availability'];
 export function menuAdminHref(resource = 'items', id, section) {
   return `${root}/${resource}${id ? `/${encodeURIComponent(id)}` : ''}${section ? `/${section}` : ''}`;

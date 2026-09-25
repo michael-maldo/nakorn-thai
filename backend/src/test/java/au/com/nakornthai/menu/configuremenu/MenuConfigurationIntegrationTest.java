@@ -82,14 +82,95 @@ class MenuConfigurationIntegrationTest {
         handler.deleteSchedule(id(c),id(schedule),schedule.version()); em.flush(); em.clear();
         assertTrue(menu.handle(new ListMenuQuery(slug)).availability().available());
         var group=handler.saveGroup(null,new MenuConfigurationRequest.Group("protein-"+UUID.randomUUID(),"Protein","SINGLE",true,null));
-        var option=handler.saveOption(id(group),null,new MenuConfigurationRequest.Option("prawns","Prawns",600,true,0,null));
-        var assignment=handler.saveAssignment(item,id(group),new MenuConfigurationRequest.Assignment(1,1,0,null));
+        var option=handler.saveOption(id(group),null,new MenuConfigurationRequest.Option("prawns","Prawns",true,0,null));
+        var assignment=handler.saveAssignment(item,id(group),new MenuConfigurationRequest.Assignment(1,1,0,null,((MenuConfigurationRequest.Group)handler.groups().stream().filter(g -> g.group().id().equals(group.id())).findFirst().orElseThrow().group().data()).version(),java.util.List.of(new MenuConfigurationRequest.OptionPrice(id(option),600))));
         em.clear();
         assertEquals(600,menu.handle(new ListMenuQuery(slug)).items().getFirst().optionGroups().getFirst().options().getFirst().priceDeltaMinor());
         handler.deactivateOption(id(group),id(option),option.version()); em.flush(); em.clear();
         assertFalse(menu.handle(new ListMenuQuery(slug)).items().getFirst().available());
         handler.deleteAssignment(item,id(group),assignment.version()); em.flush(); em.clear();
         assertTrue(menu.handle(new ListMenuQuery(slug)).items().getFirst().optionGroups().isEmpty());
+    }
+    @Test void reusableChoicesHaveIndependentItemPricesAndNewChoicesAreNotSilentlyFree() {
+        var created=handler.createAssignedGroup(item,new MenuConfigurationRequest.CreateAssignedGroup("protein-"+UUID.randomUUID(),"Protein","SINGLE",1,0,
+                java.util.List.of(new MenuConfigurationRequest.NewChoice("beef","Beef",200),new MenuConfigurationRequest.NewChoice("pork","Pork",0))));
+        UUID groupId=(UUID)created.id();
+        var firstData=(MenuConfigurationRequest.Assignment)created.data();
+        UUID beef=handler.groups().stream().filter(g -> g.group().id().equals(groupId)).findFirst().orElseThrow().options().stream()
+                .filter(o -> ((MenuConfigurationRequest.Option)o.data()).code().equals("beef")).map(this::id).findFirst().orElseThrow();
+        UUID second=UUID.randomUUID();
+        jdbc.update("INSERT INTO menu_item(id,category_id,name,slug,description,status) VALUES (?,?,'Second dish',?,'Test','PUBLISHED')",second,category,"item-"+second);
+        var secondAssignment=handler.saveAssignment(second,groupId,new MenuConfigurationRequest.Assignment(1,1,0,null,firstData.groupVersion(),java.util.List.of(new MenuConfigurationRequest.OptionPrice(beef,300))));
+        var edited=handler.saveAssignment(item,groupId,new MenuConfigurationRequest.Assignment(1,1,0,created.version(),firstData.groupVersion(),java.util.List.of(new MenuConfigurationRequest.OptionPrice(beef,250))));
+        assertTrue(edited.version()>created.version());
+        assertEquals(409,assertThrows(ResponseStatusException.class,()->handler.saveAssignment(item,groupId,
+                new MenuConfigurationRequest.Assignment(1,1,0,created.version(),firstData.groupVersion(),firstData.prices()))).getStatusCode().value());
+        em.flush(); em.clear();
+        var firstItem=em.find(au.com.nakornthai.menu.infrastructure.MenuItemJpaEntity.class,item);
+        var secondItem=em.find(au.com.nakornthai.menu.infrastructure.MenuItemJpaEntity.class,second);
+        var firstGroups=au.com.nakornthai.menu.infrastructure.MenuCatalogRules.groups(firstItem);
+        var secondGroups=au.com.nakornthai.menu.infrastructure.MenuCatalogRules.groups(secondItem);
+        var selection=java.util.List.of(new au.com.nakornthai.menu.domain.MenuPricing.Selection(beef,1));
+        assertEquals(1250,au.com.nakornthai.menu.domain.MenuPricing.calculate(1000,true,null,firstGroups,selection).unitPrice());
+        assertEquals(1300,au.com.nakornthai.menu.domain.MenuPricing.calculate(1000,true,null,secondGroups,selection).unitPrice());
+        var c=collection(); handler.saveMembership(id(c),item,new MenuConfigurationRequest.Membership(null,null,0,null));
+        em.flush(); em.clear();
+        var dish=menu.handle(new ListMenuQuery(((MenuConfigurationRequest.Collection)c.data()).slug())).items().getFirst();
+        assertEquals(250,dish.optionGroups().getFirst().options().stream().filter(o -> o.id().equals(beef)).findFirst().orElseThrow().priceDeltaMinor());
+        var added=handler.saveOption(groupId,null,new MenuConfigurationRequest.Option("chicken","Chicken",true,2,null));
+        em.flush(); em.clear();
+        var newOption=au.com.nakornthai.menu.infrastructure.MenuCatalogRules.groups(em.find(au.com.nakornthai.menu.infrastructure.MenuItemJpaEntity.class,item))
+                .getFirst().options().stream().filter(o -> o.id().equals(added.id())).findFirst().orElseThrow();
+        assertFalse(newOption.active());
+        assertThrows(IllegalArgumentException.class,()->au.com.nakornthai.menu.domain.MenuPricing.calculate(1000,true,null,
+                au.com.nakornthai.menu.infrastructure.MenuCatalogRules.groups(em.find(au.com.nakornthai.menu.infrastructure.MenuItemJpaEntity.class,item)),
+                java.util.List.of(new au.com.nakornthai.menu.domain.MenuPricing.Selection(id(added),1))));
+        assertEquals(409,assertThrows(ResponseStatusException.class,()->handler.saveAssignment(item,groupId,
+                new MenuConfigurationRequest.Assignment(1,1,0,edited.version(),firstData.groupVersion(),firstData.prices()))).getStatusCode().value());
+        handler.deleteAssignment(second,groupId,secondAssignment.version()); em.flush(); em.clear();
+        assertEquals(0,jdbc.queryForObject("select count(*) from menu_item_option_price where menu_item_id=?",Integer.class,second));
+        assertEquals(1,jdbc.queryForObject("select count(*) from menu_option_group where id=?",Integer.class,groupId));
+        assertEquals(250L,jdbc.queryForObject("select price_delta_minor from menu_item_option_price where menu_item_id=? and option_id=?",Long.class,item,beef));
+    }
+    @Test void addingChoiceToUninitializedSharedGroupAppearsOnce() {
+        var group=handler.saveGroup(null,new MenuConfigurationRequest.Group("spice-"+UUID.randomUUID(),"Spice","SINGLE",true,null));
+        em.flush(); em.clear();
+        handler.saveOption(id(group),null,new MenuConfigurationRequest.Option("mild","Mild",true,0,null));
+        assertEquals(1,handler.groups().stream().filter(g -> g.group().id().equals(group.id())).findFirst().orElseThrow().options().size());
+    }
+    @Test void assignmentRejectsForeignDuplicateNegativePricesAndRequiredWithoutChoices() {
+        var group=handler.saveGroup(null,new MenuConfigurationRequest.Group("extras-"+UUID.randomUUID(),"Extras","MULTIPLE",true,null));
+        var option=handler.saveOption(id(group),null,new MenuConfigurationRequest.Option("rice","Rice",true,0,null));
+        Long groupVersion=handler.groups().stream().filter(g -> g.group().id().equals(group.id())).findFirst().orElseThrow().group().version();
+        for(var prices:java.util.List.of(
+                java.util.List.of(new MenuConfigurationRequest.OptionPrice(UUID.randomUUID(),100)),
+                java.util.List.of(new MenuConfigurationRequest.OptionPrice(id(option),100),new MenuConfigurationRequest.OptionPrice(id(option),200)),
+                java.util.List.of(new MenuConfigurationRequest.OptionPrice(id(option),-1)))) {
+            assertEquals(400,assertThrows(ResponseStatusException.class,()->handler.saveAssignment(item,id(group),new MenuConfigurationRequest.Assignment(0,3,0,null,groupVersion,prices))).getStatusCode().value());
+        }
+        assertEquals(400,assertThrows(ResponseStatusException.class,()->handler.saveAssignment(item,id(group),new MenuConfigurationRequest.Assignment(1,3,0,null,groupVersion,java.util.List.of()))).getStatusCode().value());
+        handler.saveAssignment(item,id(group),new MenuConfigurationRequest.Assignment(0,3,0,null,groupVersion,java.util.List.of(new MenuConfigurationRequest.OptionPrice(id(option),150))));
+        em.flush(); em.clear();
+        var groups=au.com.nakornthai.menu.infrastructure.MenuCatalogRules.groups(em.find(au.com.nakornthai.menu.infrastructure.MenuItemJpaEntity.class,item));
+        assertEquals(1000,au.com.nakornthai.menu.domain.MenuPricing.calculate(1000,true,null,groups,java.util.List.of()).unitPrice());
+        assertEquals(1300,au.com.nakornthai.menu.domain.MenuPricing.calculate(1000,true,null,groups,java.util.List.of(new au.com.nakornthai.menu.domain.MenuPricing.Selection(id(option),2))).unitPrice());
+    }
+    @Test void v23CopiesEveryExistingAssignmentPriceBeforeRemovingGlobalPrices() throws Exception {
+        // Exercise the exact migration in an isolated transactional schema.
+        String schema="option_migration_"+UUID.randomUUID().toString().replace("-","");
+        jdbc.execute("CREATE SCHEMA "+schema);
+        jdbc.execute("SET LOCAL search_path TO "+schema);
+        jdbc.execute("CREATE TABLE menu_option (id UUID PRIMARY KEY, option_group_id UUID NOT NULL, price_delta_minor BIGINT NOT NULL)");
+        jdbc.execute("CREATE TABLE menu_item_option_group (menu_item_id UUID NOT NULL, option_group_id UUID NOT NULL, PRIMARY KEY(menu_item_id,option_group_id))");
+        UUID group=UUID.randomUUID(),option=UUID.randomUUID(),second=UUID.randomUUID();
+        jdbc.update("INSERT INTO menu_option VALUES (?,?,600)",option,group);
+        jdbc.update("INSERT INTO menu_item_option_group VALUES (?,?),(?,?)",item,group,second,group);
+        var connection=org.springframework.jdbc.datasource.DataSourceUtils.getConnection(jdbc.getDataSource());
+        org.springframework.jdbc.datasource.init.ScriptUtils.executeSqlScript(connection,new org.springframework.core.io.ClassPathResource("db/migration/V23__price_options_per_menu_item.sql"));
+        assertEquals(java.util.List.of(600L,600L),jdbc.queryForList("SELECT price_delta_minor FROM menu_item_option_price",Long.class));
+        assertEquals(0,jdbc.queryForObject("SELECT count(*) FROM information_schema.columns WHERE table_schema=? AND table_name='menu_option' AND column_name='price_delta_minor'",Integer.class,schema));
+        jdbc.update("UPDATE menu_item_option_price SET price_delta_minor=300 WHERE menu_item_id=?",second);
+        assertEquals(600L,jdbc.queryForObject("SELECT price_delta_minor FROM menu_item_option_price WHERE menu_item_id=?",Long.class,item));
     }
     @Test void rejectsCrossCollectionPlacementAndStaleEdits() {
         var a=collection(); var b=collection();

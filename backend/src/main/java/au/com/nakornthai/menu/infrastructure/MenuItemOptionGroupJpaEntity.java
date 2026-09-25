@@ -18,6 +18,13 @@ public class MenuItemOptionGroupJpaEntity extends MenuAuditJpaEntity {
     private MenuItemJpaEntity menuItem;
     @MapsId("valueId") @ManyToOne(fetch = FetchType.LAZY, optional = false) @JoinColumn(name = "option_group_id")
     private MenuOptionGroupJpaEntity optionGroup;
+    @ElementCollection @BatchSize(size = 64)
+    @CollectionTable(name = "menu_item_option_price", joinColumns = {
+        @JoinColumn(name = "menu_item_id", referencedColumnName = "menu_item_id"),
+        @JoinColumn(name = "option_group_id", referencedColumnName = "option_group_id")})
+    @MapKeyColumn(name = "option_id")
+    @Column(name = "price_delta_minor", nullable = false)
+    private Map<UUID, Long> optionPrices = new HashMap<>();
     @Column(nullable = false) private int minSelections;
     @Column(nullable = false) private int maxSelections = 1;
     @Column(nullable = false) private int displayOrder;

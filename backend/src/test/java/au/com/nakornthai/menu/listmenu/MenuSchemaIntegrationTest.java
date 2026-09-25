@@ -83,7 +83,7 @@ class MenuSchemaIntegrationTest {
 
     @Test
     void flywayCreatesMenuAndOrderingTablesAndEndpointReturnsDish() throws Exception {
-        for (String table : java.util.List.of("menu_collection_schedule", "menu_collection_category", "menu_option_group", "menu_option", "menu_item_option_group", "restaurant_order_item_option"))
+        for (String table : java.util.List.of("menu_collection_schedule", "menu_collection_category", "menu_option_group", "menu_option", "menu_item_option_group", "menu_item_option_price", "restaurant_order_item_option"))
             assertEquals(1, jdbc.queryForObject("SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_name=?", Integer.class, table));
         mvc.perform(get("/api/menu/collections/{slug}/items", slug()))
                 .andExpect(status().isOk()).andExpect(header().string("Cache-Control", "no-store"))

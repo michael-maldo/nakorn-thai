@@ -1,3 +1,5 @@
+import StaffShell from '../domains/staff/components/StaffShell';
+import StaffDashboardPage from '../domains/staff/pages/StaffDashboardPage';
 import { allowMenuNavigation, hasMenuEdits } from '../domains/menu/model/menuAdminNavigation';
 import RestaurantSchedulePage from '../domains/restaurant/pages/RestaurantSchedulePage';
 import OrderTrackingPage from '../domains/ordering/pages/OrderTrackingPage';
@@ -54,16 +56,18 @@ export default function AppRouter() {
     if (hash.startsWith('#/')) window.scrollTo(0, 0);
     else if (!hash.startsWith('#/')) document.getElementById(hash.slice(1))?.scrollIntoView();
   }, [hash]);
+  const staffPage = (page, roles) => <ProtectedRoute roles={roles}><StaffShell hash={hash}>{page}</StaffShell></ProtectedRoute>;
+  if (hash === '#/staff' || hash === '#/staff/') return staffPage(<StaffDashboardPage />);
   if (hash === '#/functions') return <FunctionsPage />;
-  if (hash === '#/staff/functions') return <ProtectedRoute roles={['ADMIN','FOH']}><FunctionEnquiriesPage /></ProtectedRoute>;
+  if (hash === '#/staff/functions') return staffPage(<FunctionEnquiriesPage />, ['ADMIN','FOH']);
   if (hash === '#/reservations') return <ReservationPage />;
-  if (hash === '#/staff/reservations') return <ProtectedRoute roles={['ADMIN','FOH']}><ReservationAdminPage /></ProtectedRoute>;
+  if (hash === '#/staff/reservations') return staffPage(<ReservationAdminPage />, ['ADMIN','FOH']);
   if (hash === '#/menu') return <MenuPage />;
   if (hash === '#/track-order') return <OrderTrackingPage />;
   if (hash === '#/checkout') return <CheckoutPage />;
   if (hash === '#/order-confirmation') return <OrderConfirmationPage />;
-  if (hash === '#/staff/restaurant') return <ProtectedRoute roles={['ADMIN']}><RestaurantSchedulePage /></ProtectedRoute>;
-  if (hash === '#/staff/users') return <ProtectedRoute roles={['ADMIN']}><UsersPage /></ProtectedRoute>;
-  if (hash === '#/staff/menu' || hash.startsWith('#/staff/menu/')) return <ProtectedRoute roles={['ADMIN']}><StaffMenuPage hash={hash} /></ProtectedRoute>;
+  if (hash === '#/staff/restaurant') return staffPage(<RestaurantSchedulePage />, ['ADMIN']);
+  if (hash === '#/staff/users') return staffPage(<UsersPage />, ['ADMIN']);
+  if (hash === '#/staff/menu' || hash.startsWith('#/staff/menu/')) return staffPage(<StaffMenuPage hash={hash} />, ['ADMIN']);
   return <HomePage />;
 }

@@ -21,7 +21,7 @@ public final class MenuCatalogRules {
             var g = a.getOptionGroup();
             return new MenuPricing.Group(g.getId(), g.getName(), g.getSelectionType(), g.isActive(), a.getMinSelections(),
                     a.getMaxSelections(), g.getOptions().stream().map(o ->
-                    new MenuPricing.Option(o.getId(), o.getName(), o.getPriceDeltaMinor(), o.isActive())).toList());
+                    new MenuPricing.Option(o.getId(), o.getName(), a.getOptionPrices().getOrDefault(o.getId(), 0L), o.isActive() && a.getOptionPrices().containsKey(o.getId()))).toList());
         }).toList();
     }
 }

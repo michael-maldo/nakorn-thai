@@ -29,8 +29,8 @@ class LunchSpecialOrderTest {
         variation=identified(new MenuItemVariationJpaEntity());variation.setMenuItem(item);variation.setName("Standard");variation.setPriceMinor(1490L);variation.setDefaultVariation(true);
         var membership=new MenuCollectionItemJpaEntity();membership.setCollection(collection);membership.setMenuItem(item);
         var group=identified(new MenuOptionGroupJpaEntity());group.setName("Protein");group.setSelectionType("SINGLE");
-        prawns=identified(new MenuOptionJpaEntity());prawns.setOptionGroup(group);prawns.setName("Prawns");prawns.setPriceDeltaMinor(600);group.getOptions().add(prawns);
-        var assignment=new MenuItemOptionGroupJpaEntity();assignment.setMenuItem(item);assignment.setOptionGroup(group);assignment.setMinSelections(1);assignment.setMaxSelections(1);item.getOptionGroups().add(assignment);
+        prawns=identified(new MenuOptionJpaEntity());prawns.setOptionGroup(group);prawns.setName("Prawns");group.getOptions().add(prawns);
+        var assignment=new MenuItemOptionGroupJpaEntity();assignment.setMenuItem(item);assignment.setOptionGroup(group);assignment.setMinSelections(1);assignment.setMaxSelections(1);assignment.getOptionPrices().put(prawns.getId(),600L);item.getOptionGroups().add(assignment);
         when(em.find(MenuItemVariationJpaEntity.class,variation.getId())).thenReturn(variation);
         when(em.find(MenuCollectionItemJpaEntity.class,new MenuAssociationId(collection.getId(),item.getId()))).thenReturn(membership);
         when(availability.schedule()).thenReturn(restaurant);when(clock.instant()).thenReturn(at("14:29:00"));
@@ -61,7 +61,7 @@ class LunchSpecialOrderTest {
         when(em.find(OrderJpaEntity.class,request.requestId())).thenReturn(stored);
         when(clock.instant()).thenReturn(at("14:31:00"));
         when(availability.schedule()).thenReturn(new RestaurantSchedule(restaurant.timezone(),List.of(),Set.of()));
-        variation.setPriceMinor(9999L);prawns.setPriceDeltaMinor(9999);collection.setActive(false);
+        variation.setPriceMinor(9999L);variation.getMenuItem().getOptionGroups().getFirst().getOptionPrices().put(prawns.getId(),9999L);collection.setActive(false);
         assertEquals(response,handler.handle(request));
         verify(clock,times(1)).instant();verify(availability,times(1)).schedule();verify(em,times(2)).persist(any());
     }

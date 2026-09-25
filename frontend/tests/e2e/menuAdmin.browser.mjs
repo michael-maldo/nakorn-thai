@@ -64,6 +64,7 @@ const fixture = () => {
       if (window.failWrite) return Response.json({ message: window.failWrite.message }, { status: window.failWrite.status });
     }
     if (!write && window.failRead) return new Response(null, { status: 503 });
+    if (!write && (url === '/api/staff/menu/option-groups' || /\/items\/[^/]+\/option-groups$/.test(String(url)))) return Response.json([]);
     if (url === '/api/staff/menu/items' && !write) return Response.json(window.items);
     if (String(url).startsWith('/api/staff/menu/items') && write) {
       const body = JSON.parse(options.body); let item = window.items.items.find(i => i.id === body.id);
@@ -173,8 +174,8 @@ try {
     }
   }
   await link('Items', 'Menu navigation'); await loaded(); await link('Create item'); await loaded();
-  await field('Name', 'New dish'); await field('Slug', 'new-dish'); await field('Description', 'A new dish'); await click('Create item');
-  await waitFor(`location.hash === '#/staff/menu/items/created-item'`); await loaded();
+  await field('Name', 'New dish'); await field('Slug', 'new-dish'); await field('Description', 'A new dish'); await click('Create item & configure options');
+  await waitFor(`location.hash === '#/staff/menu/items/created-item/options'`); await loaded();
   await link('Collections', 'Menu navigation'); await loaded(); await link('Create collection'); await loaded();
   await field('Name', 'Seasonal'); await field('Slug', 'seasonal'); await click('Create collection');
   await waitFor(`location.hash === '#/staff/menu/collections/created-collection'`);

@@ -444,3 +444,51 @@ body.has-cart-dock { padding-bottom: calc(88px + env(safe-area-inset-bottom)); }
 .menu-admin-skip:focus { top: 12px; }
 .menu-admin .menu-focus-preview { max-width: 360px; margin-block: 18px; }
 .menu-admin-form > fieldset > label { margin-block: 16px; }
+
+/* Staff sign-in and authenticated workspace shell. */
+.staff-login-page, .staff-workspace { --staff-accent: #245446; --staff-border: #dce4df; color: #24352e; background: #f4f6f4; min-height: 100dvh; }
+.staff-login-page { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px 24px; }
+.staff-login-back { margin-bottom: 28px; font-weight: 600; }
+.staff-login-card { width: min(100%, 440px); padding: 36px; background: #fff; border: 1px solid var(--staff-border); border-radius: 16px; box-shadow: 0 12px 40px #24352e08; }
+.staff-kicker { font-size: .7rem; font-weight: 750; letter-spacing: .16em; color: #527063; }
+.staff-login-card h1 { font-size: 2rem; letter-spacing: -.04em; margin: 16px 0 8px; }
+.staff-login-card > p:not(.staff-kicker), .staff-login-help { color: #58695f; }
+.staff-login-card .staff-login { border: 0; background: none; padding: 0; margin: 28px 0 0; }
+.staff-login-card .staff-login > h2, .staff-login-card .staff-login > p:not([role]) { display: none; }
+.staff-login-card .staff-login label { display: grid; gap: 8px; margin-bottom: 18px; font-weight: 600; }
+.staff-login-card .staff-login input { width: 100%; min-height: 46px; border: 1px solid #a9b9af; border-radius: 6px; padding: 10px 12px; }
+.staff-login-card .staff-login button { width: 100%; background: var(--staff-accent); border-color: var(--staff-accent); border-radius: 6px; }
+.staff-login-help { font-size: .85rem; margin-top: 24px; }
+.staff-login-page :focus-visible, .staff-workspace :focus-visible { outline: 3px solid #367da3; outline-offset: 4px; }
+.staff-skip { position: absolute; top: -100px; left: 16px; z-index: 30; padding: 12px; background: #fff; }
+.staff-skip:focus { top: 12px; }
+.staff-topbar { min-height: 84px; display: flex; align-items: center; justify-content: space-between; gap: 24px; background: #fff; border-bottom: 1px solid var(--staff-border); padding: 18px 32px; }
+.staff-brand { font-weight: 800; letter-spacing: .1em; }
+.staff-brand span { display: block; font-size: .75rem; letter-spacing: .02em; color: #66766d; font-weight: 400; margin-top: 4px; }
+.staff-account-nav { display: flex; align-items: center; gap: 24px; }
+.staff-user { font-weight: 650; overflow-wrap: anywhere; }
+.staff-user small { display: block; font-size: .65rem; letter-spacing: .1em; color: #66766d; }
+.staff-account-nav button, .staff-nav-toggle { min-height: 44px; border: 1px solid var(--staff-border); border-radius: 6px; padding: 8px 16px; background: #fff; color: inherit; cursor: pointer; }
+.staff-account-nav button:disabled { opacity: .65; cursor: wait; }
+.staff-workspace-body { display: grid; grid-template-columns: 240px minmax(0, 1fr); min-height: calc(100dvh - 84px); }
+.staff-sidebar { background: #fff; border-right: 1px solid var(--staff-border); padding: 32px 16px; }
+.staff-nav-label { color: #66766d; font-size: .65rem; letter-spacing: .15em; font-weight: 700; padding: 0 14px; margin: 0 0 16px; }
+.staff-sidebar nav a { display: block; min-height: 46px; padding: 12px 14px; margin: 4px 0; border-radius: 6px; color: #506259; }
+.staff-sidebar nav a:hover { background: #f2f5f3; }
+.staff-sidebar nav a[aria-current] { background: #e7f0ea; color: #1e513d; font-weight: 700; box-shadow: inset 3px 0 #245446; }
+.staff-nav-toggle { display: none; }
+.staff-workspace-content { min-width: 0; }
+.staff-overview { max-width: 1100px; padding: 44px; margin-inline: auto; }
+.staff-overview h1 { font-size: clamp(1.8rem, 3vw, 2.5rem); letter-spacing: -.04em; margin: 12px 0; overflow-wrap: anywhere; }
+.staff-intro { color: #66766d; margin: 0 0 32px; }
+.staff-shell-welcome { padding: 40px; border: 1px solid var(--staff-border); background: #fff; border-radius: 12px; }
+.staff-shell-mark { display: inline-grid; place-items: center; width: 48px; height: 48px; border-radius: 12px; background: #e7f0ea; color: #245446; font-weight: 750; }
+.staff-shell-welcome h2 { margin: 22px 0 10px; font-size: 1.3rem; }
+.staff-shell-welcome p { max-width: 580px; color: #58695f; }
+
+.menu-admin-option-card { background: #fff; border: 1px solid var(--admin-line); border-radius: 8px; padding: 22px; margin-top: 20px; }
+.menu-admin .menu-admin-option-card h3 { margin-top: 0; }
+.menu-admin-option-card ul { list-style: none; padding: 0; margin: 16px 0; }
+.menu-admin-option-card li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--admin-line); }
+.menu-admin-option-picker { max-width: 480px; margin: 20px 0; }
+.menu-admin .menu-admin-option-choice { border: 1px solid var(--admin-line); padding: 16px; margin: 20px 0; border-radius: 6px; }
