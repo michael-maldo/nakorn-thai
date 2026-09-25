@@ -1,10 +1,10 @@
 # Public menu browsing: an editor tracing guide
 
-Verified against the current source on 2026-09-21. Start at `#/menu`; finish at the rendered dish cards. This is a source-level trace, not a claim that a local database or running server was inspected. All data examples below use field names/types rather than invented restaurant data.
+Verified against the current source on 2026-09-25. Start at `#/menu`; finish at the rendered dish cards. This is a source-level trace, not a claim that a local database or running server was inspected. All data examples below use field names/types rather than invented restaurant data.
 
 Read the numbered steps in order. The first HTTP trip discovers collections; only after it returns can the second trip retrieve the selected collection. Each trip has its own request and transaction. A “Calls next” entry can mean a synchronous call, an asynchronous continuation, or a later React render; the text distinguishes them.
 
-The main path in `application-trace-map.md`, section 1, is accurate. Three qualifications matter: its mention of `MenuPricing` should not imply that browsing calls it (this read path calculates offer fields in `MenuItemMapper`); V19's order provenance is not a public-menu retrieval dependency; and the table index omits the conditional reads of the three restaurant schedule tables. “Carry cookies” means eligible existing cookies may be sent, not that a cookie must exist.
+For the broader flow, see `application-trace-map.md`, section 1. This guide follows the current source, including V23 item-specific option prices. Three qualifications matter: its mention of `MenuPricing` should not imply that browsing calls it (this read path calculates offer fields in `MenuItemMapper`); V19's order provenance is not a public-menu retrieval dependency; and the table index omits the conditional reads of the three restaurant schedule tables. “Carry cookies” means eligible existing cookies may be sent, not that a cookie must exist.
 
 ## Before following the calls
 
@@ -785,7 +785,7 @@ Hibernate materializes query results; subsequent getters/stream traversal initia
 Database rows and association foreign keys.
 
 **What happens**
-@Entity marks managed persistence types; @Table maps SQL names; @Column maps fields. @ManyToOne(fetch = LAZY) and default-lazy @OneToMany map links. @BatchSize(size = 64) can batch related reads. MenuUuidJpaEntity supplies @Id UUID; MenuAuditJpaEntity supplies version/audit fields via @MappedSuperclass. These base classes are not independent tables. Traversing variations, images, profiles and option groups may execute additional SQL during mapping, within the transaction.
+@Entity marks managed persistence types; @Table maps SQL names; @Column maps fields. @ManyToOne(fetch = LAZY) and default-lazy @OneToMany map links. @BatchSize(size = 64) can batch related reads. MenuUuidJpaEntity supplies @Id UUID; MenuAuditJpaEntity supplies version/audit fields via @MappedSuperclass. These base classes are not independent tables. Traversing variations, images, profiles, option groups and assignment option-price maps may execute additional SQL during mapping, within the transaction. `MenuItemOptionGroupJpaEntity.optionPrices` is a lazy `@ElementCollection` map (`Map<UUID, Long>`) with `@BatchSize(size = 64)`, stored in `menu_item_option_price`; it has no separate entity or repository. The map joins on the assignment’s item/group key and uses `option_id` as its map key.
 
 **Calls next**
 Mapper getters → Hibernate/JDBC → PostgreSQL as needed → populated relationships → mapper resumes.
@@ -887,7 +887,7 @@ Return from base mapping.
 Base MenuItem, effectiveCategory, item option-group assignments, override price.
 
 **What happens**
-Sorts assignments by displayOrder/group ID. Builds groups with assignment min/max/order and group identity/type/active; sorts options by displayOrder/ID. Includes inactive groups/options but marks option available only if group and option are active. Computes configurable from required-group feasibility (SINGLE requires a possible one-choice selection; MULTIPLE counts available options × 20). Item available combines collection, base item, category and configurable. Rebuilds variations: default variation alone gets a nonnull membership price override; variationBasePriceMinor preserves original price; availability combines enriched item and base variation. Category order comes from placement if present; dish displayOrder comes from membership.
+Sorts assignments by displayOrder/group ID. Builds groups with assignment min/max/order and group identity/type/active; sorts options by displayOrder/ID. Includes inactive and unpriced options but marks an option available only if the group and option are active **and** this assignment’s `optionPrices` contains its option ID. `priceDeltaMinor` comes from `a.getOptionPrices().getOrDefault(o.getId(), 0L)`, not from the reusable option entity. A missing price produces zero in JSON with `available: false`; an explicit zero price can be available. Prices belong to the item/group assignment, so two dishes sharing a group can have different deltas. Computes configurable from required-group feasibility (SINGLE requires a possible one-choice selection; MULTIPLE counts available options × 20). Item available combines collection, base item, category and configurable. Rebuilds variations: default variation alone gets a nonnull membership price override; variationBasePriceMinor preserves original price; availability combines enriched item and base variation. Category order comes from placement if present; dish displayOrder comes from membership.
 
 **Calls next**
 `new MenuItem(...)` returns to adapter stream.
@@ -899,6 +899,7 @@ Final public MenuItem with category, placement ID, variations, options and offer
 A row flag is not necessarily the final API availability. Calculation and renaming occur here; MenuPricing.calculate is not called on this path.
 
 **Things to inspect in the debugger**
+- `a.getOptionPrices()`, option ID and `containsKey` versus an explicit zero value
 - `groups`, `configurable`, `available`
 - Base and overridden variation prices
 - Membership vs canonical displayOrder
@@ -1207,7 +1208,7 @@ React renders card and nested option component.
 dish presentation fields, variation, groups, selections, disabled state, computed price.
 
 **What happens**
-money divides integer minor units by 100 and formats en-AU AUD. MenuItemOptions maps groups into SINGLE selects or MULTIPLE quantity inputs, marks required/optional, calculates selected totals and disables unavailable controls. Card renders article, optional lazy image, h3 name, description, unavailable label, variation prices, option UI and base+options total. With no variation it displays “Ask us for pricing.” React reconciles/commits DOM; browser paints. Image URLs may cause separate lazy image GETs; image bytes are not inside menu JSON. Header/Footer are public-site chrome, not menu-data transformation.
+money divides integer minor units by 100 and formats en-AU AUD. MenuItemOptions maps groups into SINGLE selects or MULTIPLE quantity inputs, marks required/optional, calculates selected totals and disables unavailable controls. Unpriced options remain visible as zero-price, unavailable choices; the client uses the server’s `available` flag rather than treating zero as permission to select. Card renders article, optional lazy image, h3 name, description, unavailable label, variation prices, option UI and base+options total. With no variation it displays “Ask us for pricing.” React reconciles/commits DOM; browser paints. Image URLs may cause separate lazy image GETs; image bytes are not inside menu JSON. Header/Footer are public-site chrome, not menu-data transformation.
 
 **Calls next**
 Browser paints DOM; later user events can update local state. The requested initial browsing trace ends here.
@@ -1282,8 +1283,10 @@ menu_collection
         +-- menu_item_dietary_tag             -> dietary_tag
         +-- menu_item_allergen                -> allergen
         +-- menu_item_option_group           (menu_item_id, option_group_id composite PK)
+            +-- menu_item_option_price       (menu_item_id, option_group_id, option_id PK)
+            |   (option_id, option_group_id) -> menu_option
             +-- references menu_option_group
-                +-- menu_option              (option_group_id)
+                +-- menu_option              (option_group_id; reusable choice, no price)
 
 Conditional availability dependency (Java composition, no menu FK):
 restaurant_settings       singleton id = 1, timezone, consistency lock
@@ -1304,8 +1307,9 @@ The entity classes in the following table are each located at the exact path for
 | `menu_item_variation` | Dish variation and base AUD price; UUID `id` PK, `menu_item_id` FK | `MenuItemVariationJpaEntity` | `item.getVariations()` in base mapper |
 | `menu_item_image` | Stored image metadata; UUID `id` PK, `menu_item_id` FK; at most one primary per item via partial unique index | `MenuItemImageJpaEntity` | `item.getImages()`; mapper selects primary only |
 | `menu_item_option_group` | Assignment and selection limits/order; composite PK/FKs `(menu_item_id, option_group_id)` | `MenuItemOptionGroupJpaEntity` | `item.getOptionGroups()` |
+| `menu_item_option_price` | Item-specific delta; PK `(menu_item_id, option_group_id, option_id)`; composite FKs to assignment and option/group | `MenuItemOptionGroupJpaEntity.optionPrices` (`@ElementCollection`, no separate entity) | `assignment.getOptionPrices()` during option mapping; lazy map with batch size 64 |
 | `menu_option_group` | Named SINGLE/MULTIPLE group; UUID `id` PK, unique code | `MenuOptionGroupJpaEntity` | `assignment.getOptionGroup()` |
-| `menu_option` | Option name/delta/active flag; UUID `id` PK, `option_group_id` FK | `MenuOptionJpaEntity` | `group.getOptions()` |
+| `menu_option` | Reusable option name/currency/active flag (no price column); UUID `id` PK, `option_group_id` FK | `MenuOptionJpaEntity` | `group.getOptions()` |
 | `menu_item_dietary_tag` | Verified item tag claim; composite PK/FKs `(menu_item_id, dietary_tag_id)` | `MenuItemDietaryTagJpaEntity` | `itemProfile` → `item.getDietaryTags()` when no active variations |
 | `menu_item_allergen` | Item declaration and verification; composite PK/FKs `(menu_item_id, allergen_id)` | `MenuItemAllergenJpaEntity` | `itemProfile` → `item.getAllergens()` when no active variations |
 | `menu_item_variation_dietary_tag` | Variation-specific tag claim; composite PK/FKs `(variation_id, dietary_tag_id)` | `MenuItemVariationDietaryTagJpaEntity` | `variationProfile` → `variation.getDietaryTags()` |
@@ -1328,6 +1332,7 @@ Relevant migrations, all under `backend/src/main/resources/db/migration/`:
 - `V17__add_menu_option_model.sql`: collection active/timezone/schedules, collection category placement, membership price override and option model. Its unrelated order snapshot table is not read here.
 - `V21__add_restaurant_scheduling.sql`: the conditional restaurant snapshot tables.
 - `V22__add_lunch_special_menu.sql`: daily cutoff extension plus lunch content. V18/V20 and other seed/import migrations affect which rows exist; they are not runtime calls or proof of current database contents.
+- `V23__price_options_per_menu_item.sql`: creates `menu_item_option_price`, copies previous global option prices into each existing assignment, then drops `menu_option.price_delta_minor`. Composite foreign keys keep prices tied to both the assigned group and its choices. Subsequent missing prices mean unavailable choices, not inherited global prices.
 
 `@Query` in the two menu Spring Data interfaces is **explicit JPQL**, not literal PostgreSQL SQL. Discovery's method name is a **derived query**. Restaurant hours/dates use **explicit JPQL via EntityManager**. Hibernate generates SQL for all these queries, lazy association loads and the settings lock. This slice has no application-written native SQL read query. PostgreSQL executes generated statements and returns rows; Hibernate reconstructs entities and relationships. Flyway DDL is explicit SQL, executed separately at startup.
 
@@ -1337,7 +1342,8 @@ No fixed query count is promised. For example, profile mapping is conditional on
 
 - Why is menu_collection_item more than a bare join table?
 - Which category is canonical, and which can override placement?
-- Which foreign keys connect an item to its option groups?
+- Which foreign keys connect an item to its option groups and item-specific prices?
+- Why is a missing option price different from an explicit zero price?
 - Why are some food-profile tables only conditionally traversed?
 - Which queries are derived, which are JPQL, and who generates SQL?
 
@@ -1350,7 +1356,7 @@ Choose **one retained published membership with an active variation** in your de
 | PostgreSQL | `menu_item.id UUID`, `name VARCHAR`, `description TEXT`, `is_available BOOLEAN`, `status`; related `menu_item_variation.price_minor BIGINT`; membership `display_order INTEGER`, `price_override_minor BIGINT NULL` | Separate normalized rows joined by IDs; canonical category and collection placement are distinct |
 | JPA | `MenuCollectionItemJpaEntity` → `MenuItemJpaEntity`; variation `Long priceMinor`, UUID IDs, entity association lists | Column names map to Java fields/getters; lazy objects are initialized when needed; published-item query and effective-category predicates filter rows |
 | Base domain mapping | `MenuItem` and `MenuItem.Variation` records, `long priceMinor`; `Image` record | Inactive variations discarded; active variations sorted; primary image selected; storage key becomes URL; entity status/audit/version/SKU discarded |
-| Collection mapping | Final `MenuItem` with `Category`, `collectionCategoryId`, membership `displayOrder`, `optionGroups` | Effective placement replaces canonical category when supplied; default variation price overridden if applicable; original price retained as `variationBasePriceMinor`; availability calculated from several inputs; profiles filtered; inactive options retained with available=false |
+| Collection mapping | Final `MenuItem` with `Category`, `collectionCategoryId`, membership `displayOrder`, `optionGroups` | Effective placement replaces canonical category when supplied; default variation price overridden if applicable; original price retained as `variationBasePriceMinor`; availability calculated from several inputs; profiles filtered; option deltas read from assignment price maps; inactive or unpriced options retained with available=false |
 | Collection model | `MenuItem.Collection.items(): List<MenuItem>` | Item sorted with siblings; categories deduplicated by UUID and ordered |
 | Response DTO | `MenuResponse.items(): List<MenuItem>` | Collection envelope copied; same nested domain records reused |
 | HTTP JSON | `items[index].id` string, `variations[index].priceMinor` number, nested object/array fields | Serialization removes Java type identity; timestamps become strings; JSON property names stay camelCase |
@@ -1371,6 +1377,18 @@ response variation.variationBasePriceMinor = original
 visible base price = money(effective)
 visible configured total = effective + evaluation.deltaMinor (formatted with money)
 ```
+
+For an option in an assigned group, the corresponding transformation is:
+
+```text
+assignment.optionPrices[optionId] = menu_item_option_price.price_delta_minor
+response option.priceDeltaMinor = assignment.optionPrices.getOrDefault(optionId, 0)
+response option.available = group.active && option.active
+                            && assignment.optionPrices.containsKey(optionId)
+selected option contribution = option.priceDeltaMinor * selected quantity
+```
+
+`evaluateOptions` rejects unavailable selections and accumulates valid contributions into `deltaMinor`. If a required group has no feasible priced choices, the backend also marks the dish and its variations unavailable. No global option price fallback remains after V23.
 
 This follows an offered price through browsing. It does not claim the browser can authorize a payment or validate a future purchase. The current card does not render `profile`, `profileScope`, `variationBasePriceMinor` or every placement field, even though they traveled through JSON.
 
@@ -1428,8 +1446,10 @@ Customer             Browser / React                     Spring Boot / Java     
    |                         |                                   | effectiveCategory / filters    |
    |                         |                                   | MenuItemMapper.map(m, bool)    |
    |                         |                                   |   -> map(item) --------------->| lazy relations as needed
-   |                         |                                   |<------------------------------| variations/images/profiles/options
+   |                         |                                   |<------------------------------| variations/images/profiles
    |                         |                                   |   -> profile helpers          |
+   |                         |                                   |   -> option groups/prices ---->| lazy assignment price maps
+   |                         |                                   |<------------------------------| option data and item deltas
    |                         |                                   |   -> enriched MenuItem records|
    |                         |                                   | sort/categories -> Collection |
    |                         |                                   | handler -> MenuResponse.from  |
@@ -1481,7 +1501,7 @@ Set the following breakpoints before reload. For long Java streams, put the brea
 
 13. **Membership query and filter.** File: `backend/src/main/java/au/com/nakornthai/menu/infrastructure/JpaMenuItemRepository.java`. Symbol: `findVisibleCollection` lambda. Break at `memberships.findPublishedMemberships(c.getId())` and a filter/map lambda. Inspect membership/effective category. Read query in `backend/src/main/java/au/com/nakornthai/menu/infrastructure/SpringDataMenuCollectionItemRepository.java`, step over its proxy call. Continue: each retained membership reaches MenuItemMapper.
 
-14. **Entity-to-record conversion.** File: `backend/src/main/java/au/com/nakornthai/menu/infrastructure/MenuItemMapper.java`. Symbol: `map(MenuCollectionItemJpaEntity, boolean)`, then `map(MenuItemJpaEntity)`. Break on `var base = map(item)` and final return. Choose one real item ID and optionally condition the breakpoint on it. Inspect entity variation prices/flags, image, profile result, then base, groups, configurable, available and final variations. Continue: the adapter receives a MenuItem record. Expanding lazy associations can cause SQL; inspect intentionally.
+14. **Entity-to-record conversion.** File: `backend/src/main/java/au/com/nakornthai/menu/infrastructure/MenuItemMapper.java`. Symbol: `map(MenuCollectionItemJpaEntity, boolean)`, then `map(MenuItemJpaEntity)`. Break on `var base = map(item)` and final return. Choose one real item ID and optionally condition the breakpoint on it. Inspect entity variation prices/flags, image, profile result, then base, assignment optionPrices, groups, configurable, available and final variations. Compare a missing price entry with an explicit zero: both serialize a zero delta, but only the explicit entry can enable an otherwise active option. Continue: the adapter receives a MenuItem record. Expanding lazy associations can cause SQL; inspect intentionally.
 
 15. **Collection assembly.** File: `backend/src/main/java/au/com/nakornthai/menu/infrastructure/JpaMenuItemRepository.java`. Symbol: `findVisibleCollection` lambda. Break at `return new MenuItem.Collection(...)`. Inspect dishes and category map; find your chosen item. Continue: handler maps the Optional value to MenuResponse.
 
