@@ -35,6 +35,8 @@ class IdentityIntegrationTest {
     UUID adminId,fohId;
     String password="test-staff-password";
     @BeforeEach void accounts() {
+        // Isolate the last-admin invariant from deployment seed accounts.
+        jdbc.update("UPDATE staff_user SET enabled=false WHERE role='ADMIN'");
         adminId=UUID.randomUUID();fohId=UUID.randomUUID();
         admin="admin-"+adminId;foh="foh-"+fohId;boh="boh-"+UUID.randomUUID();
         insert(adminId,admin,"ADMIN");insert(fohId,foh,"FOH");insert(UUID.randomUUID(),boh,"BOH");

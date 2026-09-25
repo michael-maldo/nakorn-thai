@@ -1,6 +1,8 @@
 package au.com.nakornthai.menu.infrastructure;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -38,7 +40,7 @@ public class MenuCollectionJpaEntity extends MenuUuidJpaEntity {
     private int displayOrder = 0;
     @Column(name = "is_active", nullable = false) private boolean active = true;
     @Column(nullable = false, length = 64) private String timezone = "Australia/Melbourne";
-    private java.time.LocalTime dailyCutoffTime;
+    @JdbcTypeCode(SqlTypes.LOCAL_TIME) private java.time.LocalTime dailyCutoffTime;
     @OneToMany(mappedBy = "collection") @BatchSize(size = 64)
     private List<MenuCollectionScheduleJpaEntity> schedules = new ArrayList<>();
     @OneToMany(mappedBy = "collection") @BatchSize(size = 64)

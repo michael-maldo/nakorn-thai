@@ -1,6 +1,8 @@
 package au.com.nakornthai.menu.infrastructure;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.BatchSize;
@@ -15,8 +17,8 @@ public class MenuCollectionScheduleJpaEntity extends MenuUuidJpaEntity {
     @Column(nullable = false, length = 20) private String ruleType;
     private Short dayOfWeek;
     private LocalDate specificDate;
-    private LocalTime startTime;
-    private LocalTime endTime;
+    @JdbcTypeCode(SqlTypes.LOCAL_TIME) private LocalTime startTime;
+    @JdbcTypeCode(SqlTypes.LOCAL_TIME) private LocalTime endTime;
     @Column(name = "is_active", nullable = false) private boolean active = true;
     @Column(nullable = false) private int displayOrder;
 }

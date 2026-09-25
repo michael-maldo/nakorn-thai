@@ -36,6 +36,8 @@ class LunchSpecialIntegrationTest {
     final UUID l4=UUID.fromString("f5c980c7-5273-527b-a7e2-6c7911c1d764");
     void time(String time) { when(clock.instant()).thenReturn(LocalDateTime.parse("2026-09-07T"+time).atZone(ZoneId.of("Australia/Melbourne")).toInstant()); }
     @BeforeEach void hours() {
+        // These tests isolate the V22 menu/cutoff rules from V25 weekly defaults.
+        jdbc.update("DELETE FROM menu_collection_schedule WHERE collection_id=?",lunch);
         jdbc.update("DELETE FROM restaurant_opening_hours");jdbc.update("DELETE FROM restaurant_closed_date");
         jdbc.update("UPDATE restaurant_settings SET timezone='Australia/Melbourne' WHERE id=1");
         jdbc.update("INSERT INTO restaurant_opening_hours(id,day_of_week,opens_at,closes_at) VALUES (?,1,'11:30','22:00')",UUID.randomUUID());
