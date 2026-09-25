@@ -12,7 +12,6 @@
 }
 
 @media (max-width: 820px) {
-  .menu-scroll-control { display: block; }
   .restaurant-menu { padding-top: calc(82px + 2rem); }
   .page-width { width: min(calc(100% - 40px), 720px); }
   .site-header { height: auto; min-height: 82px; padding: 7px 20px; grid-template-columns: 1fr auto; gap: 0; max-height: 100dvh; overflow-y: auto; }
