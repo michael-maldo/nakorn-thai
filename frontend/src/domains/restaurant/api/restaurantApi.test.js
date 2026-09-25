@@ -43,3 +43,25 @@ test('server errors remain actionable and failed CSRF prevents a write', async (
     assert.equal(calls, 1);
   } finally { globalThis.fetch = original; }
 });
+
+test('FOH ordering updates retain the pause message and version with CSRF protection', async () => {
+  const original = globalThis.fetch, calls = [];
+  const body = { acceptingOrders: false, pauseMessage: 'Kitchen busy. Please try again shortly.', version: 4 };
+  globalThis.fetch = async (url, options) => {
+    calls.push({ url, options });
+    if (url.endsWith('/csrf')) return Response.json({ headerName: 'X-CSRF-TOKEN', token: 'fresh-csrf' });
+    if (url.endsWith('/login')) return Response.json({ accessToken: 'foh-access', user: { role: 'FOH' }, expiresAt: new Date(Date.now() + 600000).toISOString() });
+    return Response.json({ ...body, version: 5, status: { enabled: false, reason: 'PAUSED_BY_STAFF', message: body.pauseMessage } });
+  };
+  try {
+    await login('foh', 'test-password'); calls.length = 0;
+    const saved = await restaurantRequest('/ordering', { method: 'PUT', body });
+    assert.equal(calls[0].url, '/api/staff/restaurant/csrf');
+    assert.equal(calls[1].url, '/api/staff/restaurant/ordering');
+    assert.equal(calls[1].options.headers.Authorization, 'Bearer foh-access');
+    assert.equal(calls[1].options.headers['X-CSRF-TOKEN'], 'fresh-csrf');
+    assert.deepEqual(JSON.parse(calls[1].options.body), body);
+    assert.equal(saved.version, 5); assert.equal(saved.status.message, body.pauseMessage);
+    await logout();
+  } finally { globalThis.fetch = original; }
+});

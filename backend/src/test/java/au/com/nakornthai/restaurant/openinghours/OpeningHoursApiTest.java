@@ -27,7 +27,7 @@ class OpeningHoursApiTest {
             {"dayOfWeek":1,"opensAt":"17:00:00","closesAt":"01:00:00","active":true,"displayOrder":0}
             """;
     @Test void staffReadsAreAdminOnlyAndWritesRequireCsrf() throws Exception {
-        for (String path : List.of("/schedule", "/csrf")) {
+        for (String path : List.of("/schedule")) {
             mvc.perform(get("/api/staff/restaurant" + path)).andExpect(status().isUnauthorized());
             for (String role : List.of("FOH", "BOH"))
                 mvc.perform(get("/api/staff/restaurant" + path).with(user("staff").roles(role))).andExpect(status().isForbidden());

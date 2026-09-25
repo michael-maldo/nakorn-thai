@@ -245,3 +245,28 @@ PayID methods. A global sticky cart popup replaces the menu's inline cart. Order
 tracking can be recovered through requested SMS/email verification codes when
 Twilio Verify is configured. See [payments and tracking](../payment/payments-and-tracking.md)
 for setup, payment-state rules and the distinction between OTPs and status notifications.
+
+### Staff pause and resume
+
+ADMIN and FOH can open **Staff workspace → Online ordering** (`#/staff/ordering`)
+to pause/resume new orders and optionally set a customer message (up to 300 characters).
+Save applies immediately without a backend restart. The setting persists in
+`restaurant_settings` through migration V24. Concurrent edits use the settings
+version; reload after a conflict before saving again.
+
+The deployment flag `ONLINE_ORDERING_ENABLED` remains the master switch. Staff
+cannot override it, opening hours, closed dates, menu schedules, cutoffs or item
+availability. The page displays configuration, staff pause and opening-hours
+status separately. `/api/orders/options` includes `reason` and a customer-safe
+`message`: `DISABLED_BY_CONFIGURATION`, `PAUSED_BY_STAFF`,
+`OUTSIDE_OPENING_HOURS` or `AVAILABLE`. Menu-specific blockers remain on each menu.
+
+Pausing prevents new checkout submissions on the server, including submissions
+from already-open browsers. Existing orders, payments, tracking and idempotent
+retries of received orders remain available. Customers can refresh menu/cart
+availability to see a changed status or pause message.
+
+Staff API: `GET`/`PUT /api/staff/restaurant/ordering`. PUT requires ADMIN/FOH,
+CSRF and `{ acceptingOrders, pauseMessage, version }`. Schedule editing remains
+ADMIN-only. This control defaults to accepting orders so deploying the migration
+does not alter the existing environment flag or opening-hours behaviour.

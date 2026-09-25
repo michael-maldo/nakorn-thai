@@ -11,7 +11,7 @@ public class RestaurantExceptionHandler {
             org.springframework.http.converter.HttpMessageNotReadableException.class,
             org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class,
             org.springframework.web.bind.MissingServletRequestParameterException.class})
-    ResponseEntity<Map<String,String>> invalid() { return ResponseEntity.badRequest().body(Map.of("message", "Check the timezone, dates and opening-hour fields")); }
+    ResponseEntity<Map<String,String>> invalid() { return ResponseEntity.badRequest().body(Map.of("message", "Check the restaurant settings and required fields")); }
     @ExceptionHandler(ResponseStatusException.class)
     ResponseEntity<Map<String,String>> failure(ResponseStatusException e) {
         return ResponseEntity.status(e.getStatusCode()).cacheControl(CacheControl.noStore())

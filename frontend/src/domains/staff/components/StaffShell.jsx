@@ -4,6 +4,7 @@ import { allowMenuNavigation } from '../../menu/model/menuAdminNavigation';
 
 const links = [
   { href: '#/staff', label: 'Overview' },
+  { href: '#/staff/ordering', label: 'Online ordering', roles: ['ADMIN', 'FOH'] },
   { href: '#/staff/menu', label: 'Menu', roles: ['ADMIN'] },
   { href: '#/staff/reservations', label: 'Reservations', roles: ['ADMIN', 'FOH'] },
   { href: '#/staff/functions', label: 'Function enquiries', roles: ['ADMIN', 'FOH'] },

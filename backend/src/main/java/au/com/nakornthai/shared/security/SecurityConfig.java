@@ -42,6 +42,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/staff/orders/**").hasAnyRole("ADMIN", "FOH", "BOH")
                         .requestMatchers("/api/staff/menu/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.GET, "/api/restaurant/availability").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/staff/restaurant/csrf", "/api/staff/restaurant/ordering").hasAnyRole("ADMIN", "FOH")
+                        .requestMatchers(HttpMethod.PUT, "/api/staff/restaurant/ordering").hasAnyRole("ADMIN", "FOH")
                         .requestMatchers("/api/staff/restaurant/**").hasRole("ADMIN")
                         .anyRequest().denyAll())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

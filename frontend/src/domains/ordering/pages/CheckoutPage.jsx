@@ -18,11 +18,12 @@ export default function CheckoutPage() {
   const [name, setName] = useState(pending?.customerName ?? ''); const [phone, setPhone] = useState(pending?.phone ?? ''); const [notes, setNotes] = useState(pending?.notes ?? '');
   const [busy, setBusy] = useState(false); const [error, setError] = useState('');
   const [enabled, setEnabled] = useState(false);
+  const [orderingMessage, setOrderingMessage] = useState('Online ordering is currently closed or unavailable.');
   const [email, setEmail] = useState(pending?.email ?? '');
   const [paymentMethod, setPaymentMethod] = useState(pending?.paymentMethod ?? 'PAY_AT_RESTAURANT');
   const [paymentOptions, setPaymentOptions] = useState({});
   useEffect(() => { paymentRequest('/api/payments/options').then(setPaymentOptions).catch(() => {}); }, []);
-  useEffect(() => { let active = true; getOrderingOptions().then((options) => { if (active) setEnabled(options.enabled); }).catch((e) => { if (active) setError(e.message); }); return () => { active = false; }; }, []);
+  useEffect(() => { let active = true; getOrderingOptions().then((options) => { if (active) { setEnabled(options.enabled); setOrderingMessage(options.message || 'Online ordering is currently closed or unavailable.'); } }).catch((e) => { if (active) setError(e.message); }); return () => { active = false; }; }, []);
   function complete(payload) {
     sessionStorage.setItem(RECEIPT, JSON.stringify({ requestId: payload.requestId, trackingToken: payload.trackingToken }));
     sessionStorage.removeItem(PENDING_ORDER); dispatch({ type: 'clear' }); setPending(null); window.location.hash = '/order-confirmation';
@@ -42,7 +43,7 @@ export default function CheckoutPage() {
     setBusy(true); setError('');
     try {
       const [lines, options] = await Promise.all([refreshCartPrices(cart), getOrderingOptions()]);
-      updateReviewedLines(lines); setEnabled(options.enabled === true);
+      updateReviewedLines(lines); setEnabled(options.enabled === true); setOrderingMessage(options.message || 'Online ordering is currently closed or unavailable.');
       setError(lines.some((line) => line.issue) ? 'Review the marked cart items before ordering.' : 'Cart refreshed. Review the prices and options before submitting.');
     } catch (failure) { setError(failure.message); }
     finally { setBusy(false); }
@@ -77,7 +78,7 @@ export default function CheckoutPage() {
     <h1>Pickup checkout</h1><p>Choose how to pay below. Your order needs staff confirmation before preparation begins.</p>
     <p>Pickup: 233 Glenferrie Rd, Malvern VIC 3144.</p>
     {error && <p role="alert" className="staff-error">{error}</p>}
-    {!enabled && !pending && <p>Online ordering is currently closed or unavailable.</p>}
+    {!enabled && !pending && <p>{orderingMessage}</p>}
     {!cart.length && !pending ? <a href="#/menu">Choose your dishes</a> : <form className="order-panel" onSubmit={place}>
       {pending ? <><p>Your submission is saved in this browser tab. Retry safely using the same order details.</p><p>{pending.customerName} · {pending.phone}</p><a href="#/order-confirmation">Check whether this order was received</a></> : <>
         <button type="button" disabled={busy} onClick={refresh}>Refresh cart prices and availability</button>

@@ -12,12 +12,13 @@ export default function MenuPage() {
   const { collections, menu, loading, error, retry } = useMenu(selectedId);
   const [search, setSearch] = useState('');
   const [enabled, setEnabled] = useState(false);
+  const [orderingMessage, setOrderingMessage] = useState('Online ordering is currently closed or unavailable.');
   const [orderingAttempt, setOrderingAttempt] = useState(0);
   const [added, setAdded] = useState('');
   const { cart, dispatch } = useCart();
   useEffect(() => {
     let active = true;
-    getOrderingOptions().then((options) => { if (active) setEnabled(options.enabled === true); }).catch(() => {});
+    getOrderingOptions().then((options) => { if (active) { setEnabled(options.enabled === true); setOrderingMessage(options.message || 'Online ordering is currently closed or unavailable.'); } }).catch(() => { if (active) { setEnabled(false); setOrderingMessage('Ordering availability could not be checked. Please refresh and try again.'); } });
     return () => { active = false; };
   }, [orderingAttempt]);
   const sections = menu ? menuSections(menu, search) : [];
@@ -54,7 +55,7 @@ export default function MenuPage() {
       {menu && <>
         <h2>{menu.name}</h2>{menu.description && <p>{menu.description}</p>}
         {!menu.availability.available && <p className="dish-unavailable" role="status">{collectionAvailability(menu)} You can still browse the dishes.</p>}
-        {!enabled && <p>Online ordering is currently closed or unavailable. You can still browse the menu.</p>}
+        {!enabled && <p>{orderingMessage} You can still browse the menu.</p>}
         <button type="button" className="button button-outline" onClick={reload}>Refresh menu and availability</button>
         <label className="restaurant-menu-search">Find a dish<input type="search" value={search} placeholder="Search dishes or descriptions" onChange={(event) => setSearch(event.target.value)} /></label>
         <p role="status">{count} {count === 1 ? 'dish' : 'dishes'}{search && ' found'}</p>

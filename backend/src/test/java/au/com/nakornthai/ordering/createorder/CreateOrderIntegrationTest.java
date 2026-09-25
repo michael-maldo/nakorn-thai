@@ -55,6 +55,31 @@ class CreateOrderIntegrationTest {
         assertEquals(0,jdbc.queryForObject("SELECT count(*) FROM restaurant_order WHERE id=?",Integer.class,id));
         mvc.perform(get("/api/orders/options")).andExpect(status().isOk()).andExpect(jsonPath("$.enabled").value(false));
     }
+    @Test void staffPauseBlocksNewOrdersButPreservesReplayTrackingAndStaffTransitions() throws Exception {
+        create();
+        long settingsVersion = jdbc.queryForObject("SELECT version FROM restaurant_settings WHERE id=1", Long.class);
+        mvc.perform(put("/api/staff/restaurant/ordering").with(user("front").roles("FOH")).with(csrf())
+                .contentType("application/json").content("{\"acceptingOrders\":false,\"pauseMessage\":\"Kitchen busy\",\"version\":" + settingsVersion + "}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.status.reason").value("PAUSED_BY_STAFF"));
+        em.clear();
+        create();
+        mvc.perform(get("/api/orders/"+id).header("X-Order-Token",token)).andExpect(status().isOk());
+        transition("FOH", "ACCEPTED", false);
+        mvc.perform(get("/api/orders/options")).andExpect(jsonPath("$.enabled").value(false))
+                .andExpect(jsonPath("$.message").value("Kitchen busy"));
+        id = UUID.randomUUID();
+        mvc.perform(post("/api/orders").with(csrf()).contentType("application/json").content(payload(2490)))
+                .andExpect(status().isServiceUnavailable()).andExpect(jsonPath("$.message").value("Kitchen busy"));
+        assertEquals(0, jdbc.queryForObject("SELECT count(*) FROM restaurant_order WHERE id=?", Integer.class, id));
+    }
+    @Test void resumeAllowsNewOrdersWhileOpen() throws Exception {
+        jdbc.update("UPDATE restaurant_settings SET ordering_paused=true WHERE id=1");
+        long settingsVersion = jdbc.queryForObject("SELECT version FROM restaurant_settings WHERE id=1", Long.class);
+        mvc.perform(put("/api/staff/restaurant/ordering").with(user("front").roles("FOH")).with(csrf())
+                .contentType("application/json").content("{\"acceptingOrders\":true,\"version\":" + settingsVersion + "}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.status.enabled").value(true));
+        em.clear(); create();
+    }
     String payload(long price) {
         return """
             {"requestId":"%s","trackingToken":"%s","customerName":"Test Customer","phone":"0400000000","notes":"No cutlery",

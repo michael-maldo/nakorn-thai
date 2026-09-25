@@ -56,7 +56,7 @@ class CreateOrderHandlerTest {
         var clock=org.mockito.Mockito.mock(java.time.Clock.class);
         org.mockito.Mockito.when(clock.instant()).thenReturn(operationInstant);
         org.mockito.Mockito.when(availability.schedule()).thenReturn(schedule(true));
-        var handler=new CreateOrderHandler(em,new au.com.nakornthai.ordering.infrastructure.OrderMapper(),true,availability,clock);
+        var handler=new CreateOrderHandler(em,new au.com.nakornthai.ordering.infrastructure.OrderMapper(),org.mockito.Mockito.mock(au.com.nakornthai.restaurant.orderingsettings.OrderingSettingsHandler.class),availability,clock);
         var request=request(List.of(new CreateOrderRequest.Line(variation.getId(),2,3200,collection.getId(),
                 List.of(new CreateOrderRequest.SelectedOption(option.getId(),2)))));
         var response=handler.handle(request);
@@ -74,7 +74,11 @@ class CreateOrderHandlerTest {
         collection.setActive(false); option.setName("Changed"); assignment.getOptionPrices().put(option.getId(),999L);
         assertEquals(operationInstant,stored.getCreatedAt()); assertEquals(operationInstant,stored.getUpdatedAt());
         org.mockito.Mockito.when(availability.schedule()).thenReturn(schedule(false));
-        assertEquals(response,new CreateOrderHandler(em,new au.com.nakornthai.ordering.infrastructure.OrderMapper(),false,availability,clock).handle(request));
+        var paused = org.mockito.Mockito.mock(au.com.nakornthai.restaurant.orderingsettings.OrderingSettingsHandler.class);
+        org.mockito.Mockito.doThrow(new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE, "Paused"))
+                .when(paused).requireAcceptingOrders();
+        assertEquals(response,new CreateOrderHandler(em,new au.com.nakornthai.ordering.infrastructure.OrderMapper(),paused,availability,clock).handle(request));
+        org.mockito.Mockito.verifyNoInteractions(paused);
         org.mockito.Mockito.verify(availability,org.mockito.Mockito.times(1)).schedule();
         org.mockito.Mockito.verify(clock,org.mockito.Mockito.times(1)).instant();
         org.mockito.Mockito.verify(em,org.mockito.Mockito.times(2)).persist(org.mockito.ArgumentMatchers.any());
@@ -83,14 +87,23 @@ class CreateOrderHandlerTest {
         var em=org.mockito.Mockito.mock(jakarta.persistence.EntityManager.class,org.mockito.Mockito.RETURNS_DEEP_STUBS);
         var availability=org.mockito.Mockito.mock(au.com.nakornthai.restaurant.availability.RestaurantAvailabilityService.class);
         var clock=java.time.Clock.fixed(java.time.Instant.parse("2026-09-07T08:00:00Z"),java.time.ZoneOffset.UTC);
-        var handler=new CreateOrderHandler(em,new au.com.nakornthai.ordering.infrastructure.OrderMapper(),true,availability,clock);
+        var handler=new CreateOrderHandler(em,new au.com.nakornthai.ordering.infrastructure.OrderMapper(),org.mockito.Mockito.mock(au.com.nakornthai.restaurant.orderingsettings.OrderingSettingsHandler.class),availability,clock);
         org.mockito.Mockito.when(availability.schedule()).thenReturn(schedule(false));
         assertThrows(au.com.nakornthai.restaurant.domain.RestaurantClosedException.class,()->handler.handle(request(List.of())));
         org.mockito.Mockito.verify(availability).schedule();
         org.mockito.Mockito.verify(em,org.mockito.Mockito.never()).persist(org.mockito.ArgumentMatchers.any());
-        assertFalse(handler.enabled());
-        org.mockito.Mockito.when(availability.isOpen(clock.instant())).thenReturn(true);
-        assertTrue(handler.enabled());
+    }
+    @Test void pausedOrderingRejectsNewCheckoutBeforeCatalogOrPersistence() {
+        var em = org.mockito.Mockito.mock(jakarta.persistence.EntityManager.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
+        var ordering = org.mockito.Mockito.mock(au.com.nakornthai.restaurant.orderingsettings.OrderingSettingsHandler.class);
+        var availability = org.mockito.Mockito.mock(au.com.nakornthai.restaurant.availability.RestaurantAvailabilityService.class);
+        org.mockito.Mockito.doThrow(new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE, "Kitchen busy"))
+                .when(ordering).requireAcceptingOrders();
+        var handler = new CreateOrderHandler(em, new au.com.nakornthai.ordering.infrastructure.OrderMapper(), ordering, availability, java.time.Clock.systemUTC());
+        var failure = assertThrows(org.springframework.web.server.ResponseStatusException.class, () -> handler.handle(request(List.of())));
+        assertEquals(503, failure.getStatusCode().value()); assertEquals("Kitchen busy", failure.getReason());
+        org.mockito.Mockito.verifyNoInteractions(availability);
+        org.mockito.Mockito.verify(em, org.mockito.Mockito.never()).persist(org.mockito.ArgumentMatchers.any());
     }
     private au.com.nakornthai.restaurant.domain.RestaurantSchedule schedule(boolean open) {
         return new au.com.nakornthai.restaurant.domain.RestaurantSchedule(java.time.ZoneId.of("Australia/Melbourne"),

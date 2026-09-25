@@ -2,6 +2,7 @@ package au.com.nakornthai.ordering.createorder;
 import au.com.nakornthai.ordering.infrastructure.*;
 import au.com.nakornthai.menu.infrastructure.*;
 import jakarta.persistence.*;
+import au.com.nakornthai.restaurant.orderingsettings.OrderingSettingsHandler;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,15 +20,16 @@ import java.util.*;
 public class CreateOrderHandler {
     private final EntityManager em;
     private final OrderMapper mapper;
-    private final boolean enabled;
+    private final OrderingSettingsHandler ordering;
     private final RestaurantAvailabilityService availability;
     private final Clock clock;
     @Value("${PAYPAL_ENABLED:false}") private boolean paypalEnabled;
     @Value("${PAYID_ENABLED:false}") private boolean payidEnabled;
-    public CreateOrderHandler(EntityManager em, OrderMapper mapper, @Value("${ONLINE_ORDERING_ENABLED:false}") boolean enabled, RestaurantAvailabilityService availability, Clock clock) {
-        this.em=em; this.mapper=mapper; this.enabled=enabled; this.availability=availability; this.clock=clock;
+    public CreateOrderHandler(EntityManager em, OrderMapper mapper, OrderingSettingsHandler ordering, RestaurantAvailabilityService availability, Clock clock) {
+        this.em=em; this.mapper=mapper; this.ordering=ordering; this.availability=availability; this.clock=clock;
     }
-    public boolean enabled() { return enabled && availability.isOpen(clock.instant()); }
+    public boolean enabled() { return ordering.status().enabled(); }
+    public OrderingSettingsHandler.Status orderingStatus() { return ordering.status(); }
     public static String hash(String value) {
         try { return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8))); }
         catch (java.security.NoSuchAlgorithmException e) { throw new IllegalStateException(e); }
@@ -47,7 +49,7 @@ public class CreateOrderHandler {
                 throw new ResponseStatusException(HttpStatus.CONFLICT, "This checkout was already submitted with different details");
             return mapper.map(existing, false);
         }
-        if (!enabled) throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Online ordering is currently closed");
+        ordering.requireAcceptingOrders();
         if((paymentMethod.equals("PAYPAL")&&!paypalEnabled) || (paymentMethod.equals("PAYID")&&!payidEnabled))throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,"Selected payment method is unavailable");
         Instant checkoutAt = clock.instant();
         var restaurantSchedule = availability.schedule();

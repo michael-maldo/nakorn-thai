@@ -16,7 +16,7 @@ class LunchSpecialOrderTest {
     final EntityManager em=mock(EntityManager.class,RETURNS_DEEP_STUBS);
     final RestaurantAvailabilityService availability=mock(RestaurantAvailabilityService.class);
     final Clock clock=mock(Clock.class);
-    final CreateOrderHandler handler=new CreateOrderHandler(em,new OrderMapper(),true,availability,clock);
+    final CreateOrderHandler handler=new CreateOrderHandler(em,new OrderMapper(),org.mockito.Mockito.mock(au.com.nakornthai.restaurant.orderingsettings.OrderingSettingsHandler.class),availability,clock);
     MenuCollectionJpaEntity collection; MenuItemVariationJpaEntity variation; MenuOptionJpaEntity prawns;
     RestaurantSchedule restaurant=new RestaurantSchedule(ZoneId.of("Australia/Melbourne"),
             List.of(new OpeningHours(1,LocalTime.of(11,30),LocalTime.of(22,0),true)),Set.of());

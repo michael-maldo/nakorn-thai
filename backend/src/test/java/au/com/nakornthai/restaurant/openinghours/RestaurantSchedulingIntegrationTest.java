@@ -32,9 +32,21 @@ class RestaurantSchedulingIntegrationTest {
     @Autowired OpeningHoursHandler handler;
     @Autowired RestaurantAvailabilityService availability;
     @Autowired MockMvc mvc;
+    @Autowired au.com.nakornthai.restaurant.orderingsettings.OrderingSettingsHandler ordering;
     @BeforeEach void emptySchedule() { jdbc.update("DELETE FROM restaurant_closed_date"); jdbc.update("DELETE FROM restaurant_opening_hours"); }
     OpeningHoursRequest.Window window(String opens, String closes) {
         return new OpeningHoursRequest.Window((short)1,LocalTime.parse(opens),LocalTime.parse(closes),true,0,null);
+    }
+    @Test void orderingPausePersistsAndIncrementsSharedSettingsVersion() {
+        var before = ordering.read();
+        var saved = ordering.save(new au.com.nakornthai.restaurant.orderingsettings.OrderingSettingsHandler.Update(false, " Kitchen busy ", before.version()));
+        em.clear();
+        var reloaded = ordering.read();
+        assertFalse(reloaded.acceptingOrders()); assertEquals("Kitchen busy", reloaded.pauseMessage());
+        assertEquals(before.version() + 1, reloaded.version()); assertEquals(saved.version(), reloaded.version());
+        assertFalse(availability.isOpen(Instant.parse("2026-09-07T08:00:00Z")));
+        assertThrows(org.springframework.web.server.ResponseStatusException.class, () -> ordering.save(
+                new au.com.nakornthai.restaurant.orderingsettings.OrderingSettingsHandler.Update(true, null, before.version())));
     }
     @Test void migrationHistorySettingsAuditAndIndexesArePresent() {
         assertEquals(2,jdbc.queryForObject("SELECT count(*) FROM flyway_schema_history WHERE version IN ('20','21') AND success",Integer.class));

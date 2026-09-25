@@ -9,6 +9,7 @@ export default function CartDock() {
   const dialog = useRef(null);
   const trigger = useRef(null);
   const [enabled, setEnabled] = useState(null);
+  const [orderingMessage, setOrderingMessage] = useState('Online ordering is closed or unavailable.');
   const count = cart.reduce((sum, line) => sum + line.quantity, 0);
   useEffect(() => {
     document.body.classList.toggle('has-cart-dock', count > 0);
@@ -23,14 +24,17 @@ export default function CartDock() {
   async function open() {
     dialog.current?.showModal();
     setEnabled(null);
-    try { setEnabled((await getOrderingOptions()).enabled); } catch { setEnabled(false); }
+    try {
+      const options = await getOrderingOptions(); setEnabled(options.enabled);
+      setOrderingMessage(options.message || 'Online ordering is closed or unavailable.');
+    } catch { setEnabled(false); setOrderingMessage('Ordering availability could not be checked. Please try again.'); }
   }
   return <>
     {notice && <aside className="cart-notice" role="status"><p>{notice}</p><a href="#/menu">Choose dishes</a> <a href="#/checkout">Check saved submission</a> <button type="button" onClick={dismissNotice}>Dismiss</button></aside>}
     {count > 0 && <div className="cart-dock"><button ref={trigger} className="button button-primary" onClick={open} aria-haspopup="dialog"><span>View cart · {count} {count === 1 ? 'item' : 'items'}</span><strong>{money(cartTotal(cart))}</strong></button></div>}
     <dialog ref={dialog} className="cart-dialog" aria-labelledby="cart-dialog-title" onClose={() => trigger.current?.focus()} onClick={(event) => { if (event.target === dialog.current) dialog.current.close(); }}>
       <div className="cart-dialog-heading"><h2 id="cart-dialog-title">Your shopping cart</h2><button type="button" autoFocus onClick={() => dialog.current.close()} aria-label="Close shopping cart">Close ×</button></div>
-      <p>{enabled === null ? 'Checking ordering availability…' : enabled ? 'Order for pickup. Staff will confirm your order. Choose a payment option after placing it.' : 'Online ordering is closed or unavailable. Your cart is saved.'}</p>
+      <p>{enabled === null ? 'Checking ordering availability…' : enabled ? 'Order for pickup. Staff will confirm your order. Choose a payment option after placing it.' : `${orderingMessage} Your cart is saved.`}</p>
       <Cart checkoutEnabled={enabled === true} />
     </dialog>
   </>;
