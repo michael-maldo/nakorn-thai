@@ -37,3 +37,9 @@ export const changeOrderStatus = (id, command, authorization) => serial(async ()
   const csrf = await request('/staff/orders/csrf', { authorization });
   return request(`/staff/orders/${id}/status`, { method: 'PATCH', body: JSON.stringify(command), authorization, csrf });
 });
+export const verifyStaffPayment = (id, command, authorization) => serial(async () => {
+  const csrf = await request('/staff/orders/csrf', { authorization });
+  return request(`/staff/payments/${id}/${command ? 'payid-confirm' : 'check'}`, {
+    method: 'POST', body: JSON.stringify(command || {}), authorization, csrf,
+  });
+});

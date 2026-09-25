@@ -1,6 +1,6 @@
 import { afterEach, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { submitOrder, getOrder, getStaffOrders, changeOrderStatus } from './orderApi.js';
+import { submitOrder, getOrder, getStaffOrders, changeOrderStatus, verifyStaffPayment } from './orderApi.js';
 import { cartReducer, cartTotal } from '../model/cartReducer.js';
 import { configurationKey } from '../model/cartModel.js';
 const originalFetch = globalThis.fetch;
@@ -68,4 +68,22 @@ test('failed CSRF request prevents submitting an order', async () => {
 test('availability conflicts keep the server explanation and status', async () => {
   globalThis.fetch = async (url) => url.endsWith('/csrf') ? Response.json({ headerName: 'X-CSRF-TOKEN', token: 'token' }) : Response.json({ message: 'A price changed; review your cart' }, { status: 409 });
   await assert.rejects(submitOrder({}), (error) => error.status === 409 && error.message.includes('price changed'));
+});
+
+test('payment verification preserves version and serializes CSRF with queue refresh', async () => {
+  const calls = [];
+  const command = { version: 7, bankReference: 'BANK-123' };
+  globalThis.fetch = async (url, options) => {
+    calls.push(url);
+    if (url.endsWith('/csrf')) return Response.json({ headerName: 'X-CSRF-TOKEN', token: 'fresh' });
+    if (options.method === 'POST') {
+      assert.equal(options.headers['X-CSRF-TOKEN'], 'fresh');
+      assert.equal(options.headers.Authorization, 'Basic test');
+      assert.deepEqual(JSON.parse(options.body), command);
+      return Response.json({ paid: true });
+    }
+    return Response.json([]);
+  };
+  await Promise.all([verifyStaffPayment('id', command, 'Basic test'), getStaffOrders('Basic test', false)]);
+  assert.deepEqual(calls, ['/api/staff/orders/csrf', '/api/staff/payments/id/payid-confirm', '/api/staff/foh/orders?history=false']);
 });

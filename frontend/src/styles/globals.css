@@ -494,3 +494,10 @@ body.has-cart-dock { padding-bottom: calc(88px + env(safe-area-inset-bottom)); }
 .menu-admin-option-card li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--admin-line); }
 .menu-admin-option-picker { max-width: 480px; margin: 20px 0; }
 .menu-admin .menu-admin-option-choice { border: 1px solid var(--admin-line); padding: 16px; margin: 20px 0; border-radius: 6px; }
+
+.staff-order-card fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
+.staff-order-card h2 { margin: 0; }
+.staff-order-state { border-radius: 1rem; padding: .3rem .7rem; background: var(--paper); border: 1px solid var(--line); }
+.staff-order-card li { margin-block: .6rem; }
+.staff-order-notes { white-space: pre-wrap; overflow-wrap: anywhere; }
+.staff-order-action { border-top: 1px solid var(--line); margin-top: 1rem; padding-top: .5rem; }

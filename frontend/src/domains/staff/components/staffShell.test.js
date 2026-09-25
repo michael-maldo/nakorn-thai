@@ -4,9 +4,10 @@ import { createServer } from 'vite';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 
-let server, StaffShell, LoginPage, AuthProvider, identity;
+let server, StaffShell, LoginPage, AuthProvider, identity, StaffOrderCard;
 before(async () => {
   server = await createServer({ server: { middlewareMode: true, hmr: false, ws: false, watch: null }, appType: 'custom', logLevel: 'error' });
+  ({ StaffOrderCard } = await server.ssrLoadModule('/src/domains/ordering/pages/OrdersAdminPage.jsx'));
   StaffShell = (await server.ssrLoadModule('/src/domains/staff/components/StaffShell.jsx')).default;
   LoginPage = (await server.ssrLoadModule('/src/domains/identity/pages/LoginPage.jsx')).default;
   ({ AuthProvider } = await server.ssrLoadModule('/src/domains/identity/model/AuthContext.jsx'));
@@ -54,5 +55,23 @@ test('BOH shell retains overview and sign out without unsupported staff screens'
   const html = await renderShell('BOH');
   assert.match(html, /href="#\/staff" aria-current="page"/);
   assert.match(html, /Sign out/);
+  assert.match(html, /href="#\/staff\/orders"/);
   assert.doesNotMatch(html, /href="#\/staff\/(menu|users|restaurant|reservations|functions|ordering)"/);
+});
+
+const sampleOrder = { id: 'order', reference: 'ABC123', status: 'ACCEPTED', version: 1,
+  customerName: 'Private customer', phone: '0412345678', paymentMethod: 'PAYID', totalMinor: 2000,
+  createdAt: '2026-09-25T00:00:00Z', notes: 'No chilli', items: [{ dishName: 'Curry', quantity: 2, selectedOptions: [] }] };
+test('kitchen cards expose preparation details without contact or payment controls', () => {
+  const html = renderToStaticMarkup(createElement(StaffOrderCard, { order: sampleOrder, role: 'BOH' }));
+  assert.match(html, /Start preparing/);
+  assert.match(html, /No chilli/);
+  assert.doesNotMatch(html, /Private customer|0412345678|Confirm PayID|Cancel order/);
+});
+test('FOH unpaid online orders expose verification and block acceptance', () => {
+  const html = renderToStaticMarkup(createElement(StaffOrderCard, { order: { ...sampleOrder, status: 'NEW' }, role: 'FOH' }));
+  assert.match(html, /Private customer/);
+  assert.match(html, /Confirm PayID payment/);
+  assert.match(html, /disabled="">Accept order/);
+  assert.doesNotMatch(html, /Start preparing/);
 });
