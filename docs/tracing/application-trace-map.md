@@ -2,6 +2,8 @@
 
 This guide is a code-navigation aid for the application that currently exists. It was built by following the wiring from `../../frontend/src/main.jsx` and `../../frontend/src/app/AppRouter.jsx`, then matching each frontend request to Spring mappings, security rules, persistence code, entities, and Flyway DDL. A filename is not treated as implemented behavior.
 
+Source checked on 2026-09-26 against commit `f2d6653`, including migrations through V26. This describes source wiring, not a verified running deployment. For the detailed public menu read path, see [Public menu trace](public-menu-trace.md).
+
 ## How a request moves through this application
 
 ```text
@@ -48,22 +50,24 @@ Application composition is `../../frontend/src/main.jsx` → `App` in `../../fro
 
 | Feature | Frontend entry | API endpoint | Controller | Service / use case | Repository / persistence | DB table(s) |
 |---|---|---|---|---|---|---|
-| Public menu discovery/browse | `MenuPage`, `useMenu` | `GET /api/menu/collections`; `GET /api/menu/collections/{slug}/items` | `ListMenuController` | `ListMenuHandler` | `MenuItemRepository` → `JpaMenuItemRepository` → Spring Data menu repositories | `menu_collection`, `menu_collection_schedule`, `menu_collection_category`, `menu_collection_item`, `menu_category`, `menu_item`, `menu_item_variation`, image/food/option tables |
+| Public menu discovery/browse | `MenuPage`, `useMenu` | `GET /api/menu/collections`; `GET /api/menu/collections/{slug}/items` | `ListMenuController` | `ListMenuHandler` | `MenuItemRepository` → `JpaMenuItemRepository` → Spring Data menu repositories | `menu_collection`, `menu_collection_schedule`, `menu_collection_category`, `menu_collection_item`, `menu_category`, `menu_item`, `menu_item_variation`, image/food/option tables, including `menu_item_option_price`; conditional restaurant schedule reads |
 | Cart add/update/remove | `MenuItemCard`, `Cart`, global `CartDock` | None | None | `createCartLine`, `cartReducer` | Browser `sessionStorage` only | None |
 | Place pickup order | `CheckoutPage.place` | `POST /api/orders` | `CreateOrderController` | `CreateOrderHandler` | `EntityManager`, `OrderMapper` | `restaurant_order`, `restaurant_order_item`, `restaurant_order_item_option`, `restaurant_order_event`; reads menu and restaurant schedule tables |
 | Customer order status | `OrderConfirmationPage.poll` | `GET /api/orders/{id}` | `GetOrderController` | `GetOrderHandler`, `OrderAccessService` | `SpringDataOrderRepository`, native tracking-grant query | order tables, `order_tracking_grant` |
 | Table request | `ReservationPage.submit` | `POST /api/reservations` | `CreateReservationController` | `CreateReservationHandler` | `SpringDataReservationRepository`, advisory lock, restaurant repository | `reservation`; reads restaurant schedule tables |
 | Staff reservation queue/update | `ReservationAdminPage` | `GET /api/staff/reservations`; `PATCH /api/staff/reservations/{id}` | `ListReservationsController` | Controller-owned transaction for update | Spring Data read; `EntityManager` locked write | `reservation` |
 | Staff authentication/session | `LoginForm.submit`, `AuthProvider` | `POST /api/identity/login`; `/refresh`; `/logout` | `LoginController`, `RefreshTokenController`, `LogoutController` | `LoginHandler`, `JpaUserRepository` | Spring Data plus `EntityManager` | `staff_user`, `staff_session` |
-| Staff order queues | `StaffOrdersPage.poll` | `GET /api/staff/foh/orders`; `GET /api/staff/kitchen/orders` | `ListOrdersController` | `ListOrdersHandler` | `SpringDataOrderRepository` | order/item/option tables |
-| Staff order transition | `StaffOrdersPage.apply` | `PATCH /api/staff/orders/{id}/status` | `ChangeOrderStatusController` | `ChangeOrderStatusHandler` | `EntityManager` pessimistic lock | `restaurant_order`, `restaurant_order_event` |
+| Staff order queues | `OrdersAdminPage effect-local load` | `GET /api/staff/foh/orders`; `GET /api/staff/kitchen/orders` | `ListOrdersController` | `ListOrdersHandler` | `SpringDataOrderRepository` | order/item/option tables |
+| Staff order transition | `OrdersAdminPage.mutate` | `PATCH /api/staff/orders/{id}/status` | `ChangeOrderStatusController` | `ChangeOrderStatusHandler` | `EntityManager` pessimistic lock | `restaurant_order`, `restaurant_order_event` |
 | Menu item administration | `StaffMenuPage` | `GET/POST /api/staff/menu/items`; `PUT/DELETE /api/staff/menu/items/{id}` | get/create/update/delete menu controllers | corresponding handlers → `MenuAdminService` | menu Spring Data repositories and `EntityManager` | core menu, variation, and collection-membership tables |
 | Menu image administration | `MenuImageEditor.save` | `POST /api/staff/menu/items/{id}/image`; `GET /media/menu/{name}` | `MenuImageController` | `MenuImageService` | `EntityManager` plus media filesystem | `menu_item_image`, `menu_item`; JPEG under configured media directory |
 | Collection management | `MenuAdminPage`, collection detail views | `GET/POST /api/staff/menu/collections`; `PUT/DELETE .../collections/{id}`; category/schedule/membership writes | `MenuConfigurationController` | `MenuConfigurationHandler` | `EntityManager` | `menu_collection` and related configuration tables |
 | Function enquiry + staff workflow | `FunctionsPage`; `FunctionEnquiriesPage` | `POST /api/functions`; `GET/PATCH /api/staff/functions...` | `CreateFunctionEnquiryController`; `FunctionEnquiriesController` | create handler; transactional controller update | Spring Data and `EntityManager` | `function_enquiry` |
 | Staff account administration | `UsersPage` | `GET/POST /api/identity/users`; `PUT .../{id}` | `StaffUsersController` | transactional controller methods | staff/session Spring Data repositories, `EntityManager` | `staff_user`, `staff_session` |
-| Payments | `PaymentForm`; `PaymentStatus` | `/api/payments/...`; `/api/staff/payments/...` | `CreatePaymentController` | `CreatePaymentHandler`, `PayPalPaymentProvider` | `EntityManager`, `OrderAccessService` | `restaurant_order`, `order_payment` |
+| Payments | `PaymentForm`; `StaffOrderCard` | `/api/payments/...`; `/api/staff/payments/...` | `CreatePaymentController` | `CreatePaymentHandler`, `PayPalPaymentProvider` | `EntityManager`, `OrderAccessService` | `restaurant_order`, `order_payment` |
 | Tracking recovery | `OrderTrackingPage.submit` | `/api/order-verification/options|start|check` | `OrderVerificationController` | `OrderVerificationHandler`, `TwilioVerifyClient` | `EntityManager`, native rate-limit query | `order_verification`, `order_tracking_grant`, `restaurant_order` |
+| Staff online ordering control | `OnlineOrderingPage` | `GET/PUT /api/staff/restaurant/ordering`; public `GET /api/orders/options` | `OrderingSettingsController`; `CreateOrderController` | `OrderingSettingsHandler`; `CreateOrderHandler.orderingStatus` | `JpaRestaurantRepository`, settings locks, `EntityManager` | `restaurant_settings`; reads hours/closed dates |
+| Item options and prices | `MenuItemOptionEditor`, `useItemOptionAdmin` | `/api/staff/menu/option-groups`; `/api/staff/menu/items/{itemId}/option-groups...` | `MenuConfigurationController` | `MenuConfigurationHandler` | `EntityManager`, catalog lock | `menu_option_group`, `menu_option`, `menu_item_option_group`, `menu_item_option_price` |
 | Restaurant availability/schedule | `ReservationPage`; `RestaurantSchedulePage` | `GET /api/restaurant/availability`; CRUD `/api/staff/restaurant/...` | availability/opening-hours controllers | `RestaurantAvailabilityService`, `OpeningHoursHandler` | `RestaurantRepository` → `JpaRestaurantRepository`, `EntityManager` | `restaurant_settings`, `restaurant_opening_hours`, `restaurant_closed_date` |
 
 ## 1. Customer menu browsing
@@ -71,7 +75,7 @@ Application composition is `../../frontend/src/main.jsx` → `App` in `../../fro
 Route: `#/menu`.
 
 1. `../../frontend/src/app/AppRouter.jsx`, `AppRouter()`, renders `MenuPage` when the hash is `#/menu`. It is called by `App`; its next step is mounting the page.
-2. `../../frontend/src/domains/menu/pages/MenuPage.jsx`, `MenuPage()`, calls `useMenu(selectedId)`. Collection buttons/select call local `select(id)`; search input changes `search`; `menuSections(menu, search)` prepares render sections. It also calls `getOrderingOptions()` separately to decide whether Add buttons are enabled.
+2. `../../frontend/src/domains/menu/pages/MenuPage.jsx`, `MenuPage()`, calls `useMenu(selectedId)`. The collection select calls local `select(id)`; search input changes `search`; `menuSections(menu, search)` prepares render sections. It also calls `getOrderingOptions()` separately to decide whether Add buttons are enabled.
 3. `../../frontend/src/domains/menu/hooks/useMenu.js`, `useMenu(...)` and effect-local `load()`, first call `getMenuCollections(signal)`, choose a collection with `selectCollection(...)`, then call `getMenuCollection(selected.slug, signal)`. The hook owns `{collections, menu, loading, error}` and calls `setState`, causing `MenuPage` to render loading, error, empty, or menu UI.
 4. `../../frontend/src/domains/menu/api/menuApi.js`, `getMenuCollections`, `getMenuCollection`, and `menuRequest`, use browser `fetch` through `fetchWithIdentity`. These public requests carry cookies but no Bearer token. They issue `GET /api/menu/collections` and `GET /api/menu/collections/{encodedSlug}/items`, validate basic response shape, and return JSON.
 5. `SecurityConfig.securityFilterChain` permits both GET patterns. No staff authentication is required; CSRF does not affect GET.
@@ -81,17 +85,19 @@ Route: `#/menu`.
 9. `../../backend/src/main/java/au/com/nakornthai/menu/infrastructure/JpaMenuItemRepository.java` (`@Repository`):
    - `findPublishedCollections()` calls `SpringDataMenuCollectionRepository.findByStatusOrderByDisplayOrderAscIdAsc`, optionally gets the restaurant schedule, and applies `MenuCatalogRules.availability`.
    - `findVisibleCollection(slug)` calls `findVisibleBySlug`, `SpringDataMenuCollectionItemRepository.findPublishedMemberships`, filters inactive/invalid placement, invokes `MenuItemMapper.map`, and assembles ordered categories.
-10. Domain rules are in `menu/domain/CollectionAvailability.java` (`evaluate`, `withRestaurantCutoff`), `menu/infrastructure/MenuCatalogRules.java`, and `menu/domain/MenuPricing.java`. `MenuItemMapper` maps initialized JPA relationships to immutable records in `menu/domain/MenuItem.java`, including variations, images, food declarations, collection placement, and option groups.
+10. Domain rules are in `menu/domain/CollectionAvailability.java` (`evaluate`, `withRestaurantCutoff`), `menu/infrastructure/MenuCatalogRules.java`, while checkout price validation uses `menu/domain/MenuPricing.java` (not invoked by public browsing). `MenuItemMapper` maps initialized JPA relationships to immutable records in `menu/domain/MenuItem.java`, including variations, images, food declarations, collection placement, and option groups. Option deltas come from the assignment’s `optionPrices` map (`menu_item_option_price`); a missing entry makes the choice unavailable, while an explicit zero enables an otherwise active choice.
 11. Principal entities are `MenuCollectionJpaEntity`, `MenuCollectionScheduleJpaEntity`, `MenuCollectionCategoryJpaEntity`, `MenuCollectionItemJpaEntity`, `MenuCategoryJpaEntity`, `MenuItemJpaEntity`, `MenuItemVariationJpaEntity`, `MenuItemImageJpaEntity`, `MenuOptionGroupJpaEntity`, `MenuOptionJpaEntity`, and `MenuItemOptionGroupJpaEntity`; each implemented persistence class is `@Entity`. Food-profile association entities cover allergens and dietary tags.
-12. PostgreSQL tables are in the common `public` schema. Core DDL is `V2__create_menu_schema.sql`; image focus is V9; the option/schedule/collection-category model is V17; order collection provenance is V19; later menu content/schema adjustments are V18, V20, and V22. Relationships include collection-item → collection/item, variation/image → item, collection-category → collection/category, item-option-group → item/group, and option → group.
+12. PostgreSQL tables are in the common `public` schema. Core DDL is `V2__create_menu_schema.sql`; image focus is V9; the option/schedule/collection-category model is V17; item-specific option prices are V23; later menu content/schema adjustments include V18, V20, V22 and schedule seeds/corrections in V25. V19 order provenance is not a browsing dependency. Relationships include collection-item → collection/item, variation/image → item, collection-category → collection/category, item-option-group → item/group, and option → group.
 13. `MenuResponse.from(...)` returns collection metadata, availability, categories, and items. `ListMenuController` sends 200 with `no-store`.
 14. `menuRequest` decodes JSON; `useMenu.load` shape-checks it and calls `setState`; `MenuPage` re-renders collection navigation and `MenuItemCard` rows. `presentDish`, `menuSections`, and `collectionAvailability` are frontend presentation/filtering only.
+
+`MenuCategoryNavigation` receives the nonempty filtered sections and scrolls to their headings below the sticky navigation. Scroll/resize observers track the active category; overflow arrows, touch scrolling, mouse dragging and keyboard focus reveal off-screen buttons. These actions do not change the route or request menu data. The category scrollbar is visually hidden while scrolling remains enabled.
 
 ## 2. Adding and updating cart items (client-only path)
 
 There is deliberately no backend or database step until checkout.
 
-1. In `MenuItemCard` (`../../frontend/src/domains/menu/components/MenuItemCard.jsx`), variation `<select>` updates local `variationId`; `MenuItemOptions` updates local `selections`. `evaluateOptions(...)` in `../../frontend/src/domains/menu/model/menuOptions.js` validates group cardinality and computes option deltas.
+1. In `MenuItemCard` (`../../frontend/src/domains/menu/components/MenuItemCard.jsx`), variation `<select>` updates local `variationId`; `MenuItemOptions` updates local `selections` using SINGLE selects and MULTIPLE checkboxes (quantity 0 or 1 per checkbox). `evaluateOptions(...)` in `../../frontend/src/domains/menu/model/menuOptions.js` validates group cardinality and computes option deltas.
 2. Clicking **Add to order** calls the card's `onAdd(line)`. `createCartLine(...)` in `../../frontend/src/domains/ordering/model/cartModel.js` creates a display/offer snapshot containing collection, dish, variation, selected options, unit price, and a stable `configurationKey`.
 3. `MenuPage` supplies `onAdd`, which dispatches `{type: 'add', line}` through `useCart()` and updates its `added` live-region message.
 4. `CartProvider` in `../../frontend/src/domains/ordering/model/CartContext.jsx` owns `useReducer(cartReducer, ...)`. `cartReducer` in `cartReducer.js` merges an identical configuration, caps quantity at 20, and caps distinct configurations at 30.
@@ -108,7 +114,7 @@ Route: `#/checkout`. A detailed editor-following trace appears later; this secti
 - API: `submitOrder` in `../../frontend/src/domains/ordering/api/orderApi.js` gets `/api/orders/csrf`, then posts JSON to `POST /api/orders`. `request` decodes errors and responses.
 - Security: both the CSRF GET and order POST are public in `SecurityConfig`, but the POST must pass Spring CSRF. No JWT is required.
 - Controller/input: `CreateOrderController` (`@RestController`, `@RequestMapping("/api/orders")`) has `create(...)` (`@PostMapping`) with `@Valid CreateOrderRequest`; it returns 201. The request record validates identity/contact, 1–30 lines, quantities 1–20, expected nonnegative prices, selected option IDs/quantities, and payment method.
-- Use case: `CreateOrderHandler` (`@Service`), `handle(...)` (`@Transactional`), takes a PostgreSQL advisory lock derived from `requestId`, fingerprints the request, safely returns an identical existing order, and rejects a conflicting replay. It checks feature flags and `RestaurantAvailabilityService.schedule()`.
+- Use case: `CreateOrderHandler` (`@Service`), `handle(...)` (`@Transactional`), takes a PostgreSQL advisory lock derived from `requestId`, fingerprints the request, safely returns an identical existing order, and rejects a conflicting replay. After returning any identical committed replay, it calls `OrderingSettingsHandler.requireAcceptingOrders()` to enforce configuration and the staff pause under a shared settings lock, then checks payment flags and `RestaurantAvailabilityService.schedule()`.
 - Domain checks: it takes `MenuCatalogLock.read`, loads variation and collection membership with `EntityManager.find`, checks collection schedule, publication/category/item/variation availability, and calls `MenuPricing.calculate`. The expected price must exactly match. This is the authoritative validation boundary.
 - Persistence: the handler builds `OrderJpaEntity` (`@Entity`, `restaurant_order`), `OrderItemJpaEntity` (`restaurant_order_item`) snapshots, nested `OrderItemOptionJpaEntity` (`restaurant_order_item_option`), persists/flushed the aggregate, then persists a `NEW` `OrderEventJpaEntity` (`restaurant_order_event`). It also reads menu tables and restaurant schedule tables. V11 creates base ordering tables, V17 adds option snapshots, and V19 adds collection provenance.
 - Response: `OrderMapper.map(order, false)` produces `CreateOrderResponse`; contact values are deliberately null in a customer response. `CheckoutPage.complete(payload)` stores only `{requestId, trackingToken}` in `nakorn-pickup-receipt`, removes pending payload, clears cart context, and navigates to `#/order-confirmation`.
@@ -153,25 +159,26 @@ Route: `#/checkout`. A detailed editor-following trace appears later; this secti
 
 `CurrentUserController.GET /api/identity/me` exists and is secured, but the current frontend does not call it; session restoration uses refresh. The empty `RefreshTokenHandler`, `LogoutHandler`, `CurrentUserHandler`, command, and query files are not active layers.
 
-## 7. Staff viewing orders
+## 7. Staff workspace and order queues
 
-Routes: `#/staff/foh` for ADMIN/FOH and `#/staff/kitchen` for ADMIN/BOH (`KitchenDashboardPage` simply renders `<StaffOrdersPage kitchen />`).
+`AppRouter.staffPage` wraps staff pages in `ProtectedRoute` → `StaffShell`. `#/staff` renders `StaffDashboardPage`, a welcome page with an Orders link; it does not load operational summaries. `StaffShell` supplies role-filtered navigation, sign-out and responsive sidebar behavior. The former `#/staff/foh` and `#/staff/kitchen` browser routes are no longer mapped; the corresponding backend queue endpoints remain active.
 
-1. `StaffOrdersPage` gets `authorization` from `useAuth`. Its effect-local `poll()` calls `getStaffOrders(auth, kitchen, history)` immediately and every five seconds.
-2. `orderApi.getStaffOrders` serializes staff reads/writes through `staffQueue`, then calls either `GET /api/staff/foh/orders?history=...` or `GET /api/staff/kitchen/orders` with Bearer auth.
-3. Security validates the live JWT session and route role. `ListOrdersController` (`@RestController`) maps `front(...)` and `kitchen()` with `@GetMapping` and calls `ListOrdersHandler.handle(kitchen, history)`.
-4. `ListOrdersHandler` (`@Service`, `@Transactional(readOnly=true)`) calls `SpringDataOrderRepository` derived queries with a 200-row page: active FOH statuses, kitchen statuses, or completed/cancelled rows from the last 24 hours.
-5. JPA loads `OrderJpaEntity` and its item/option relationships; `OrderMapper.map(o, !kitchen)` includes contact data only for FOH. It returns `List<CreateOrderResponse>`.
-6. `StaffOrdersPage.poll` calls `setOrders`, `setUpdated`, and clears stale/error flags. React renders queue cards; FOH also mounts `PaymentStatus` and sees contact/payment data, while kitchen sees preparation data only.
+1. `#/staff/orders` renders `../../frontend/src/domains/ordering/pages/OrdersAdminPage.jsx` for ADMIN, FOH and BOH. It reads `user` and `authorization` from `useAuth`; only BOH sets `kitchen = true`.
+2. Its effect-local `load()` calls `orderApi.getStaffOrders(authorization, kitchen, history)` immediately, then schedules another load 15 seconds after completion. Polling pauses during mutations. Manual Refresh increments `revision`; status filtering is client-side.
+3. `getStaffOrders` serializes requests through `staffQueue` and sends Bearer-authenticated GET `/api/staff/foh/orders?history=...` or `/api/staff/kitchen/orders`. `SecurityConfig` permits ADMIN/FOH for FOH reads and ADMIN/BOH for kitchen reads; `JwtAuthenticationFilter` checks the live session.
+4. `ListOrdersController.front`/`kitchen` → `ListOrdersHandler.handle(kitchen, history)` (`@Transactional(readOnly=true)`) → `SpringDataOrderRepository`. Active FOH rows are NEW/ACCEPTED/PREPARING/READY; kitchen rows are ACCEPTED/PREPARING/READY. FOH/Admin history returns COMPLETED/CANCELLED orders **created** in the last 24 hours. Each query is capped at 200 rows.
+5. `OrderMapper.map(order, !kitchen)` maps JPA order/item/option snapshots to `CreateOrderResponse`, including customer contact fields only for FOH reads. `setOrders` renders `StaffOrderCard` components; BOH cards hide contact and payment controls. Errors are displayed with a Refresh action.
 
 ## 8. Staff order workflow/status changes
 
-1. Buttons in `StaffOrdersPage` call `choose(order, status)` and render a confirmation form. `apply(event)` builds `{version, status, pickupMinutes, paymentCollected, reason}` and calls `changeOrderStatus`.
-2. `orderApi.changeOrderStatus` serially gets `/api/staff/orders/csrf`, then sends `PATCH /api/staff/orders/{id}/status` with Bearer, CSRF, and JSON.
-3. `SecurityConfig` allows ADMIN/FOH/BOH at the coarse route. `ChangeOrderStatusController` (`@RestController`, `@PatchMapping`) validates `ChangeOrderStatusCommand`, passes Spring `Authentication`, and returns 204.
-4. `ChangeOrderStatusHandler` (`@Service`, `@Transactional`) additionally enforces action-level roles: BOH/Admin for PREPARING/READY, FOH/Admin otherwise. It locks `OrderJpaEntity` pessimistically, checks optimistic `version`, then enforces `NEW → ACCEPTED → PREPARING → READY → COMPLETED`, with cancellation from active states.
-5. Domain checks require pickup minutes on acceptance, verified online payment before acceptance/handover, a cancellation reason, and explicit payment-collected confirmation at completion. It updates the order and persists `OrderEventJpaEntity` with actor/status/time.
-6. Although the handler returns `CreateOrderResponse`, the controller discards it and sends 204. `StaffOrdersPage.apply` therefore explicitly reloads via `getStaffOrders`, then updates state and re-renders. V11 owns the order/event tables; status history is retained in `restaurant_order_event`.
+1. `StaffOrderCard` uses `orderActions(role, status)` in `ordering/model/orderModel.js` to show permitted actions. FOH/Admin accept, cancel and complete handover; BOH/Admin move ACCEPTED → PREPARING → READY. ADMIN can perform both workflows.
+2. Selecting an action opens a local confirmation form. Submit passes `{version, status, pickupMinutes?, reason?, paymentCollected}` to `OrdersAdminPage.mutate` → `changeOrderStatus`. Acceptance asks for 5–180 pickup minutes; cancellation requires a reason; handover requires payment-collected confirmation.
+3. `orderApi.changeOrderStatus` serially obtains `/api/staff/orders/csrf` and PATCHes `/api/staff/orders/{id}/status` with Bearer auth, CSRF and JSON. `SecurityConfig` permits ADMIN/FOH/BOH at this coarse route.
+4. `ChangeOrderStatusController` validates `ChangeOrderStatusCommand` and passes Spring `Authentication` to `ChangeOrderStatusHandler`. Its transaction enforces action-level roles, pessimistically locks `OrderJpaEntity`, checks `version`, and validates NEW → ACCEPTED → PREPARING → READY → COMPLETED, with cancellation from active states.
+5. The handler requires verified online/bank payment before acceptance and handover, checks the confirmation fields, updates `restaurant_order`, and persists actor/status/time in `restaurant_order_event` (V11). The controller discards the handler response and returns 204.
+6. `mutate` prevents concurrent saves, displays success/failure, clears the queue and releases `busy`; the effect then reloads authoritative order versions. Cards are keyed by order ID/version, so a new version resets their local action form.
+
+Payment verification is on the same cards. `needsPayment` blocks acceptance/handover for unpaid online/bank orders. PayID requires a bank reference and receipt-confirmation checkbox; PayPal exposes a payment check. `orderApi.verifyStaffPayment` shares `staffQueue`, gets staff-order CSRF, then POSTs `/api/staff/payments/{id}/payid-confirm` with `{version, bankReference}` or `/check` with `{}`. ADMIN/FOH security → `CreatePaymentController` → `CreatePaymentHandler` → locked order/payment persistence and, for PayPal, provider calls. The mutation then reloads the queue. Cancelling a paid order does not perform a refund.
 
 ## 9. Menu administration
 
@@ -183,12 +190,12 @@ All `#/staff/menu` routes remain ADMIN-only through `ProtectedRoute`; staff menu
 
 - `#/staff/menu` and `#/staff/menu/items`: `MenuItemList`.
 - `#/staff/menu/items/new`: create item.
-- `#/staff/menu/items/{id}` or `/{id}/overview|pricing|collections|images`: `MenuItemEditor`.
+- `#/staff/menu/items/{id}` or `/{id}/overview|pricing|options|collections|images`: `MenuItemEditor`.
 - `#/staff/menu/collections`: `MenuCollectionList`.
 - `#/staff/menu/collections/new`: create collection.
 - `#/staff/menu/collections/{id}` or `/{id}/overview|items|categories|availability`: `MenuCollectionDetail`, delegating to one focused section component.
 
-Lists link to resources; local section navigation uses real links with `aria-current`. Refresh preserves the resource/section URL, and browser Back follows hash history. Unknown menu routes show an explicit not-found state. The layout provides compact Items/Collections navigation above the content, breadcrumbs and a main-content skip link, without a sidebar. Tables become labelled rows on narrow screens.
+Lists link to resources; local section navigation uses real links with `aria-current`. Refresh preserves the resource/section URL, and browser Back follows hash history. Unknown menu routes show an explicit not-found state. The layout provides compact Items/Collections navigation above the content, breadcrumbs and a main-content skip link, inside the shared staff workspace sidebar. Tables become labelled rows on narrow screens.
 
 `useMenuAdminData` loads `getStaffMenu` and `getCollectionConfiguration` through the existing menu API wrapper. Returning to a view reloads its data/version. Item reads continue through `GetMenuItemController` → `GetMenuItemHandler` → `MenuAdminService.list` → existing Spring Data repositories. Collection reads continue through `MenuConfigurationController` → `MenuConfigurationHandler.collections`.
 
@@ -196,7 +203,7 @@ Lists link to resources; local section navigation uses real links with `aria-cur
 
 ### Item writes and images
 
-`MenuItemEditor` groups existing capabilities into Overview, Pricing / variations, Collections and Images. It does not add option or food-declaration editors. Name/description edits still trigger the backend dietary-review invalidation behavior.
+`MenuItemEditor` groups capabilities into Overview, Pricing / variations, Options & extras, Collections and Images. Food-declaration editing is not exposed here. Name/description edits still trigger the backend dietary-review invalidation behavior.
 
 - POST `/api/staff/menu/items` → `CreateMenuItemController` → `CreateMenuItemHandler` → `MenuAdminService.create`.
 - PUT `/api/staff/menu/items/{id}` → `UpdateMenuItemController` → `UpdateMenuItemHandler` → `MenuAdminService.update`.
@@ -218,7 +225,18 @@ The service retains catalog locking, version checks, variation prices, collectio
 
 `MenuConfigurationHandler.collections` reads the restaurant-owned schedule before the catalog lock and returns catalog availability, combined collection/restaurant availability, restaurant timezone and open state. Public Main Menu/Lunch Special semantics are unchanged. Combined availability describes collection/restaurant rules, not global ordering flags or individual item eligibility.
 
-All writes refresh CSRF and submit the resource version. A committed write followed by a failed read disables further editing until reload. Conflicts also require reload; validation errors retain the draft. Options, option groups and item assignments retain their existing backend APIs without a staff editor.
+All writes refresh CSRF and submit the resource version. A committed write followed by a failed read disables further editing until reload. Conflicts also require reload; validation errors retain the draft. Item option editing follows the dedicated trace below.
+
+### Item option groups and per-item prices
+
+`#/staff/menu/items/{id}/options` → `MenuItemEditor` → `MenuItemOptionEditor` → `useItemOptionAdmin`. The hook loads `getOptionGroups` and `getItemOptionGroups` through `menuApi` → GET `/api/staff/menu/option-groups` and `/api/staff/menu/items/{itemId}/option-groups` → `MenuConfigurationController` → `MenuConfigurationHandler.groups`/`assignments` → JPA configuration resources.
+
+- Create a group with choices and assign it atomically: `createItemOptionGroup` → POST `/api/staff/menu/items/{itemId}/option-groups` → `createAssignedGroup`.
+- Reuse a group or edit selection rules/prices: `saveItemOptionGroup` → PUT `/api/staff/menu/items/{itemId}/option-groups/{groupId}` → `saveAssignment`. `itemOptionPrices.js` converts AUD drafts into minor units; blank means excluded, zero means included without a surcharge.
+- Add/edit shared choices: `saveSharedOption` → POST/PUT `/api/staff/menu/option-groups/{groupId}/options...` → `saveOption`. Names and active state are shared; item prices remain separate.
+- Remove an assignment: `removeItemOptionGroup` → versioned DELETE of the assignment → `deleteAssignment`. Shared choices and other items’ assignments remain.
+
+The handler uses catalog locking, version validation and `EntityManager`. `MenuItemOptionGroupJpaEntity.optionPrices` maps the V23 `menu_item_option_price` table; reusable `menu_option` rows no longer hold a global price. Public `MenuItemMapper` and checkout `MenuCatalogRules.groups` consume those assignment prices. `useItemOptionAdmin.mutate` reloads both resources after a save; a conflict or failed post-commit reload requires reload before further editing. Draft and in-flight navigation guards use the existing menu form helpers.
 
 ### Frontend validation
 
@@ -237,12 +255,22 @@ All writes refresh CSRF and submit the resource version. A committed write follo
 
 ### Payment initiation/checking
 
-`OrderConfirmationPage` renders `PaymentForm`; `run(start|check)` calls `paymentRequest`, which gets order CSRF and sends `X-Order-Token`. `CreatePaymentController` (`@RestController`) maps options/start/check plus staff check/PayID confirmation. `CreatePaymentHandler` (`@Service`, `@Transactional` operations) locks `restaurant_order`, uses `OrderAccessService`, creates/updates `OrderPaymentJpaEntity`, calls `PayPalPaymentProvider` when enabled, or returns configured PayID details. V16 creates `order_payment` with order ID as FK/PK. `setPayment(result)` re-renders approval/details/paid state. `PaymentStatus` supplies staff reconciliation actions. PayPal and PayID are feature/configuration dependent; refund/webhook-named scaffolds are not evidence of active flows.
+`OrderConfirmationPage` renders `PaymentForm`; `run(start|check)` calls `paymentRequest`, which gets order CSRF and sends `X-Order-Token`. `CreatePaymentController` (`@RestController`) maps options/start/check plus staff check/PayID confirmation. `CreatePaymentHandler` (`@Service`, `@Transactional` operations) locks `restaurant_order`, uses `OrderAccessService`, creates/updates `OrderPaymentJpaEntity`, calls `PayPalPaymentProvider` when enabled, or returns configured PayID details. V16 creates `order_payment` with order ID as FK/PK. `setPayment(result)` re-renders approval/details/paid state. `StaffOrderCard` supplies the active staff reconciliation actions through `orderApi.verifyStaffPayment`; `PaymentStatus` is not mounted by the current staff order page. PayPal and PayID are feature/configuration dependent; refund/webhook-named scaffolds are not evidence of active flows.
 
 ### Restaurant schedule
 
 - Public availability: `getRestaurantAvailability` → `GET /api/restaurant/availability` → `RestaurantAvailabilityController.availability` (`@RestController`, `@GetMapping`) → `RestaurantAvailabilityService.schedule` (`@Service`, `@Transactional`) → domain `RestaurantRepository` → `JpaRestaurantRepository` (`@Repository`) → settings/hours/closed-date entities and tables → `{timezone,evaluatedAt,open}`. Reservation UI consumes the timezone; ordering/menu availability reuse the same service server-side.
 - ADMIN `#/staff/restaurant`: `RestaurantSchedulePage` handlers call `restaurantRequest` for schedule/settings/hours/closures CRUD. `OpeningHoursController` (`@RestController`, `@RequestMapping`) maps GET/PUT/POST/DELETE; `OpeningHoursHandler` (`@Service`, transactional methods) validates IANA timezone, whole-second windows, versions, duplicates, and uses `JpaRestaurantRepository` plus `EntityManager`. Returned entity JSON is assigned to `schedule` via reload. V21 creates `restaurant_settings`, `restaurant_opening_hours`, and `restaurant_closed_date`.
+
+### Pause/resume new online orders
+
+`#/staff/ordering` → restaurant-owned `OnlineOrderingPage` → `restaurantRequest('/ordering')` → GET/PUT `/api/staff/restaurant/ordering`. The wrapper reads the identity token and obtains `/api/staff/restaurant/csrf` before PUT. Security permits ADMIN/FOH for these operations, while other restaurant administration remains ADMIN-only.
+
+`OrderingSettingsController` → transactional `OrderingSettingsHandler.read`/`save` → `JpaRestaurantRepository.settings` with pessimistic read/write locks → `RestaurantSettingsJpaEntity`. PUT validates `{acceptingOrders, pauseMessage, version}`, rejects a stale version with 409, stores the inverse `ordering_paused` flag and trimmed optional message, then flushes. V24 adds both columns to `restaurant_settings`. The response refreshes the page’s settings and form state.
+
+Public `getOrderingOptions` → GET `/api/orders/options` → `CreateOrderController.options` → `CreateOrderHandler.orderingStatus` → `OrderingSettingsHandler.status`. The result combines environment configuration, staff pause and restaurant opening hours, with reason codes DISABLED_BY_CONFIGURATION, PAUSED_BY_STAFF, OUTSIDE_OPENING_HOURS or AVAILABLE. Menu and checkout display its message and disable new ordering when unavailable; menu has an explicit refresh action. Collection schedules, cutoffs and item checks still apply separately.
+
+`CreateOrderHandler.handle` returns matching committed retries before enforcing the pause. New orders call `requireAcceptingOrders` inside the order transaction; its shared settings lock serializes creation with staff pause writes. Existing order lookup, payments and staff transitions remain accessible. Resuming does not override environment flags, opening hours or menu availability.
 
 ## Detailed editor trace: customer places an order
 
@@ -261,12 +289,12 @@ Follow these in order with “go to file”/symbol search:
 11. Open `../../backend/src/main/java/au/com/nakornthai/ordering/createorder/CreateOrderController.java`, `create(...)`. The `@RestController`/`@RequestMapping("/api/orders")` plus `@PostMapping` form the endpoint. `@Valid @RequestBody` triggers DTO validation; successful output is HTTP 201.
 12. Open `CreateOrderRequest.java`. Compare every JSON field with the frontend payload and note nested validation bounds. `Line.configurationKey()` canonicalizes selection order for duplicate/idempotency logic.
 13. Open `CreateOrderHandler.java`, `handle(...)` (`@Service`, `@Transactional`). First follow the advisory lock and fingerprint. An already-committed identical `requestId` maps the existing order; a mismatched replay returns conflict.
-14. Continue through feature/payment flags and `RestaurantAvailabilityService.schedule()`. Open `restaurant/availability/RestaurantAvailabilityService.java`, then `restaurant/infrastructure/JpaRestaurantRepository.java`, to see the read of `restaurant_settings`, `restaurant_opening_hours`, and `restaurant_closed_date` and the domain `RestaurantSchedule.isOpen` decision.
+14. Follow `OrderingSettingsHandler.requireAcceptingOrders()` after the replay branch, then payment flags and `RestaurantAvailabilityService.schedule()`. Open `restaurant/availability/RestaurantAvailabilityService.java`, then `restaurant/infrastructure/JpaRestaurantRepository.java`, to see the read of `restaurant_settings`, `restaurant_opening_hours`, and `restaurant_closed_date` and the domain `RestaurantSchedule.isOpen` decision.
 15. Return to `CreateOrderHandler`. Follow `MenuCatalogLock.read(em)`, then each line's `EntityManager.find(MenuItemVariationJpaEntity...)` and `find(MenuCollectionItemJpaEntity...)`. Navigate into those entity classes to see variation → item and membership → collection/item/category relationships.
 16. Open `../../backend/src/main/java/au/com/nakornthai/menu/infrastructure/MenuCatalogRules.java` and `menu/domain/MenuPricing.java`. Availability is evaluated at one checkout instant; `MenuPricing.calculate` validates option ownership/cardinality/availability, applies a collection override only to the default variation, and uses checked arithmetic.
 17. Return to the handler and find `expectedUnitPriceMinor != price.unitPrice()`. This is the server-side anti-stale-price check. Then inspect construction of `OrderJpaEntity`, `OrderItemJpaEntity`, and `OrderItemOptionJpaEntity`: human-readable names and prices are immutable order snapshots, not later menu joins.
 18. Open those three classes under `ordering/infrastructure`, plus `OrderEventJpaEntity`. Their `@Entity`/`@Table` annotations map to `restaurant_order`, `restaurant_order_item`, `restaurant_order_item_option`, and `restaurant_order_event`. Parent-to-items and item-to-options use cascade persist; the handler explicitly persists the NEW event.
-19. Open `../../backend/src/main/resources/db/migration/V11__create_pickup_ordering.sql`, then V17 and V19. Verify base order/item/event constraints, option snapshots, and collection provenance. Menu tables read during validation originate in V2/V17; schedule tables originate in V21.
+19. Open `../../backend/src/main/resources/db/migration/V11__create_pickup_ordering.sql`, then V17 and V19. Verify base order/item/event constraints, option snapshots, and collection provenance. Menu tables read during validation originate in V2/V17, with item option prices in V23 and staff ordering control in V24; schedule tables originate in V21.
 20. Back in `CreateOrderHandler`, `em.persist(order); em.flush()` writes the aggregate, then the event is persisted. `OrderMapper.map(order, false)` creates `CreateOrderResponse`; open both `OrderMapper.java` and `CreateOrderResponse.java` to inspect the customer-visible JSON.
 21. Return through `CreateOrderController` to `orderApi.request`, which JSON-decodes the 201 response. `CheckoutPage` does not use returned fields directly because its locally held receipt key is the durable capability; it calls `complete(payload)`.
 22. In `complete`, observe the state effects: store `{requestId, trackingToken}` in `RECEIPT`, remove `PENDING_ORDER`, dispatch cart `clear`, clear local pending state, and set `window.location.hash = '/order-confirmation'`. `CartProvider` persists the empty cart and subscribed components re-render.
@@ -282,7 +310,7 @@ Follow these in order with “go to file”/symbol search:
 - Ordering creation uses `EntityManager` directly; reads use `SpringDataOrderRepository`. Menu public reads use a domain repository adapter; menu administration uses both Spring Data and `EntityManager`. These are active local patterns, not competing duplicate implementations.
 - `CreateOrderHandler.fingerprintLines` retains a legacy replay fingerprint for old lines without collection/options. Current frontend `orderLines` always sends collection identity. New orders explicitly reject missing collection IDs, so the legacy branch only assists replay compatibility.
 - `CurrentUserController /api/identity/me` is implemented but not called by the frontend. The active restoration path is refresh-token rotation.
-- Collection metadata, schedule, category placement and membership CRUD are wired into `StaffMenuPage`. Option-group/option/assignment endpoints remain implemented and secured without a dashboard editor.
+- Collection metadata, schedule, category placement and membership CRUD are wired into `StaffMenuPage`. Item option groups, shared choices, assignments and per-item prices are wired into `MenuItemOptionEditor`.
 - Confirmation-sending files (`SendOrderConfirmationHandler` and command) are empty. Reservation/function pages explicitly state that no automatic notification is sent. Twilio Verify is active only for tracking-access verification when configured.
 - Payment provider behavior is gated by configuration. PayPal create/details/capture and staff PayID confirmation are implemented; similarly named webhook/refund or alternative-provider placeholders do not form an active end-to-end path.
 - Public media bytes live on the filesystem while metadata lives in PostgreSQL. This is the one mapped feature whose persistence is intentionally split.
@@ -301,6 +329,12 @@ Follow these in order with “go to file”/symbol search:
 | `V17__add_menu_option_model.sql` | Collection scheduling/categories, option groups/options, selected option snapshots |
 | `V19__add_order_item_collection_provenance.sql` | Collection and base/override price snapshots on order items |
 | `V21__add_restaurant_scheduling.sql` | Restaurant timezone, opening windows, and closed dates |
-| `V22__add_lunch_special_menu.sql` | Current collection/menu data and collection cutoff extension |
+| `V22__add_lunch_special_menu.sql` | Lunch Special menu data and collection cutoff extension |
+| `V23__price_options_per_menu_item.sql` | Assignment-specific prices; backfills existing assignments and removes global option price |
+| `V24__add_staff_ordering_control.sql` | Staff pause flag/message on restaurant settings |
+| `V25__seed_starting_restaurant_configuration.sql` | Conditional restaurant/Lunch Special schedule seeds and narrowly targeted local-time corrections |
+| `V26__seed_starting_admin_account.sql` | Inserts the starting ADMIN account if its username does not already exist; does not reset existing users or create sessions |
 
 All of these are unqualified or explicitly `public` PostgreSQL tables in one common schema. Hibernate validates rather than creates this schema.
+
+V25 seeds restaurant windows of 09:00–22:00 daily when no opening-hour rows exist and Lunch Special rules of 11:00–14:30 daily when that collection has no schedule rows. SQL TIME values are local wall-clock times; the affected entity fields use direct LocalTime mappings. Existing configuration and narrowly matched correction predicates must be read in the migration before predicting a database outcome. Migration files do not prove what is applied in production.

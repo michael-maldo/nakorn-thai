@@ -4,7 +4,7 @@ Verified against the current source on 2026-09-25. Start at `#/menu`; finish at 
 
 Read the numbered steps in order. The first HTTP trip discovers collections; only after it returns can the second trip retrieve the selected collection. Each trip has its own request and transaction. A “Calls next” entry can mean a synchronous call, an asynchronous continuation, or a later React render; the text distinguishes them.
 
-For the broader flow, see `application-trace-map.md`, section 1. This guide follows the current source, including V23 item-specific option prices. Three qualifications matter: its mention of `MenuPricing` should not imply that browsing calls it (this read path calculates offer fields in `MenuItemMapper`); V19's order provenance is not a public-menu retrieval dependency; and the table index omits the conditional reads of the three restaurant schedule tables. “Carry cookies” means eligible existing cookies may be sent, not that a cookie must exist.
+For the broader flow, see [Application trace map](application-trace-map.md), section 1. Source checked on 2026-09-26 against `f2d6653`, including item-specific option prices (V23), ordering pause controls (V24) and schedule seeds/corrections (V25). Browsing calculates offer fields in `MenuItemMapper`; it does not call checkout’s `MenuPricing`. V19 order provenance is not a public-menu retrieval dependency. “Carry cookies” means eligible existing cookies may be sent, not that a cookie must exist.
 
 ## Before following the calls
 
@@ -121,7 +121,7 @@ React mounts the page selected by AppRouter.
 Initial `selectedId = null`, `search = ""`, `enabled = false`, `orderingAttempt = 0`, `added = ""`.
 
 **What happens**
-Calls `useMenu(selectedId)` during every render. Reads cart context through `useCart()`. Initially the hook supplies no menu and `loading: true`, so the page renders its header and loading status. Independently its effect calls `getOrderingOptions()` from `frontend/src/domains/ordering/api/orderApi.js` (`GET /api/orders/options`) and updates `enabled`; failure is ignored. This only controls card actions and the ordering notice, not whether menu data loads.
+Calls `useMenu(selectedId)` during every render. Reads cart context through `useCart()`. Initially the hook supplies no menu and `loading: true`, so the page renders its header and loading status. Independently its effect calls `getOrderingOptions()` from `frontend/src/domains/ordering/api/orderApi.js` (`GET /api/orders/options`) and updates `enabled` and `orderingMessage`; failure disables ordering and shows an availability-check error. This controls card actions and the ordering notice, not whether menu data loads. `CreateOrderController.options` → `CreateOrderHandler.orderingStatus` → `OrderingSettingsHandler.status` combines the environment flag, stored staff pause and restaurant hours. This is a separate request from collection availability; the menu refresh button refreshes both paths.
 
 **Calls next**
 `useMenu(selectedId)` now; after commit, the menu-loading effect and the independent options effect.
@@ -1208,7 +1208,7 @@ React renders card and nested option component.
 dish presentation fields, variation, groups, selections, disabled state, computed price.
 
 **What happens**
-money divides integer minor units by 100 and formats en-AU AUD. MenuItemOptions maps groups into SINGLE selects or MULTIPLE quantity inputs, marks required/optional, calculates selected totals and disables unavailable controls. Unpriced options remain visible as zero-price, unavailable choices; the client uses the server’s `available` flag rather than treating zero as permission to select. Card renders article, optional lazy image, h3 name, description, unavailable label, variation prices, option UI and base+options total. With no variation it displays “Ask us for pricing.” React reconciles/commits DOM; browser paints. Image URLs may cause separate lazy image GETs; image bytes are not inside menu JSON. Header/Footer are public-site chrome, not menu-data transformation.
+money divides integer minor units by 100 and formats en-AU AUD. MenuItemOptions maps groups into SINGLE selects or MULTIPLE checkboxes (selected quantity 1, cleared quantity 0), marks required/optional, calculates selected totals and disables unavailable controls. Unselected MULTIPLE choices are disabled once the group maximum is reached; selected choices can still be cleared. The underlying model/API still supports quantities, but these controls offer one of each choice. Unpriced options remain visible as zero-price, unavailable choices; the client uses the server’s `available` flag rather than treating zero as permission to select. Card renders article, optional lazy image, h3 name, description, unavailable label, variation prices, option UI and base+options total. With no variation it displays “Ask us for pricing.” React reconciles/commits DOM; browser paints. Image URLs may cause separate lazy image GETs; image bytes are not inside menu JSON. Header/Footer are public-site chrome, not menu-data transformation.
 
 **Calls next**
 Browser paints DOM; later user events can update local state. The requested initial browsing trace ends here.
@@ -1240,6 +1240,8 @@ Chosen ID, click or input value.
 
 **What happens**
 select sets selectedId and clears search/added; changed selectedId triggers effect cleanup then a fresh discovery and items sequence. reload resets enabled, increments orderingAttempt, and retry increments hook attempt, refreshing independent options and menu requests. Search only setSearch: menuSections recomputes using loaded items. There is no menu polling timer; availability is a snapshot until a new request.
+
+`MenuCategoryNavigation` receives the filtered nonempty sections and `navigationRef`. Category buttons call `choose(id)` to scroll to `menu-category-{id}` below the sticky navigation without changing the hash or fetching data. Scroll/resize listeners and `ResizeObserver` update `activeId` (`aria-current="location"`) and overflow controls. Horizontal arrows, touch scrolling, mouse dragging and focus reveal support long category lists; CSS hides the scrollbar while preserving scrolling. Dragging suppresses the subsequent pointer click, and reduced-motion preferences disable smooth scrolling.
 
 **Calls next**
 Selection/retry returns to loading effect; search returns to MenuPage derivation only.
@@ -1333,6 +1335,8 @@ Relevant migrations, all under `backend/src/main/resources/db/migration/`:
 - `V21__add_restaurant_scheduling.sql`: the conditional restaurant snapshot tables.
 - `V22__add_lunch_special_menu.sql`: daily cutoff extension plus lunch content. V18/V20 and other seed/import migrations affect which rows exist; they are not runtime calls or proof of current database contents.
 - `V23__price_options_per_menu_item.sql`: creates `menu_item_option_price`, copies previous global option prices into each existing assignment, then drops `menu_option.price_delta_minor`. Composite foreign keys keep prices tied to both the assigned group and its choices. Subsequent missing prices mean unavailable choices, not inherited global prices.
+- `V24__add_staff_ordering_control.sql`: adds the restaurant pause flag/message consumed by the separate ordering-options request; it does not hide menu data.
+- `V25__seed_starting_restaurant_configuration.sql`: conditionally seeds opening hours and Lunch Special schedules and corrects narrowly matched legacy local-time values. These can affect evaluated availability after application; they do not prove current database contents.
 
 `@Query` in the two menu Spring Data interfaces is **explicit JPQL**, not literal PostgreSQL SQL. Discovery's method name is a **derived query**. Restaurant hours/dates use **explicit JPQL via EntityManager**. Hibernate generates SQL for all these queries, lazy association loads and the settings lock. This slice has no application-written native SQL read query. PostgreSQL executes generated statements and returns rows; Hibernate reconstructs entities and relationships. Flyway DDL is explicit SQL, executed separately at startup.
 
