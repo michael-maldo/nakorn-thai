@@ -25,8 +25,8 @@ public record MenuItem(UUID id, String slug, String name, String description,
             this(id, slug, name, description, items, "Australia/Melbourne", null, List.of());
         }
     }
-    public record Image(String url, String alt, int focusX, int focusY, double zoom) {
-        public Image(String url, String alt) { this(url, alt, 50, 50, 1); }
+    public record Image(String url, String alt, int focusX, int focusY, double zoom, int rotation) {
+        public Image(String url, String alt) { this(url, alt, 50, 50, 1, 0); }
     }
     public record FoodProfile(String allergenReviewStatus, Instant allergenReviewedAt,
                               List<Badge> dietaryTags, List<Allergen> allergens) {}

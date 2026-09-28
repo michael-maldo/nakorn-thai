@@ -15,8 +15,9 @@ public class MenuImageController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     void save(@PathVariable UUID id, @RequestParam long version,
             @RequestParam(required = false) MultipartFile file, @RequestParam String alt,
-            @RequestParam int focusX, @RequestParam int focusY, @RequestParam double zoom) throws IOException {
-        images.save(id, version, file, alt, focusX, focusY, zoom);
+            @RequestParam int focusX, @RequestParam int focusY, @RequestParam double zoom,
+            @RequestParam(defaultValue = "0") int rotation) throws IOException {
+        images.save(id, version, file, alt, focusX, focusY, zoom, rotation);
     }
     @GetMapping("/media/menu/{name}")
     ResponseEntity<FileSystemResource> read(@PathVariable String name) {

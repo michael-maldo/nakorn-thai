@@ -28,9 +28,9 @@ public class MenuImageService {
         return directory.resolve(name);
     }
     @Transactional
-    public void save(UUID id, long version, MultipartFile file, String alt, int x, int y, double zoom) throws IOException {
+    public void save(UUID id, long version, MultipartFile file, String alt, int x, int y, double zoom, int rotation) throws IOException {
         if (alt == null || alt.isBlank() || alt.length() > 255 || x < 0 || x > 100 || y < 0 || y > 100
-                || !Double.isFinite(zoom) || zoom < 1 || zoom > 3)
+                || !Double.isFinite(zoom) || zoom < 1 || zoom > 3 || rotation < -180 || rotation > 180)
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid image description or focus");
         var item = em.find(MenuItemJpaEntity.class, id, LockModeType.PESSIMISTIC_WRITE);
         if (item == null) throw new ResponseStatusException(HttpStatus.NOT_FOUND);
@@ -75,7 +75,7 @@ public class MenuImageService {
             picture.setStorageKey("menu/" + name);
         }
         if (picture == null) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Choose an image first");
-        picture.setAltText(alt); picture.setFocusX(x); picture.setFocusY(y); picture.setZoom(zoom);
+        picture.setAltText(alt); picture.setFocusX(x); picture.setFocusY(y); picture.setZoom(zoom); picture.setRotation(rotation);
         if (picture.getId() == null) em.persist(picture);
         em.lock(item, LockModeType.PESSIMISTIC_FORCE_INCREMENT);
     }

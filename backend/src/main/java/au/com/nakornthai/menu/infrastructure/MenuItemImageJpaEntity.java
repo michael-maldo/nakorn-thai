@@ -37,5 +37,7 @@ public class MenuItemImageJpaEntity extends MenuUuidJpaEntity {
     private int focusY = 50;
     @Column(nullable = false)
     private double zoom = 1;
+    @Column(nullable = false)
+    private int rotation = 0;
 
 }

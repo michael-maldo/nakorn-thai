@@ -33,11 +33,11 @@ class MenuImageServiceTest {
         var bytes = new ByteArrayOutputStream();
         ImageIO.write(new BufferedImage(30, 20, BufferedImage.TYPE_INT_RGB), "PNG", bytes);
         var file = new MockMultipartFile("file", "../../unsafe.png", "image/png", bytes.toByteArray());
-        service.save(id, 2, file, "Curry", 25, 75, 1.5);
+        service.save(id, 2, file, "Curry", 25, 75, 1.5, 45);
         var captured = org.mockito.ArgumentCaptor.forClass(MenuItemImageJpaEntity.class);
         verify(em).persist(captured.capture());
         var photo = captured.getValue();
-        assertEquals(25, photo.getFocusX()); assertEquals(75, photo.getFocusY()); assertEquals(1.5, photo.getZoom());
+        assertEquals(25, photo.getFocusX()); assertEquals(75, photo.getFocusY()); assertEquals(1.5, photo.getZoom()); assertEquals(45, photo.getRotation());
         assertTrue(photo.getStorageKey().matches("menu/[a-f0-9-]{36}\\.jpg"));
         Path saved = service.file(photo.getStorageKey().substring(5));
         assertNotNull(ImageIO.read(saved.toFile()));
@@ -48,17 +48,24 @@ class MenuImageServiceTest {
     @Test void focusOnlySavePreservesStoredFile() throws Exception {
         var photo = new MenuItemImageJpaEntity(); photo.setPrimary(true); photo.setStorageKey("menu/retained.jpg");
         when(item.getImages()).thenReturn(List.of(photo));
-        service.save(id, 2, null, "Updated alt", 0, 100, 3);
-        assertEquals("menu/retained.jpg", photo.getStorageKey()); assertEquals(100, photo.getFocusY());
+        service.save(id, 2, null, "Updated alt", 0, 100, 3, -90);
+        assertEquals("menu/retained.jpg", photo.getStorageKey()); assertEquals(100, photo.getFocusY()); assertEquals(-90, photo.getRotation());
     }
     @Test void rejectsStaleVersionAndInvalidFocus() {
-        assertEquals(409, assertThrows(ResponseStatusException.class, () -> service.save(id, 1, null, "Curry", 50, 50, 1)).getStatusCode().value());
-        assertEquals(400, assertThrows(ResponseStatusException.class, () -> service.save(id, 2, null, "Curry", 101, 50, 1)).getStatusCode().value());
+        assertEquals(409, assertThrows(ResponseStatusException.class, () -> service.save(id, 1, null, "Curry", 50, 50, 1, 0)).getStatusCode().value());
+        assertEquals(400, assertThrows(ResponseStatusException.class, () -> service.save(id, 2, null, "Curry", 101, 50, 1, 0)).getStatusCode().value());
         verify(em, never()).persist(any());
+    }
+    @Test void rejectsOutOfRangeRotationBeforePersistence() {
+        for (int rotation : new int[] {-181, 181}) {
+            assertEquals(400, assertThrows(ResponseStatusException.class,
+                    () -> service.save(id, 2, null, "Curry", 50, 50, 1, rotation)).getStatusCode().value());
+        }
+        verifyNoInteractions(em);
     }
     @Test void rejectsNonImageAndTraversal() {
         var file = new MockMultipartFile("file", "fake.jpg", "image/jpeg", "not a photo".getBytes());
-        assertEquals(400, assertThrows(ResponseStatusException.class, () -> service.save(id, 2, file, "Curry", 50, 50, 1)).getStatusCode().value());
+        assertEquals(400, assertThrows(ResponseStatusException.class, () -> service.save(id, 2, file, "Curry", 50, 50, 1, 0)).getStatusCode().value());
         assertThrows(ResponseStatusException.class, () -> service.file("../../backend.env"));
     }
 }

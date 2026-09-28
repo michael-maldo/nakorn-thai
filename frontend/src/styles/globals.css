@@ -501,3 +501,8 @@ body.has-cart-dock { padding-bottom: calc(88px + env(safe-area-inset-bottom)); }
 .staff-order-card li { margin-block: .6rem; }
 .staff-order-notes { white-space: pre-wrap; overflow-wrap: anywhere; }
 .staff-order-action { border-top: 1px solid var(--line); margin-top: 1rem; padding-top: .5rem; }
+
+.menu-admin .menu-image-controls { margin-block: 20px; padding: 16px; border: 1px solid #dce3e8; border-radius: 8px; }
+.menu-image-controls label { display: grid; gap: 8px; margin-top: 16px; }
+.menu-admin .menu-image-controls input[type="range"] { width: 100%; padding: 0; accent-color: #255e40; }
+.menu-image-control-buttons { display: flex; flex-wrap: wrap; gap: 8px; margin-block: 10px; }

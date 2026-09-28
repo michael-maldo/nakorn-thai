@@ -23,7 +23,7 @@ export default function MenuItemCard({ item, collection, enabled, cart, onAdd })
     : !existing && cart.length >= 30 ? 'Your cart has reached 30 different configurations.' : '';
   return <article className="restaurant-menu-item">
     {dish.image && <div className="restaurant-menu-photo"><img src={dish.image} alt={dish.imageAlt} loading="lazy"
-      style={{ objectPosition: dish.imagePosition, transformOrigin: dish.imageOrigin, transform: `scale(${dish.imageScale ?? 1})` }} /></div>}
+      style={{ objectPosition: dish.imagePosition, transformOrigin: dish.imageOrigin, transform: `scale(${dish.imageScale ?? 1}) rotate(${item.image ? dish.imageRotation : '0deg'})` }} /></div>}
     <div className="restaurant-menu-item-content">
       <h3>{dish.name}</h3><p>{dish.description}</p>
       {collection.availability.available && !item.available && <p className="dish-unavailable">Currently unavailable</p>}

@@ -302,7 +302,7 @@ Items: {
   items: [{
     id: UUID-string, slug: string, name: string, description: string,
     available: boolean,
-    image: null | { url: string, alt: string, focusX: integer, focusY: integer, zoom: number },
+    image: null | { url: string, alt: string, focusX: integer, focusY: integer, zoom: number, rotation: integer },
     profileScope: "ITEM" | "VARIATION_REQUIRED",
     profile: FoodProfile|null,
     variations: [{ id: UUID-string, name: string, priceMinor: integer, currency: "AUD",
@@ -1331,6 +1331,7 @@ Relevant migrations, all under `backend/src/main/resources/db/migration/`:
 
 - `V2__create_menu_schema.sql`: core categories, items, variations, images, collections, membership and food-profile tables/constraints.
 - `V9__menu_image_focus.sql`: focus/zoom metadata consumed by mapper and presentation helper.
+- `V27__add_menu_image_rotation.sql`: rotation in degrees (−180 to 180, default 0), saved by the staff image editor and applied with zoom in both its preview and `MenuItemCard`.
 - `V17__add_menu_option_model.sql`: collection active/timezone/schedules, collection category placement, membership price override and option model. Its unrelated order snapshot table is not read here.
 - `V21__add_restaurant_scheduling.sql`: the conditional restaurant snapshot tables.
 - `V22__add_lunch_special_menu.sql`: daily cutoff extension plus lunch content. V18/V20 and other seed/import migrations affect which rows exist; they are not runtime calls or proof of current database contents.
