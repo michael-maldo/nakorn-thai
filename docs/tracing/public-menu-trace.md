@@ -1,10 +1,10 @@
 # Public menu browsing: an editor tracing guide
 
-Verified against the current source on 2026-09-25. Start at `#/menu`; finish at the rendered dish cards. This is a source-level trace, not a claim that a local database or running server was inspected. All data examples below use field names/types rather than invented restaurant data.
+Source checked on 2026-09-28 against commit `962098d` plus the working-tree full-photo rendering fix (migrations through V27). Start at `#/menu`; finish at the rendered dish cards. This is a source-level trace, not a claim that a local database or running server was inspected. All data examples below use field names/types rather than invented restaurant data. The image section also follows the staff edit that produces the metadata used by these cards.
 
 Read the numbered steps in order. The first HTTP trip discovers collections; only after it returns can the second trip retrieve the selected collection. Each trip has its own request and transaction. A “Calls next” entry can mean a synchronous call, an asynchronous continuation, or a later React render; the text distinguishes them.
 
-For the broader flow, see [Application trace map](application-trace-map.md), section 1. Source checked on 2026-09-26 against `f2d6653`, including item-specific option prices (V23), ordering pause controls (V24) and schedule seeds/corrections (V25). Browsing calculates offer fields in `MenuItemMapper`; it does not call checkout’s `MenuPricing`. V19 order provenance is not a public-menu retrieval dependency. “Carry cookies” means eligible existing cookies may be sent, not that a cookie must exist.
+For the broader flow, see [Application trace map](application-trace-map.md), section 1. The trace includes item-specific option prices (V23), ordering pause controls (V24), schedule seeds/corrections (V25), and saved image rotation (V27). The starting admin-account seed (V26) is not part of anonymous menu retrieval. Browsing calculates offer fields in `MenuItemMapper`; it does not call checkout’s `MenuPricing`. V19 order provenance is not a public-menu retrieval dependency. “Carry cookies” means eligible existing cookies may be sent, not that a cookie must exist.
 
 ## Before following the calls
 
@@ -825,7 +825,7 @@ One retained membership from adapter stream.
 membership.getMenuItem(); calculated collection availability.
 
 **What happens**
-@Component makes the mapper injectable. Its constructor normalizes the configured media-base URL with a trailing slash. The membership overload calls map(item). That overload filters inactive variations, sorts displayOrder then UUID string, builds Variation records (available = item.available && variation.available), and calls variationProfile(v). It selects the primary image and combines mediaBaseUrl + storageKey. Returns a base MenuItem; if no active variations, uses scope ITEM and itemProfile; otherwise VARIATION_REQUIRED and null item-level profile.
+@Component makes the mapper injectable. Its constructor normalizes the configured media-base URL with a trailing slash. The membership overload calls map(item). That overload filters inactive variations, sorts displayOrder then UUID string, builds Variation records (available = item.available && variation.available), and calls variationProfile(v). It selects the primary image and combines mediaBaseUrl + storageKey. `MenuItemImageJpaEntity` supplies alt text, focusX/focusY, zoom and integer rotation to `MenuItem.Image(url, alt, focusX, focusY, zoom, rotation)`. These values survive the membership mapping unchanged through `base.image()`; they are not computed from image bytes during a menu read. Returns a base MenuItem; if no active variations, uses scope ITEM and itemProfile; otherwise VARIATION_REQUIRED and null item-level profile.
 
 **Calls next**
 `variationProfile(v)` or `itemProfile(item)` as needed, then returns base to membership overload.
@@ -840,6 +840,7 @@ Mapping is explicit representation conversion. Entity audit/status/SKU fields ar
 - `item`, `variations`, `image`, `base`
 - Active vs available variation flags
 - `mediaBaseUrl`, storageKey, constructed URL
+- Image `focusX`, `focusY`, `zoom`, `rotation` before and after mapping
 
 ### Step 25 — Map food profiles without inheriting claims
 
@@ -1146,7 +1147,7 @@ MenuItemCard render.
 API item, optional API image object; local photo map keyed by specific item UUIDs.
 
 **What happens**
-Copies item fields and presentation fallback metadata. Prefers item.image.url over local bundled photo, alt over item name; if API image exists, computes focus percentages, transform origin and scale from its metadata. Names, descriptions and visibility remain from API.
+Copies item fields and presentation fallback metadata. Prefers item.image.url over local bundled photo, alt over item name; if API image exists, computes `imagePosition` and `imageOrigin` as focus percentages, `imageScale` from zoom, and `imageRotation` as a degree string from rotation. Missing focus/zoom/rotation fields default to 50%/50%, 1 and 0° respectively. Names, descriptions and visibility remain from API. Without an API image, only the four item IDs in the local photo map have bundled fallback photos. The map includes decorative rotation values, but `MenuItemCard` explicitly uses `0deg` when `item.image` is absent.
 
 **Calls next**
 Returns `dish` to MenuItemCard.
@@ -1159,7 +1160,7 @@ Object spread and derived properties can change a field's representation without
 
 **Things to inspect in the debugger**
 - Original `item.image` vs `dish.image`
-- `imageAlt`, `imagePosition`, `imageOrigin`, `imageScale`
+- `imageAlt`, `imagePosition`, `imageOrigin`, `imageScale`, `imageRotation`
 - Whether a fallback photo exists
 
 ### Step 35 — Compute the visible option and price state
@@ -1208,7 +1209,7 @@ React renders card and nested option component.
 dish presentation fields, variation, groups, selections, disabled state, computed price.
 
 **What happens**
-money divides integer minor units by 100 and formats en-AU AUD. MenuItemOptions maps groups into SINGLE selects or MULTIPLE checkboxes (selected quantity 1, cleared quantity 0), marks required/optional, calculates selected totals and disables unavailable controls. Unselected MULTIPLE choices are disabled once the group maximum is reached; selected choices can still be cleared. The underlying model/API still supports quantities, but these controls offer one of each choice. Unpriced options remain visible as zero-price, unavailable choices; the client uses the server’s `available` flag rather than treating zero as permission to select. Card renders article, optional lazy image, h3 name, description, unavailable label, variation prices, option UI and base+options total. With no variation it displays “Ask us for pricing.” React reconciles/commits DOM; browser paints. Image URLs may cause separate lazy image GETs; image bytes are not inside menu JSON. Header/Footer are public-site chrome, not menu-data transformation.
+money divides integer minor units by 100 and formats en-AU AUD. MenuItemOptions maps groups into SINGLE selects or MULTIPLE checkboxes (selected quantity 1, cleared quantity 0), marks required/optional, calculates selected totals and disables unavailable controls. Unselected MULTIPLE choices are disabled once the group maximum is reached; selected choices can still be cleared. The underlying model/API still supports quantities, but these controls offer one of each choice. Unpriced options remain visible as zero-price, unavailable choices; the client uses the server’s `available` flag rather than treating zero as permission to select. Card renders article, optional lazy image, h3 name, description, unavailable label, variation prices, option UI and base+options total. With no variation it displays “Ask us for pricing.” React reconciles/commits DOM; browser paints. `MenuItemCard` delegates the photo to `frontend/src/domains/menu/components/MenuPhoto.jsx`. Its `PhotoLayer` reads natural image dimensions on load; `frontend/src/domains/menu/model/menuPhotoLayout.js` sizes the entire image proportionally to cover the 1.45-aspect-ratio frame and positions it from the focus values. The layer applies `scale(...) rotate(...)` around the configured frame origin, with visible overflow; only the outer `.menu-photo-frame` clips. The image is not cropped to a frame-sized `object-fit: cover` box before rotation, so off-frame source pixels remain available. Only API-backed images use saved rotation. Zoom remains manual if the actual source edges enter the frame. Image URLs may cause separate lazy image GETs; image bytes are not inside menu JSON. Header/Footer are public-site chrome, not menu-data transformation.
 
 **Calls next**
 Browser paints DOM; later user events can update local state. The requested initial browsing trace ends here.
@@ -1266,6 +1267,21 @@ Dependency-driven effects explain WHEN fetching recurs. A state change can reren
 - What happens to card state when evaluatedAt changes its React key?
 - Which returned fields are not currently displayed?
 
+## Image edits that feed the public menu
+
+This is a separate ADMIN write flow, not part of either anonymous collection GET. See [Application trace map — item writes and images](application-trace-map.md#item-writes-and-images) for its place in menu administration.
+
+1. **Open the image editor.** `#/staff/menu/items/{id}/images` → `AppRouter.staffPage` → `ProtectedRoute` (ADMIN) → `StaffShell` → `StaffMenuPage` → `MenuAdminPage` → `MenuItemEditor` → `MenuImageEditor`. `StaffMenuPage` keys the admin page by hash, so section navigation remounts it. `useMenuAdminData` loads staff items and collection configuration in parallel. The selected staff item's `image` comes from `MenuAdminService.response` → `MenuItemMapper.map(item)`, using the same image record as the public response.
+2. **Edit local state and preview.** `frontend/src/domains/menu/components/MenuImageEditor.jsx` owns the selected file, object URL, description, x/y focus, zoom and rotation. Upload accepts JPEG/PNG up to 8 MiB in the browser; server decoding enforces the pixel limit. Focus sliders use 0–100; movement buttons change focus by five points (left/up increase the corresponding focus value). Zoom is 1–3 in 0.05 steps. Rotation uses integer degrees from −180 to 180, with 90° turn buttons that wrap within that range. Selecting a valid new file or resetting all controls uses 50/50 focus, 1× zoom and 0°. Reset rotation changes only the angle. Cancel restores the item's saved values and clears the file input; object URLs are revoked by effect cleanup. These actions do not send HTTP requests.
+3. **Compare the preview with the card.** Both the editor and public card render `MenuPhoto`, using the same frame aspect ratio of 1.45 and the same full-photo layout. `menuPhotoLayout` computes percentage width/height from the image's natural aspect ratio, with left/top offsets `(1 - sizeRatio) * focus`. `PhotoLayer` applies the zoom/rotation around the focus point in frame coordinates. `.menu-photo-layer` has visible overflow and its full-size image overrides the global max-width restriction; `.menu-photo-frame` alone clips the transformed result. Resizing the frame preserves the percentage layout. A new source URL remounts the layer and obtains its own natural dimensions. An unsaved bundled fallback initially uses the editor's default focus/zoom, so it need not match the bundled card's presentation preset. Saved API image metadata is the shared representation. Rotation uses all source pixels, including those outside the initial crop. It does not rewrite the JPEG or invent pixels beyond its actual edges; the user can increase zoom if those edges enter the frame.
+4. **Build the multipart write.** `MenuImageEditor.save()` → `saveMenuImage` in `frontend/src/domains/menu/api/menuApi.js` → `menuRequest`. FormData contains optional `file`, the owning item's `version`, `alt`, `focusX`, `focusY`, `zoom` and `rotation`. For an existing stored image, metadata-only edits omit `file`. If only a bundled fallback exists, saving first fetches that asset as a Blob and uploads it. The wrapper refreshes `/api/staff/menu/csrf`, supplies Bearer auth and same-origin cookies through `fetchWithIdentity`, and lets the browser supply the multipart Content-Type/boundary.
+5. **Authorize, bind and validate.** POST `/api/staff/menu/items/{id}/image` is ADMIN-only under `SecurityConfig` and must pass CSRF. `backend/src/main/java/au/com/nakornthai/menu/updateitem/MenuImageController.java`, `save(...)`, binds request parameters and delegates to `MenuImageService.save(...)`; omitted rotation defaults to 0 for older clients. The transactional service rejects blank/overlong alt text, focus outside 0–100, nonfinite zoom or zoom outside 1–3, and rotation outside −180–180. It locks the item with `PESSIMISTIC_WRITE`, checks the item version (409 on mismatch), and finds its primary image.
+6. **Persist bytes and metadata.** `backend/src/main/java/au/com/nakornthai/menu/infrastructure/MenuImageService.java` decodes JPEG/PNG uploads of at most 8 MiB and 16,000,000 pixels, converts them to RGB on white, and writes a randomly named JPEG under `MENU_MEDIA_DIRECTORY` (default `./menu-media`). The metadata row uses storage key `menu/<uuid>.jpg`; a new file is removed if its transaction does not commit. Existing primary images can retain their file while metadata changes. The service persists a new image entity when needed, sets alt/focus/zoom/rotation, and force-increments the owning item's version. V9 supplies focus/zoom columns; V27 adds `rotation integer NOT NULL DEFAULT 0` with a −180–180 check. Replacing a photo does not delete its previous JPEG in this service.
+7. **Complete and reload.** The controller returns 204. The editor clears its dirty guard, marks the save complete and calls `onSaved` → `useMenuAdminData.reload()`. A successful read increments `revision`, remounting the editor with fresh image metadata and item version. If that read fails, the saved editor remains disabled and offers the existing Refresh data path; it does not replay the committed upload. A failed write keeps the draft and shows its error. Photo saves are independent of item-detail saves.
+8. **Read on the public page.** A subsequent public menu load/refresh follows steps 20–36 above and returns the new image metadata. An already-open menu does not receive a push or automatically refetch after a staff edit. With the default `MEDIA_BASE_URL=/media/`, the browser's image request is GET `/media/menu/{name}` → permitted security rule → `MenuImageController.read` → `MenuImageService.file` → filesystem resource, with JPEG Content-Type and `Cache-Control: no-cache`; an invalid name or unreadable file yields 404. A configured media-base URL can instead point the browser elsewhere. Bundled fallbacks are frontend asset requests, not this controller's media requests.
+
+Useful observation points are the editor's FormData before saving, `MenuImageService.save` before/after setting rotation, the next staff/public JSON `image` object, and the full-photo layer's computed transform and image bounds. A local Chromium check with a synthetic portrait verified that a 90° turn reveals pixels outside the original crop and that editor/public layouts agree. No upload or live database save was exercised by that check.
+
 ## Database access map
 
 Arrows below denote parent-to-child rows unless labeled as references. These are the actual table names from the DDL and entity mappings, in the common PostgreSQL schema (`public` in the migrations that qualify it). They are not separate schemas per domain.
@@ -1307,7 +1323,7 @@ The entity classes in the following table are each located at the exact path for
 | `menu_category` | Reusable category; UUID `id` PK, unique slug | `MenuCategoryJpaEntity` | Fetch joins for canonical/effective category; collection-category traversal |
 | `menu_item` | Dish name/description/publication and base flags; UUID `id` PK, `category_id` FK | `MenuItemJpaEntity` | Membership query fetch-joins `m.menuItem`; no separate SpringDataMenuItemRepository call |
 | `menu_item_variation` | Dish variation and base AUD price; UUID `id` PK, `menu_item_id` FK | `MenuItemVariationJpaEntity` | `item.getVariations()` in base mapper |
-| `menu_item_image` | Stored image metadata; UUID `id` PK, `menu_item_id` FK; at most one primary per item via partial unique index | `MenuItemImageJpaEntity` | `item.getImages()`; mapper selects primary only |
+| `menu_item_image` | Stored URL key/alt/focus/zoom/rotation metadata; UUID `id` PK, `menu_item_id` FK; at most one primary per item via partial unique index | `MenuItemImageJpaEntity` | `item.getImages()`; mapper selects primary only |
 | `menu_item_option_group` | Assignment and selection limits/order; composite PK/FKs `(menu_item_id, option_group_id)` | `MenuItemOptionGroupJpaEntity` | `item.getOptionGroups()` |
 | `menu_item_option_price` | Item-specific delta; PK `(menu_item_id, option_group_id, option_id)`; composite FKs to assignment and option/group | `MenuItemOptionGroupJpaEntity.optionPrices` (`@ElementCollection`, no separate entity) | `assignment.getOptionPrices()` during option mapping; lazy map with batch size 64 |
 | `menu_option_group` | Named SINGLE/MULTIPLE group; UUID `id` PK, unique code | `MenuOptionGroupJpaEntity` | `assignment.getOptionGroup()` |
@@ -1331,13 +1347,13 @@ Relevant migrations, all under `backend/src/main/resources/db/migration/`:
 
 - `V2__create_menu_schema.sql`: core categories, items, variations, images, collections, membership and food-profile tables/constraints.
 - `V9__menu_image_focus.sql`: focus/zoom metadata consumed by mapper and presentation helper.
-- `V27__add_menu_image_rotation.sql`: rotation in degrees (−180 to 180, default 0), saved by the staff image editor and applied with zoom in both its preview and `MenuItemCard`.
 - `V17__add_menu_option_model.sql`: collection active/timezone/schedules, collection category placement, membership price override and option model. Its unrelated order snapshot table is not read here.
 - `V21__add_restaurant_scheduling.sql`: the conditional restaurant snapshot tables.
 - `V22__add_lunch_special_menu.sql`: daily cutoff extension plus lunch content. V18/V20 and other seed/import migrations affect which rows exist; they are not runtime calls or proof of current database contents.
 - `V23__price_options_per_menu_item.sql`: creates `menu_item_option_price`, copies previous global option prices into each existing assignment, then drops `menu_option.price_delta_minor`. Composite foreign keys keep prices tied to both the assigned group and its choices. Subsequent missing prices mean unavailable choices, not inherited global prices.
 - `V24__add_staff_ordering_control.sql`: adds the restaurant pause flag/message consumed by the separate ordering-options request; it does not hide menu data.
 - `V25__seed_starting_restaurant_configuration.sql`: conditionally seeds opening hours and Lunch Special schedules and corrects narrowly matched legacy local-time values. These can affect evaluated availability after application; they do not prove current database contents.
+- `V27__add_menu_image_rotation.sql`: rotation in degrees (−180 to 180, default 0), saved by the staff image editor and applied with zoom in both its preview and `MenuItemCard`.
 
 `@Query` in the two menu Spring Data interfaces is **explicit JPQL**, not literal PostgreSQL SQL. Discovery's method name is a **derived query**. Restaurant hours/dates use **explicit JPQL via EntityManager**. Hibernate generates SQL for all these queries, lazy association loads and the settings lock. This slice has no application-written native SQL read query. PostgreSQL executes generated statements and returns rows; Hibernate reconstructs entities and relationships. Flyway DDL is explicit SQL, executed separately at startup.
 
@@ -1360,7 +1376,7 @@ Choose **one retained published membership with an active variation** in your de
 | --- | --- | --- |
 | PostgreSQL | `menu_item.id UUID`, `name VARCHAR`, `description TEXT`, `is_available BOOLEAN`, `status`; related `menu_item_variation.price_minor BIGINT`; membership `display_order INTEGER`, `price_override_minor BIGINT NULL` | Separate normalized rows joined by IDs; canonical category and collection placement are distinct |
 | JPA | `MenuCollectionItemJpaEntity` → `MenuItemJpaEntity`; variation `Long priceMinor`, UUID IDs, entity association lists | Column names map to Java fields/getters; lazy objects are initialized when needed; published-item query and effective-category predicates filter rows |
-| Base domain mapping | `MenuItem` and `MenuItem.Variation` records, `long priceMinor`; `Image` record | Inactive variations discarded; active variations sorted; primary image selected; storage key becomes URL; entity status/audit/version/SKU discarded |
+| Base domain mapping | `MenuItem` and `MenuItem.Variation` records, `long priceMinor`; `Image` record | Inactive variations discarded; active variations sorted; primary image selected; storage key becomes URL; alt/focus/zoom/rotation copied to `Image`; entity status/audit/version/SKU discarded |
 | Collection mapping | Final `MenuItem` with `Category`, `collectionCategoryId`, membership `displayOrder`, `optionGroups` | Effective placement replaces canonical category when supplied; default variation price overridden if applicable; original price retained as `variationBasePriceMinor`; availability calculated from several inputs; profiles filtered; option deltas read from assignment price maps; inactive or unpriced options retained with available=false |
 | Collection model | `MenuItem.Collection.items(): List<MenuItem>` | Item sorted with siblings; categories deduplicated by UUID and ordered |
 | Response DTO | `MenuResponse.items(): List<MenuItem>` | Collection envelope copied; same nested domain records reused |
@@ -1368,8 +1384,8 @@ Choose **one retained published membership with an active variation** in your de
 | Browser object | `menu.items[index]` plain JS object after `response.json()` | No automatic Date conversion; minor units remain numbers; hook validates only parts of response shape |
 | React state and sections | `state.menu` → `menuSections(menu, search)` → `section.items[index]` | Categories group items; search may filter this item from visible UI; per-section order recalculated |
 | React props | `<MenuItemCard item={item} collection={menu} ... />` | Object passed as prop; selected variation ID held separately in card state |
-| Presentation object | `dish = presentDish(item)` | `image` object becomes URL string; fallback photo/focus/alt/scale chosen; item name/description preserved |
-| DOM | `<h3>{dish.name}</h3>`, description, variation `<option>`, formatted price, option fieldsets | `money(priceMinor)` formats integer AUD minor units; undisplayed API fields remain data, not DOM |
+| Presentation object | `dish = presentDish(item)` | `image` object becomes URL string; API focus/zoom/rotation become CSS position/origin/scale/degree values, or a bundled fallback photo is chosen; item name/description preserved |
+| DOM | `<h3>{dish.name}</h3>`, description, variation `<option>`, formatted price, option fieldsets | `money(priceMinor)` formats integer AUD minor units; the image retains full natural proportions and focus offsets; its parent layer applies scale/rotation before the outer frame clips; undisplayed API fields remain data, not DOM |
 
 For the chosen active variation, the price transformation is exactly:
 
@@ -1506,7 +1522,7 @@ Set the following breakpoints before reload. For long Java streams, put the brea
 
 13. **Membership query and filter.** File: `backend/src/main/java/au/com/nakornthai/menu/infrastructure/JpaMenuItemRepository.java`. Symbol: `findVisibleCollection` lambda. Break at `memberships.findPublishedMemberships(c.getId())` and a filter/map lambda. Inspect membership/effective category. Read query in `backend/src/main/java/au/com/nakornthai/menu/infrastructure/SpringDataMenuCollectionItemRepository.java`, step over its proxy call. Continue: each retained membership reaches MenuItemMapper.
 
-14. **Entity-to-record conversion.** File: `backend/src/main/java/au/com/nakornthai/menu/infrastructure/MenuItemMapper.java`. Symbol: `map(MenuCollectionItemJpaEntity, boolean)`, then `map(MenuItemJpaEntity)`. Break on `var base = map(item)` and final return. Choose one real item ID and optionally condition the breakpoint on it. Inspect entity variation prices/flags, image, profile result, then base, assignment optionPrices, groups, configurable, available and final variations. Compare a missing price entry with an explicit zero: both serialize a zero delta, but only the explicit entry can enable an otherwise active option. Continue: the adapter receives a MenuItem record. Expanding lazy associations can cause SQL; inspect intentionally.
+14. **Entity-to-record conversion.** File: `backend/src/main/java/au/com/nakornthai/menu/infrastructure/MenuItemMapper.java`. Symbol: `map(MenuCollectionItemJpaEntity, boolean)`, then `map(MenuItemJpaEntity)`. Break on `var base = map(item)` and final return. Choose one real item ID and optionally condition the breakpoint on it. Inspect entity variation prices/flags, image focus/zoom/rotation, profile result, then base, assignment optionPrices, groups, configurable, available and final variations. Compare a missing price entry with an explicit zero: both serialize a zero delta, but only the explicit entry can enable an otherwise active option. Continue: the adapter receives a MenuItem record. Expanding lazy associations can cause SQL; inspect intentionally.
 
 15. **Collection assembly.** File: `backend/src/main/java/au/com/nakornthai/menu/infrastructure/JpaMenuItemRepository.java`. Symbol: `findVisibleCollection` lambda. Break at `return new MenuItem.Collection(...)`. Inspect dishes and category map; find your chosen item. Continue: handler maps the Optional value to MenuResponse.
 
@@ -1518,7 +1534,7 @@ Set the following breakpoints before reload. For long Java streams, put the brea
 
 19. **Grouping and props.** File: `frontend/src/domains/menu/model/menuCollections.js`. Symbol: `menuSections`. Break on query/categories calculation. Inspect menu/search, then returned sections. Continue to `frontend/src/domains/menu/components/MenuItemCard.jsx`, `MenuItemCard`, at `const dish = presentDish(item)`. Inspect your chosen item and collection props, variationId, evaluation and dish. Continue: card JSX renders, including option controls and price formatting.
 
-20. **Visible result.** File: `frontend/src/domains/menu/components/MenuItemCard.jsx`. Symbol: JSX return in `MenuItemCard`. Break at `return <article ...>`. Inspect rendered source expressions, then continue and locate the article in Elements. Compare its name/description/price with the chosen Network JSON item. Type a search and observe a render without a menu GET; choose another collection and observe discovery followed by a new items GET. Stop before interacting with Add: the browsing slice is complete.
+20. **Visible result.** File: `frontend/src/domains/menu/components/MenuItemCard.jsx`. Symbol: JSX return in `MenuItemCard`. Break at `return <article ...>`. Inspect rendered source expressions, then continue and locate the article in Elements. Compare its name/description/price with the chosen Network JSON item. For an API image, follow `image.rotation` into `MenuPhoto`, then compare the `.menu-photo-layer` transform and the full image bounds with the frame; inspect the separate image GET. Type a search and observe a render without a menu GET; choose another collection and observe discovery followed by a new items GET. Stop before interacting with Add: the browsing slice is complete.
 
 ### Final self-check
 

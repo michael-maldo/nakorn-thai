@@ -1,3 +1,4 @@
+import MenuPhoto from './MenuPhoto';
 import { useEffect, useRef, useState } from 'react';
 import { useMenuNavigationGuard } from '../hooks/useMenuAdminForm';
 import { presentDish } from '../model/menuModel';
@@ -56,7 +57,7 @@ export default function MenuImageEditor({ item, authorization, csrf, onSaved, on
       }
       setError(''); setFile(selected); setX(50); setY(50); setZoom(1); setRotation(0);
     }} /></label>
-    {url && <div className="menu-focus-preview"><img src={url} alt={alt} style={{ objectPosition: `${x}% ${y}%`, transform: `scale(${zoom}) rotate(${rotation}deg)`, transformOrigin: `${x}% ${y}%` }} /></div>}
+    {url && <MenuPhoto src={url} alt={alt} className="menu-focus-preview" focusX={x} focusY={y} zoom={zoom} rotation={rotation} />}
     <label>Photo description<input maxLength={255} value={alt} onChange={(e) => setAlt(e.target.value)} /></label>
     <fieldset className="menu-image-controls" disabled={!url}>
       <legend>Position, zoom and rotation</legend>
@@ -82,7 +83,7 @@ export default function MenuImageEditor({ item, authorization, csrf, onSaved, on
         <button type="button" onClick={() => setRotation(value => value + 90 > 180 ? value - 270 : value + 90)}>↷ Rotate right 90°</button>
         <button type="button" disabled={rotation === 0} onClick={() => setRotation(0)}>Reset rotation</button>
       </div>
-      <p>Zoom in if rotating the picture exposes the frame background.</p>
+      <p>Rotation uses the full photo. Zoom in if the original photo’s edges enter the frame.</p>
       <p>The preview uses the same frame and crop as the public menu.</p>
     </fieldset>
     <button type="button" disabled={!url || !alt.trim()} onClick={save}>{busy ? 'Saving photo…' : 'Save photo and focus'}</button>
