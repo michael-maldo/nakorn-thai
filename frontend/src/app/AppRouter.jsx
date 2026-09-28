@@ -1,3 +1,4 @@
+import HomepageSettingsPage from '../domains/menu/pages/HomepageSettingsPage';
 import OrdersAdminPage from '../domains/ordering/pages/OrdersAdminPage';
 import OnlineOrderingPage from '../domains/restaurant/pages/OnlineOrderingPage';
 import StaffShell from '../domains/staff/components/StaffShell';
@@ -68,6 +69,7 @@ export default function AppRouter() {
   if (hash === '#/track-order') return <OrderTrackingPage />;
   if (hash === '#/checkout') return <CheckoutPage />;
   if (hash === '#/order-confirmation') return <OrderConfirmationPage />;
+  if (hash === '#/staff/homepage') return staffPage(<HomepageSettingsPage />, ['ADMIN']);
   if (hash === '#/staff/orders') return staffPage(<OrdersAdminPage />, ['ADMIN', 'FOH', 'BOH']);
   if (hash === '#/staff/ordering') return staffPage(<OnlineOrderingPage />, ['ADMIN', 'FOH']);
   if (hash === '#/staff/restaurant') return staffPage(<RestaurantSchedulePage />, ['ADMIN']);

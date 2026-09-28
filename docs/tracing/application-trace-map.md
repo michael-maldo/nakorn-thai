@@ -2,7 +2,7 @@
 
 This guide is a code-navigation aid for the application that currently exists. It was built by following the wiring from `../../frontend/src/main.jsx` and `../../frontend/src/app/AppRouter.jsx`, then matching each frontend request to Spring mappings, security rules, persistence code, entities, and Flyway DDL. A filename is not treated as implemented behavior.
 
-Source checked on 2026-09-28 against commit `962098d` plus the working-tree full-photo rendering fix, including migrations through V27 and the staff image positioning/zoom/rotation controls. This describes source wiring, not a verified running deployment. For the detailed public menu read path, see [Public menu trace](public-menu-trace.md).
+Source checked on 2026-09-28 against commit `30ceca0` plus the working-tree home page collection settings, including migrations through V28 and the staff image positioning/zoom/rotation controls. This describes source wiring, not a verified running deployment. For the detailed public menu read path, see [Public menu trace](public-menu-trace.md).
 
 ## How a request moves through this application
 
@@ -51,6 +51,7 @@ Application composition is `../../frontend/src/main.jsx` → `App` in `../../fro
 | Feature | Frontend entry | API endpoint | Controller | Service / use case | Repository / persistence | DB table(s) |
 |---|---|---|---|---|---|---|
 | Public menu discovery/browse | `MenuPage`, `useMenu` | `GET /api/menu/collections`; `GET /api/menu/collections/{slug}/items` | `ListMenuController` | `ListMenuHandler` | `MenuItemRepository` → `JpaMenuItemRepository` → Spring Data menu repositories | `menu_collection`, `menu_collection_schedule`, `menu_collection_category`, `menu_collection_item`, `menu_category`, `menu_item`, `menu_item_variation`, image/food/option tables, including `menu_item_option_price`; conditional restaurant schedule reads |
+| Home page featured collections | `SignatureDishes`, `HomepageSettingsPage` | GET `/api/menu/homepage`; GET/PUT `/api/staff/menu/homepage` | `HomepageMenuController` | `HomepageMenuHandler` | `EntityManager`, ordered selection; existing `MenuItemRepository` for public dishes | `menu_homepage_settings`, `menu_homepage_collection`; existing menu read tables |
 | Cart add/update/remove | `MenuItemCard`, `Cart`, global `CartDock` | None | None | `createCartLine`, `cartReducer` | Browser `sessionStorage` only | None |
 | Place pickup order | `CheckoutPage.place` | `POST /api/orders` | `CreateOrderController` | `CreateOrderHandler` | `EntityManager`, `OrderMapper` | `restaurant_order`, `restaurant_order_item`, `restaurant_order_item_option`, `restaurant_order_event`; reads menu and restaurant schedule tables |
 | Customer order status | `OrderConfirmationPage.poll` | `GET /api/orders/{id}` | `GetOrderController` | `GetOrderHandler`, `OrderAccessService` | `SpringDataOrderRepository`, native tracking-grant query | order tables, `order_tracking_grant` |
@@ -92,6 +93,18 @@ Route: `#/menu`.
 14. `menuRequest` decodes JSON; `useMenu.load` shape-checks it and calls `setState`; `MenuPage` re-renders collection navigation and `MenuItemCard` rows. `presentDish`, `menuSections`, and `collectionAvailability` are frontend presentation/filtering only. `presentDish` converts the API image object into a URL plus CSS position/origin/scale/rotation values. `MenuItemCard` passes the photo and saved settings to `MenuPhoto` → `PhotoLayer`; `menuPhotoLayout` uses natural image dimensions to retain the entire photo at cover size, with percentage focus offsets. The layer applies `scale(...) rotate(...)` with visible overflow, and only the outer 1.45-aspect-ratio `.menu-photo-frame` clips in `styles/globals.css`. This preserves source pixels outside the original crop during rotation; without an API image it can use a bundled fallback, whose rotation is explicitly 0° in this card. Public menu JSON uses `no-store`; the separate default `/media/menu/{name}` image GET uses `no-cache`.
 
 `MenuCategoryNavigation` receives the nonempty filtered sections and scrolls to their headings below the sticky navigation. Scroll/resize observers track the active category; overflow arrows, touch scrolling, mouse dragging and keyboard focus reveal off-screen buttons. These actions do not change the route or request menu data. The category scrollbar is visually hidden while scrolling remains enabled.
+
+### Home page featured collections
+
+The website home page mounts `SignatureDishes`, which calls menu-owned `useHomepageMenu` → `menuApi.getHomepageMenu` → anonymous GET `/api/menu/homepage`. This path no longer calls `useMenu` or automatically selects an available collection. `HomepageMenuController.publicCollections` → transactional `HomepageMenuHandler.publicCollections` → pessimistically read `MenuHomepageSettingsJpaEntity` and its ordered collection IDs → `EntityManager.find` each collection → skip non-PUBLISHED rows → `MenuItemRepository.findVisibleCollection(slug)` → existing adapter/mapper → `MenuResponse.from`. The response is an ordered array with `no-store`.
+
+`SignatureDishes` renders collection names and up to four dishes per collection (`items.slice(0, 4).map(presentDish)`), preserving backend dish ordering. Empty collections are omitted; no visible selected dishes hides the section. Unavailable published collections remain browseable rather than switching to a different collection. Load errors show retry; they do not select an unrelated collection. Preview state is keyed by both collection and dish IDs. Existing card links navigate to `#/menu` without selecting a specific dish/collection.
+
+ADMIN `#/staff/homepage` → `ProtectedRoute`/`StaffShell` → menu-owned `HomepageSettingsPage` → `getHomepageSettings` → GET `/api/staff/menu/homepage`. The response is `{version, collectionIds, collections:[{id,name,status}]}`. The page selects and orders up to 20 collections, labels unpublished choices and permits clearing all to hide the section. Existing menu form guards protect drafts and active saves.
+
+Save → `saveHomepageSettings` → fresh staff-menu CSRF and Bearer-authenticated PUT `/api/staff/menu/homepage` → controller `@Valid HomepageMenuRequest` → `HomepageMenuHandler.save`. It takes the shared menu catalog lock, locks settings for writing, checks the version/duplicate IDs/collection existence, replaces the ordered list, flushes and returns fresh settings/version. A 409 leaves the draft but blocks saves until refresh. Public reads are permitted explicitly; all staff home page API operations inherit the ADMIN-only `/api/staff/menu/**` rule.
+
+V28 creates singleton `menu_homepage_settings` with a version and ordered `menu_homepage_collection` foreign-key rows. The latter is an `@ElementCollection` on `MenuHomepageSettingsJpaEntity`; its deferred uniqueness constraint supports reordering. The migration seeds the first published collection by display order/ID if one exists. Subsequent selection is explicit and does not follow collection availability. See [Public menu trace — home page](public-menu-trace.md#home-page-signature-dishes) for file-by-file details and validation entry points.
 
 ## 2. Adding and updating cart items (client-only path)
 
@@ -344,6 +357,7 @@ Follow these in order with “go to file”/symbol search:
 | `V25__seed_starting_restaurant_configuration.sql` | Conditional restaurant/Lunch Special schedule seeds and narrowly targeted local-time corrections |
 | `V26__seed_starting_admin_account.sql` | Inserts the starting ADMIN account if its username does not already exist; does not reset existing users or create sessions |
 | `V27__add_menu_image_rotation.sql` | Adds image rotation in integer degrees, default 0 and constrained to −180–180; read by staff/public mappers and rendered with saved focus/zoom |
+| `V28__configure_homepage_menu_collections.sql` | Versioned singleton and ordered collection selection for the home page; initially seeds the first published collection |
 
 All of these are unqualified or explicitly `public` PostgreSQL tables in one common schema. Hibernate validates rather than creates this schema.
 

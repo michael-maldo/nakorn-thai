@@ -91,3 +91,16 @@ export const saveSharedOption = (groupId, resource, authorization) => menuReques
   `/staff/menu/option-groups/${groupId}/options${resource.id ? `/${resource.id}` : ''}`,
   { method: resource.id ? 'PUT' : 'POST', body: JSON.stringify({ ...resource.data, version: resource.version }), authorization, csrf: true },
 );
+
+export async function getHomepageMenu(signal) {
+  const collections = await menuRequest('/menu/homepage', { signal });
+  if (!Array.isArray(collections) || collections.some(c => typeof c.id !== 'string'
+    || typeof c.name !== 'string' || !Array.isArray(c.items))) {
+    throw new Error('The home page menu returned an invalid response.');
+  }
+  return collections;
+}
+export const getHomepageSettings = authorization => menuRequest('/staff/menu/homepage', { authorization });
+export const saveHomepageSettings = (settings, authorization) => menuRequest('/staff/menu/homepage', {
+  method: 'PUT', body: JSON.stringify(settings), authorization, csrf: true,
+});

@@ -6,6 +6,7 @@ const links = [
   { href: '#/staff', label: 'Overview' },
   { href: '#/staff/orders', label: 'Orders', roles: ['ADMIN', 'FOH', 'BOH'] },
   { href: '#/staff/ordering', label: 'Online ordering', roles: ['ADMIN', 'FOH'] },
+  { href: '#/staff/homepage', label: 'Home page', roles: ['ADMIN'] },
   { href: '#/staff/menu', label: 'Menu', roles: ['ADMIN'] },
   { href: '#/staff/reservations', label: 'Reservations', roles: ['ADMIN', 'FOH'] },
   { href: '#/staff/functions', label: 'Function enquiries', roles: ['ADMIN', 'FOH'] },

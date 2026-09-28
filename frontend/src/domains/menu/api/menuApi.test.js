@@ -238,3 +238,37 @@ test('item option writes keep prices and versions on the assignment with fresh C
   await removeItemOptionGroup('dish', { id: 'group', version: 4 }, 'Basic test');
   assert.equal(calls[7].url, '/api/staff/menu/items/dish/option-groups/group?version=4');
 });
+
+test('home page reads the saved collections without automatic collection discovery', async () => {
+  const { getHomepageMenu } = await import('./menuApi.js');
+  const signal = new AbortController().signal;
+  const selected = [{ id: 'second', name: 'Second', items: [] }, { id: 'first', name: 'First', items: [] }];
+  globalThis.fetch = async (url, options) => {
+    assert.equal(url, '/api/menu/homepage'); assert.equal(options.signal, signal);
+    assert.equal(options.headers.Authorization, undefined);
+    return Response.json(selected);
+  };
+  assert.deepEqual(await getHomepageMenu(signal), selected);
+});
+test('empty home page selection is accepted and malformed responses are rejected', async () => {
+  const { getHomepageMenu } = await import('./menuApi.js');
+  globalThis.fetch = async () => Response.json([]);
+  assert.deepEqual(await getHomepageMenu(), []);
+  globalThis.fetch = async () => Response.json({ items: [] });
+  await assert.rejects(getHomepageMenu(), /invalid response/);
+});
+test('home page settings save ordered collection IDs and version with fresh CSRF', async () => {
+  const { saveHomepageSettings } = await import('./menuApi.js');
+  const settings = { version: 3, collectionIds: ['second', 'first'] };
+  const calls = [];
+  globalThis.fetch = async (url, options) => {
+    calls.push(url);
+    if (url.endsWith('/csrf')) return Response.json({ headerName: 'X-CSRF-TOKEN', token: 'fresh' });
+    assert.equal(options.method, 'PUT'); assert.equal(options.headers['X-CSRF-TOKEN'], 'fresh');
+    assert.equal(options.headers.Authorization, 'Basic test');
+    assert.deepEqual(JSON.parse(options.body), settings);
+    return Response.json({ ...settings, version: 4 });
+  };
+  assert.equal((await saveHomepageSettings(settings, 'Basic test')).version, 4);
+  assert.deepEqual(calls, ['/api/staff/menu/csrf', '/api/staff/menu/homepage']);
+});

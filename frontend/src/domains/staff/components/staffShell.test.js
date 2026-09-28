@@ -40,6 +40,7 @@ test('admin shell has account and sidebar navigation with nested menu active sta
   assert.match(html, /aria-label="Staff navigation"/);
   assert.match(html, /href="#\/staff\/menu" aria-current="page"/);
   assert.match(html, /Staff accounts/);
+  assert.match(html, /href="#\/staff\/homepage"/);
   assert.match(html, /Online ordering/);
   assert.match(html, /aria-expanded="false" aria-controls="staff-navigation"/);
   assert.match(html, /Skip to content/);
@@ -49,14 +50,14 @@ test('FOH shell exposes reservations and functions without administrator links',
   assert.match(html, /Reservations/);
   assert.match(html, /Online ordering/);
   assert.match(html, /Function enquiries/);
-  assert.doesNotMatch(html, /href="#\/staff\/(menu|users|restaurant)"/);
+  assert.doesNotMatch(html, /href="#\/staff\/(menu|users|restaurant|homepage)"/);
 });
 test('BOH shell retains overview and sign out without unsupported staff screens', async () => {
   const html = await renderShell('BOH');
   assert.match(html, /href="#\/staff" aria-current="page"/);
   assert.match(html, /Sign out/);
   assert.match(html, /href="#\/staff\/orders"/);
-  assert.doesNotMatch(html, /href="#\/staff\/(menu|users|restaurant|reservations|functions|ordering)"/);
+  assert.doesNotMatch(html, /href="#\/staff\/(menu|users|restaurant|reservations|functions|ordering|homepage)"/);
 });
 
 const sampleOrder = { id: 'order', reference: 'ABC123', status: 'ACCEPTED', version: 1,

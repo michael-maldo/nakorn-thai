@@ -1,6 +1,8 @@
 # Public menu browsing: an editor tracing guide
 
-Source checked on 2026-09-28 against commit `962098d` plus the working-tree full-photo rendering fix (migrations through V27). Start at `#/menu`; finish at the rendered dish cards. This is a source-level trace, not a claim that a local database or running server was inspected. All data examples below use field names/types rather than invented restaurant data. The image section also follows the staff edit that produces the metadata used by these cards.
+Source checked on 2026-09-28 against commit `30ceca0` plus the working-tree home page collection settings (migrations through V28). Start at `#/menu`; finish at the rendered dish cards. This is a source-level trace, not a claim that a local database or running server was inspected. All data examples below use field names/types rather than invented restaurant data. The image section also follows the staff edit that produces the metadata used by these cards.
+
+The numbered read path below is for `#/menu`. The home page now has a separate saved-selection endpoint; see [Home page Signature Dishes](#home-page-signature-dishes).
 
 Read the numbered steps in order. The first HTTP trip discovers collections; only after it returns can the second trip retrieve the selected collection. Each trip has its own request and transaction. A “Calls next” entry can mean a synchronous call, an asynchronous continuation, or a later React render; the text distinguishes them.
 
@@ -1267,6 +1269,31 @@ Dependency-driven effects explain WHEN fetching recurs. A state change can reren
 - What happens to card state when evaluatedAt changes its React key?
 - Which returned fields are not currently displayed?
 
+## Home page Signature Dishes
+
+The home page's `SignatureDishes` component (heading “From our menu”) uses the collections configured by ADMIN staff. It no longer calls `useMenu()` or chooses the first currently available collection. The full menu at `#/menu` still uses the discovery/selection flow traced above.
+
+| Step | File / symbol | Data and next call |
+| --- | --- | --- |
+| Mount section | `frontend/src/website/pages/HomePage.jsx` → `SignatureDishes` | React mounts the home page cards |
+| Load saved selection | `frontend/src/website/components/SignatureDishes.jsx` → `frontend/src/domains/menu/hooks/useHomepageMenu.js` | Effect owns collections/loading/error and an AbortController; retry increments attempt |
+| Public request | `frontend/src/domains/menu/api/menuApi.js`, `getHomepageMenu` → `menuRequest` → `fetchWithIdentity` | GET `/api/menu/homepage`, no Bearer token; response is an array of collection responses |
+| Authorize and dispatch | `SecurityConfig` → `backend/src/main/java/au/com/nakornthai/menu/homepage/HomepageMenuController.java`, `publicCollections` | Explicit anonymous GET permission; response uses `Cache-Control: no-store` |
+| Read configuration | `backend/src/main/java/au/com/nakornthai/menu/homepage/HomepageMenuHandler.java`, `publicCollections` | Transaction reads singleton `MenuHomepageSettingsJpaEntity` with a pessimistic read lock, then traverses its ordered collection IDs |
+| Load each selected collection | `EntityManager.find(MenuCollectionJpaEntity, id)` → `MenuItemRepository.findVisibleCollection(slug)` | Skip draft/archived collections; reuse `JpaMenuItemRepository` and `MenuItemMapper` from the detailed menu trace. `ListMenuHandler` is not called by this endpoint |
+| Return data | `MenuResponse.from` for each visible collection | Retain configured collection order. Publication controls visibility; schedule/active flags still determine availability without replacing the chosen collection |
+| Render cards | `SignatureDishes`: `collection.items.slice(0, 4).map(presentDish)` | Up to four dishes per collection, using backend category/item order. Render collection names and existing photo/preview/name/description cards; empty collections are omitted |
+
+The same dish may appear in more than one selected collection. Preview state uses collection ID plus dish ID so opening one card does not open another collection's copy. Links still go to `#/menu`; they do not preselect a dish or collection. An empty selection, or no selected published collection with dishes, hides the whole section. Failed loads show an error and retry, rather than falling back to an unselected collection. Loading/selection is refreshed on mount or retry, not polled.
+
+**Staff configuration:** `#/staff/homepage` → `AppRouter.staffPage` with ADMIN role → `StaffShell` → `frontend/src/domains/menu/pages/HomepageSettingsPage.jsx`. The Home page sidebar entry is ADMIN-only. `getHomepageSettings` → GET `/api/staff/menu/homepage` returns `{version, collectionIds, collections:[{id,name,status}]}`. Checkboxes select up to 20 collections; move buttons edit their display order. Draft/archived choices are labelled as hidden publicly. Unsaved edits and in-flight saves use the existing menu navigation guard.
+
+Save → `saveHomepageSettings` → fresh `/api/staff/menu/csrf` → Bearer-authenticated PUT `/api/staff/menu/homepage` with `{version, collectionIds}` → `HomepageMenuController.save(@Valid HomepageMenuRequest)` → `HomepageMenuHandler.save`. The handler takes a shared catalog lock and a pessimistic write lock on the settings row, rejects a stale version (409), duplicates or missing collection IDs (400), replaces the ordered selection and flushes. The response supplies fresh settings/version directly; the page resets its draft and displays success. A 409 requires Refresh settings before another save. Clearing all selections is valid and hides the section.
+
+`backend/src/main/resources/db/migration/V28__configure_homepage_menu_collections.sql` creates singleton `menu_homepage_settings` with `@Version`, and `menu_homepage_collection` with ordered positions and collection foreign keys. `MenuHomepageSettingsJpaEntity.collectionIds` is an ordered `@ElementCollection`, not a separate repository. The collection uniqueness constraint is deferred so swapping positions does not fail halfway through a Hibernate list update. V28 initially selects the first published collection by display order/ID, if one exists; this is a migration seed, not a recurring availability fallback.
+
+Validation includes `HomepageMenuApiTest` for public/ADMIN permissions, CSRF and input validation; `HomepageMenuIntegrationTest` for PostgreSQL persistence/reordering, versions and publication filtering; menu API wrapper tests; and `npm run test:homepage-browser` for the real React settings/display workflow with mocked APIs. V28 and the database tests were exercised against disposable PostgreSQL 16, and the browser workflow passed in local Chromium. This does not establish deployed settings or production migration state.
+
 ## Image edits that feed the public menu
 
 This is a separate ADMIN write flow, not part of either anonymous collection GET. See [Application trace map — item writes and images](application-trace-map.md#item-writes-and-images) for its place in menu administration.
@@ -1354,6 +1381,7 @@ Relevant migrations, all under `backend/src/main/resources/db/migration/`:
 - `V24__add_staff_ordering_control.sql`: adds the restaurant pause flag/message consumed by the separate ordering-options request; it does not hide menu data.
 - `V25__seed_starting_restaurant_configuration.sql`: conditionally seeds opening hours and Lunch Special schedules and corrects narrowly matched legacy local-time values. These can affect evaluated availability after application; they do not prove current database contents.
 - `V27__add_menu_image_rotation.sql`: rotation in degrees (−180 to 180, default 0), saved by the staff image editor and applied with zoom in both its preview and `MenuItemCard`.
+- `V28__configure_homepage_menu_collections.sql`: staff-controlled home page selection and ordering; used by the separate `/api/menu/homepage` flow, not the `#/menu` collection discovery path.
 
 `@Query` in the two menu Spring Data interfaces is **explicit JPQL**, not literal PostgreSQL SQL. Discovery's method name is a **derived query**. Restaurant hours/dates use **explicit JPQL via EntityManager**. Hibernate generates SQL for all these queries, lazy association loads and the settings lock. This slice has no application-written native SQL read query. PostgreSQL executes generated statements and returns rows; Hibernate reconstructs entities and relationships. Flyway DDL is explicit SQL, executed separately at startup.
 

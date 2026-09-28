@@ -1,12 +1,14 @@
 import { useState } from 'react';
-import useMenu from '../../domains/menu/hooks/useMenu';
+import useHomepageMenu from '../../domains/menu/hooks/useHomepageMenu';
 import { presentDish } from '../../domains/menu/model/menuModel';
 import SectionTitle from './SectionTitle';
 
 export default function SignatureDishes() {
   const [openDish, setOpenDish] = useState(null);
-  const { items, loading, error, retry } = useMenu();
-  const dishes = items.slice(0, 4).map(presentDish);
+  const { collections, loading, error, retry } = useHomepageMenu();
+  const sections = collections.map(collection => ({ ...collection, dishes: collection.items.slice(0, 4).map(presentDish) }))
+    .filter(collection => collection.dishes.length > 0);
+  if (!loading && !error && !sections.length) return null;
 
   return (
     <section className="signature section" id="menu">
@@ -14,16 +16,17 @@ export default function SignatureDishes() {
         <SectionTitle eyebrow="Explore our dishes">From our menu</SectionTitle>
         {loading && <p role="status">Loading dishes…</p>}
         {error && <div role="alert"><p>{error}</p><button type="button" onClick={retry}>Try again</button></div>}
-        {!loading && !error && dishes.length === 0 && <p>Our menu is being updated. Please check back soon.</p>}
+        {sections.map(collection => <div className="homepage-menu-collection" key={collection.id}>
+        <h3 className="homepage-menu-collection-title">{collection.name}</h3>
         <div className="dish-grid">
-          {dishes.map((dish) => (
+          {collection.dishes.map((dish) => (
             <article className="dish-card" key={dish.id}>
               {dish.image ? <button
                 className="dish-image-trigger"
                 type="button"
-                aria-expanded={openDish === dish.id}
+                aria-expanded={openDish === `${collection.id}:${dish.id}`}
                 aria-label={`Preview ${dish.name}`}
-                onClick={() => setOpenDish(openDish === dish.id ? null : dish.id)}
+                onClick={() => setOpenDish(openDish === `${collection.id}:${dish.id}` ? null : `${collection.id}:${dish.id}`)}
               >
                 <span className="dish-image">
                   <img
@@ -37,7 +40,7 @@ export default function SignatureDishes() {
                   />
                 </span>
               </button> : <div className="dish-photo-placeholder">Photo coming soon</div>}
-              <div className={`dish-preview${openDish === dish.id ? ' is-open' : ''}`}>
+              <div className={`dish-preview${openDish === `${collection.id}:${dish.id}` ? ' is-open' : ''}`}>
                 {dish.image && <img
                   src={dish.image}
                   alt=""
@@ -58,6 +61,7 @@ export default function SignatureDishes() {
             </article>
           ))}
         </div>
+        </div>)}
         <a className="button button-outline centered-button" href="#/menu">View full menu</a>
       </div>
     </section>
