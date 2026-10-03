@@ -37,7 +37,7 @@ public class ContactVerificationHandler {
  @Transactional(noRollbackFor=ResponseStatusException.class)
  public Map<String,Object> verify(UUID id,String code) {
   var entry=em.find(ContactVerificationJpaEntity.class,id,LockModeType.PESSIMISTIC_WRITE);
-  if(entry==null || entry.getConsumedBy()!=null || !entry.getExpiresAt().isAfter(clock.instant()))throw failure(HttpStatus.BAD_REQUEST,"Code expired or invalid; request a new code");
+  if(entry==null || (entry.getConsumedBy()!=null || entry.getConsumedOrderId()!=null) || !entry.getExpiresAt().isAfter(clock.instant()))throw failure(HttpStatus.BAD_REQUEST,"Code expired or invalid; request a new code");
   if(entry.getVerifiedAt()!=null)return Map.of("id",id,"verified",true,"expiresAt",entry.getExpiresAt());
   if(entry.getAttempts()>=5 || entry.getProviderReference()==null)throw failure(HttpStatus.BAD_REQUEST,"Attempt limit reached; request a new code");
   entry.setAttempts(entry.getAttempts()+1);
@@ -52,11 +52,18 @@ public class ContactVerificationHandler {
  }
  @Transactional(propagation=org.springframework.transaction.annotation.Propagation.MANDATORY)
  public boolean consume(UUID id,String channel,String destination,UUID reservationId) {
+  return consume(id,channel,destination,reservationId,null);
+ }
+ @Transactional(propagation=org.springframework.transaction.annotation.Propagation.MANDATORY)
+ public boolean consumeForOrder(UUID id,String destination,UUID orderId) {
+  return consume(id,"SMS",destination,null,orderId);
+ }
+ private boolean consume(UUID id,String channel,String destination,UUID reservationId,UUID orderId) {
   if(id==null)return false;
   var entry=em.find(ContactVerificationJpaEntity.class,id,LockModeType.PESSIMISTIC_WRITE);
-  if(destination==null || entry==null || entry.getVerifiedAt()==null || !entry.getExpiresAt().isAfter(clock.instant()) || entry.getConsumedBy()!=null || !channel.equals(entry.getChannel()) || !ContactDestination.hash(channel+":"+destination).equals(entry.getDestinationHash()))
+  if(destination==null || entry==null || entry.getVerifiedAt()==null || !entry.getExpiresAt().isAfter(clock.instant()) || (entry.getConsumedBy()!=null || entry.getConsumedOrderId()!=null) || !channel.equals(entry.getChannel()) || !ContactDestination.hash(channel+":"+destination).equals(entry.getDestinationHash()))
    throw failure(HttpStatus.BAD_REQUEST,"Contact verification invalid, expired or already used");
-  entry.setConsumedBy(reservationId);return true;
+  entry.setConsumedBy(reservationId);entry.setConsumedOrderId(orderId);return true;
  }
  private static ResponseStatusException failure(HttpStatus status,String message){return new ResponseStatusException(status,message);}
 }

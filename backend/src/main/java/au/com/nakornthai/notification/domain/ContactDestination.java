@@ -18,6 +18,11 @@ public final class ContactDestination {
   if(v.length()>254 || !v.matches("[^\\s@]+@[^\\s@]+\\.[^\\s@]+"))throw invalid();
   int at=v.lastIndexOf('@');return v.substring(0,at)+v.substring(at).toLowerCase(Locale.ROOT);
  }
+ public static String normalizeMobile(String value) {
+  String mobile=normalize("SMS",value);
+  if(mobile!=null && mobile.startsWith("+61") && !mobile.matches("\\+614[0-9]{8}"))throw invalid();
+  return mobile;
+ }
  public static String hash(String value) {
   try {return java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(value.getBytes(java.nio.charset.StandardCharsets.UTF_8)));}
   catch(java.security.NoSuchAlgorithmException e){throw new IllegalStateException(e);}

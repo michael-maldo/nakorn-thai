@@ -1,16 +1,16 @@
 # Pickup ordering and restaurant staff dashboards
 
-This first release supports **pickup with payment at the restaurant**. Customers
-add Chef's Special Recommendations variations to a cart, provide a name, phone
-number and optional notes, and submit for restaurant confirmation. No card details
-are collected and no payment gateway, delivery, scheduled pickup, refunds, receipt
-printing, email or SMS integrations are implemented.
+Pickup ordering supports PayPal, manually reconciled PayID and payment at the
+restaurant. Every new checkout requires SMS verification of the customer's mobile.
+Email is optional and receives transactional updates without an email OTP. Contact
+verification, payment verification and restaurant acceptance are separate decisions.
+See [payments and tracking](../payment/payments-and-tracking.md) for payment setup.
 
 ## Customer flow
 
 - `/#/menu`: browse the Chef's collection, select variations and quantities, and
   review the cart. The homepage **Order online** link opens this page.
-- `/#/checkout`: see current prices, provide contact details and place a pickup
+- `/#/checkout`: see current prices, provide contact details, verify the mobile by SMS and place a pickup
   order. Prices and availability are rechecked before submission and again on the
   server. No order is automatically promised a preparation time.
 - `/#/order-confirmation`: private order tracking refreshes every five seconds.
@@ -23,7 +23,8 @@ is confirmed; retries and reloads reuse its UUID request key. Once confirmed, th
 pending details are removed, and only the order ID and a random tracking secret
 remain in session storage. The secret is sent in `X-Order-Token`, never in the URL.
 A different browser/tab without that receipt cannot recover private tracking.
-FOH can use the customer's phone number to contact them manually.
+FOH can also contact the customer manually. SMS verification proves control of the
+number; it does not mark the order paid or accepted.
 
 A cart supports up to 30 distinct variations and 20 of each. Prices are AUD cents
 on the server; the submitted expected price only detects changes, never sets the
@@ -226,7 +227,8 @@ The pickup address displayed in checkout is the existing website address:
 | PATCH | `/api/staff/orders/{id}/status` | Staff, CSRF and transition-specific role |
 
 The creation request includes `requestId`, a 64-character random hexadecimal
-`trackingToken`, `customerName`, `phone`, `notes`, and lines containing `variationId`,
+`trackingToken`, `customerName`, `phone`, `phoneVerificationId`, optional `email`,
+`paymentMethod`, `notes`, and lines containing `variationId`,
 `quantity`, and `expectedUnitPriceMinor`. Public tracking responses omit contact
 name and phone. Validation errors avoid logging submitted contact details/tokens.
 Tracking/order responses are not cached. Order timestamps use UTC in storage and
@@ -270,3 +272,54 @@ Staff API: `GET`/`PUT /api/staff/restaurant/ordering`. PUT requires ADMIN/FOH,
 CSRF and `{ acceptingOrders, pauseMessage, version }`. Schedule editing remains
 ADMIN-only. This control defaults to accepting orders so deploying the migration
 does not alter the existing environment flag or opening-hours behaviour.
+
+
+## Required mobile verification and transactional notifications
+
+Checkout uses the existing contact-verification capability. The reservation URLs
+remain supported; ordering aliases are:
+
+- `GET /api/orders/contact-verifications/options`
+- `POST /api/orders/contact-verifications` with `{ channel: "SMS", destination }`
+- `POST /api/orders/contact-verifications/{id}/verify` with `{ code }`
+
+Writes require CSRF and same-origin cookies. `POST /api/orders` requires
+`phoneVerificationId` for a new checkout. The server normalizes Australian mobiles
+to E.164 and locks the challenge, checks channel, successful verification, destination
+match and ten-minute expiry, then consumes it in the order transaction. Australian
+landlines are rejected. Existing cooldown (60 seconds), five requests/hour and five
+code checks apply across reservation and ordering aliases. A challenge cannot be
+used for another order or reservation. An exact authorized retry of an already
+created order returns that order without needing a new challenge, even after expiry.
+Editing the phone immediately clears checkout's verification state.
+
+The same transaction as creation queues `ORDER_RECEIVED`; it means received, not
+accepted. Successful staff transitions queue `ORDER_ACCEPTED` (with pickup estimate),
+`ORDER_READY` and `ORDER_CANCELLED`. Preparing/completed do not queue messages.
+Cancellation explicitly does not imply a refund. SMS goes to the verified mobile;
+email also goes to the optional supplied address without email verification.
+
+These are rows in the existing `notification_delivery` outbox, processed by the
+existing worker through `SmsSender` and `EmailSender`. Provider failure cannot roll
+back creation or a staff transition. Channel failures retry independently, up to
+five attempts with bounded backoff. Unique `(order_id, type, channel)` prevents
+repeat event queueing. Delivery remains at least once: a crash after provider
+acceptance but before commit can send the same message again. `SENT` means provider
+acceptance, not a delivery receipt. Exhausted jobs need operational investigation.
+
+V31 extends the existing tables; old migrations are unchanged. Existing reservation
+jobs retain their owner and unique constraint. Existing orders default to
+`phone_verified=false`: they continue to track and progress, but do not receive
+new automatic notifications to historical unverified contacts. No backfill claims
+verification. Existing data therefore cannot conflict with the new order-only
+unique index; the owner constraint expects the valid reservation-owned rows
+established by V29.
+
+Before enabling new ordering, configure SMS verification and message delivery using
+the backend examples: `VERIFY_SMS_ENABLED=true`, `TWILIO_ACCOUNT_SID`,
+`TWILIO_AUTH_TOKEN`, `TWILIO_VERIFY_SERVICE_SID`, and `TWILIO_SMS_FROM`. Email
+notifications use `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`,
+`SMTP_FROM`, `SMTP_STARTTLS`. `NOTIFICATION_POLL_MS` optionally changes polling.
+No new credentials are introduced. Missing SMS verification configuration blocks
+new orders safely; missing message delivery configuration produces bounded failed
+jobs. Test OTP/delivery manually only in a controlled provider environment.

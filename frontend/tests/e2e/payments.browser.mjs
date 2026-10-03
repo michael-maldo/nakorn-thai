@@ -36,7 +36,7 @@ const click = async text => {
   await evaluate('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
 };
 function fixture() {
- window.requests=[];window.paymentError='';window.paid=false;window.created=null;
+ window.requests=[];window.verificationUnavailable=false;window.verificationError='';window.paymentError='';window.paid=false;window.created=null;
  const menu={id:'c',slug:'pickup',name:'Pickup',availability:{available:true},categories:[],items:[{id:'d',name:'Curry',available:true,variations:[{id:'v',name:'Standard',priceMinor:1990,available:true}],optionGroups:[]}]};
  if(!sessionStorage.getItem('payment-test-initialized')){
   sessionStorage.clear();sessionStorage.setItem('payment-test-initialized','yes');
@@ -53,6 +53,12 @@ function fixture() {
   if(url==='/api/payments/options')return Response.json({paypal:!sessionStorage.getItem('payment-test-disabled'),payid:!sessionStorage.getItem('payment-test-disabled'),payAtRestaurant:true});
   if(url==='/api/menu/collections')return Response.json([menu]);
   if(url==='/api/menu/collections/pickup/items')return Response.json(menu);
+  if(url==='/api/orders/contact-verifications'&&window.verificationUnavailable)return Response.json({message:'SMS verification unavailable'},{status:503});
+  if(url==='/api/orders/contact-verifications')return Response.json({id:'challenge',expiresAt:new Date(Date.now()+600000).toISOString(),resendAt:new Date(Date.now()+60000).toISOString()});
+  if(url==='/api/orders/contact-verifications/challenge/verify'){
+   if(window.verificationError)return Response.json({message:window.verificationError},{status:400});
+   return Response.json({id:'challenge',verified:true,expiresAt:new Date(Date.now()+600000).toISOString()});
+  }
   if(url==='/api/orders'&&options.method==='POST'){
    const body=JSON.parse(options.body);window.created={...body,id:body.requestId,reference:'ABC123',totalMinor:1990,status:'NEW',paidAt:null,items:[]};
    sessionStorage.setItem('payment-test-order',JSON.stringify(window.created));return Response.json(window.created);
@@ -82,8 +88,27 @@ try{
  const savedCart=await evaluate("sessionStorage.getItem('nakorn-pickup-cart')");
  await input('[autocomplete=name]','Guest');await input('[autocomplete=tel]','0412345678');
  await evaluate("(()=>{const el=document.querySelector('select');Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value').set.call(el,'PAYPAL');el.dispatchEvent(new Event('change',{bubbles:true}));})()");
+ assert.equal(await evaluate("Array.from(document.querySelectorAll('button')).find(b=>b.textContent==='Place pickup order').disabled"),true);
+ await evaluate('window.verificationUnavailable=true');await click('Send verification code');await waitFor("document.body.innerText.includes('SMS verification unavailable')");
+ await evaluate('window.verificationUnavailable=false');await input('[autocomplete=tel]','0412 345 678');
+ await click('Send verification code');await waitFor("document.querySelector('[autocomplete=one-time-code]')");
+ await input('[autocomplete=one-time-code]','123456');
+ for(const error of ['Invalid verification code','Verification expired']){
+  await evaluate(`window.verificationError=${JSON.stringify(error)}`);await click('Verify code');await waitFor(`document.body.innerText.includes(${JSON.stringify(error)})`);
+  assert.equal(await evaluate("Array.from(document.querySelectorAll('button')).find(b=>b.textContent==='Place pickup order').disabled"),true);
+ }
+ await evaluate("window.verificationError=''");await click('Verify code');await waitFor("document.body.innerText.includes('Verified')");
+ await input('[autocomplete=tel]','0499999999');
+ assert.equal(await evaluate("document.body.innerText.includes('Verified')"),false);
+ assert.equal(await evaluate("Array.from(document.querySelectorAll('button')).find(b=>b.textContent==='Place pickup order').disabled"),true);
+ await input('[autocomplete=tel]','0412345678');await click('Send verification code');await waitFor("document.querySelector('[autocomplete=one-time-code]')");
+ await input('[autocomplete=one-time-code]','123456');await click('Verify code');await waitFor("document.body.innerText.includes('Verified')");
+ await input('[autocomplete=email]','Guest@example.test');
  await click('Place pickup order');await waitFor("!!document.querySelector('a[href*=checkoutnow]')");
  assert.equal(await evaluate("window.requests.find(r=>r.url==='/api/orders'&&r.body).body.paymentMethod"),'PAYPAL');
+ assert.equal(await evaluate("window.requests.find(r=>r.url==='/api/orders'&&r.body).body.phoneVerificationId"),'challenge');
+ assert.equal(await evaluate("window.requests.find(r=>r.url==='/api/orders'&&r.body).body.email"),'Guest@example.test');
+ assert.equal(await evaluate("window.requests.filter(r=>r.url==='/api/orders/contact-verifications').every(r=>r.body.channel==='SMS')"),true);
  assert.equal(await evaluate("document.querySelector('a[href*=checkoutnow]').href"),'https://www.sandbox.paypal.com/checkoutnow?token=PP');
  assert.equal(await evaluate("window.requests.filter(r=>r.url==='/api/orders'&&r.body).length"),1);
  assert.equal(await evaluate("JSON.parse(sessionStorage.getItem('nakorn-pickup-receipt')).trackingToken.length"),64);
@@ -101,6 +126,8 @@ try{
   await send('Page.navigate',{url:`${base}?paymentCase=${method}#/checkout`});await waitFor("document.querySelector('select option[value=PAYID]')");
   await input('[autocomplete=name]','Guest');await input('[autocomplete=tel]','0412345678');
   await evaluate(`(()=>{const el=document.querySelector('select');Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value').set.call(el,${JSON.stringify(method)});el.dispatchEvent(new Event('change',{bubbles:true}));})()`);
+  await click('Send verification code');await waitFor("document.querySelector('[autocomplete=one-time-code]')");
+  await input('[autocomplete=one-time-code]','123456');await click('Verify code');await waitFor("document.body.innerText.includes('Verified')");
   await click('Place pickup order');
   await waitFor(method==='PAYID'?"document.body.innerText.includes('merchant@example.com')":"document.body.innerText.includes('Pay at the restaurant when collecting.')");
   assert.equal(await evaluate("window.requests.find(r=>r.url==='/api/orders'&&r.body).body.paymentMethod"),method);

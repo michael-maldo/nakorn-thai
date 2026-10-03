@@ -1,5 +1,9 @@
 package au.com.nakornthai.ordering.changestatus;
 import au.com.nakornthai.ordering.infrastructure.*;
+import au.com.nakornthai.notification.orderconfirmation.SendOrderConfirmationHandler;
+import au.com.nakornthai.notification.orderconfirmation.SendOrderConfirmationCommand;
+import au.com.nakornthai.notification.domain.NotificationType;
+import au.com.nakornthai.restaurant.availability.RestaurantAvailabilityService;
 import au.com.nakornthai.ordering.createorder.CreateOrderResponse;
 import jakarta.persistence.*;
 import lombok.RequiredArgsConstructor;
@@ -14,6 +18,8 @@ import java.util.*;
 public class ChangeOrderStatusHandler {
     private final EntityManager em;
     private final OrderMapper mapper;
+    private final SendOrderConfirmationHandler notifications;
+    private final RestaurantAvailabilityService availability;
     @Transactional
     public CreateOrderResponse handle(UUID id, ChangeOrderStatusCommand command, Authentication actor) {
         var roles = actor.getAuthorities().stream().map(a -> a.getAuthority()).toList();
@@ -49,6 +55,14 @@ public class ChangeOrderStatusHandler {
         order.setStatus(command.status()); order.setUpdatedAt(Instant.now());
         var event = new OrderEventJpaEntity(); event.setOrderId(id); event.setStatus(command.status());
         event.setActor(actor.getName()); event.setCreatedAt(order.getUpdatedAt()); em.persist(event); em.flush();
+        var type=switch(command.status()) {
+            case "ACCEPTED" -> NotificationType.ORDER_ACCEPTED;
+            case "READY" -> NotificationType.ORDER_READY;
+            case "CANCELLED" -> NotificationType.ORDER_CANCELLED;
+            default -> null;
+        };
+        if(type!=null && order.isPhoneVerified())
+            notifications.handle(new SendOrderConfirmationCommand(id,type,order.getPhone(),order.getEmail(),order.getCustomerName(),order.getTotalMinor(),order.getEstimatedReadyAt(),availability.schedule().timezone()));
         return mapper.map(order, front);
     }
 }

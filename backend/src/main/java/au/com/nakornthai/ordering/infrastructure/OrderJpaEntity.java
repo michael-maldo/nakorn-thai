@@ -19,6 +19,7 @@ public class OrderJpaEntity {
     @Column(nullable=false, length=20) private String fulfilment = "PICKUP";
     @Column(nullable=false, length=30) private String paymentMethod = "PAY_AT_RESTAURANT";
     @Column(length=254) private String email;
+    private boolean phoneVerified;
     private Instant paidAt;
     private Instant estimatedReadyAt;
     @Column(length=500) private String cancellationReason;

@@ -19,6 +19,11 @@ class ContactVerificationTest {
  UUID id=UUID.randomUUID();
  @BeforeEach void setup(){entry.setId(id);entry.setChannel("SMS");entry.setDestinationHash(CreateOrderHandler.hash("SMS:+61412345678"));entry.setCreatedAt(clock.instant());entry.setExpiresAt(clock.instant().plusSeconds(600));entry.setProviderReference("reference");when(em.find(ContactVerificationJpaEntity.class,id,LockModeType.PESSIMISTIC_WRITE)).thenReturn(entry);}
  @Test void normalization(){assertEquals("+61412345678",ContactDestination.normalize("SMS","0412 345 678"));assertEquals("Guest@example.com",ContactDestination.normalize("EMAIL"," Guest@EXAMPLE.COM "));assertThrows(ResponseStatusException.class,()->ContactDestination.normalize("SMS","abc"));assertThrows(ResponseStatusException.class,()->ContactDestination.normalize("SMS","0412"));}
+ @Test void orderingMobileUsesSameNormalizationButRejectsAustralianLandlines(){
+  for(String value:List.of("0412 345 678","(0412) 345-678","+61 412 345 678"))assertEquals(ContactDestination.normalize("SMS",value),ContactDestination.normalizeMobile(value));
+  assertEquals("+61391234567",ContactDestination.normalize("SMS","03 9123 4567"));
+  assertThrows(ResponseStatusException.class,()->ContactDestination.normalizeMobile("03 9123 4567"));
+ }
  @Test void unverifiedRejected(){assertThrows(ResponseStatusException.class,()->handler.consume(id,"SMS","+61412345678",UUID.randomUUID()));}
  @Test void invalidIdRejected(){assertThrows(ResponseStatusException.class,()->handler.consume(UUID.randomUUID(),"SMS","+61412345678",UUID.randomUUID()));}
  @Test void expiredRejected(){entry.setVerifiedAt(clock.instant());entry.setExpiresAt(clock.instant());assertThrows(ResponseStatusException.class,()->handler.consume(id,"SMS","+61412345678",UUID.randomUUID()));}

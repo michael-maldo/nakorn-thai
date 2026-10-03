@@ -28,7 +28,7 @@ class CreateOrderIntegrationTest {
     @Autowired MockMvc mvc;
     @Autowired JdbcTemplate jdbc;
     @Autowired jakarta.persistence.EntityManager em;
-    UUID item, variation, id, collection;
+    UUID item, variation, id, collection, phoneVerificationId;
     String token="a".repeat(64);
     @BeforeEach void fixture() {
         jdbc.update("DELETE FROM restaurant_closed_date");
@@ -37,6 +37,7 @@ class CreateOrderIntegrationTest {
             jdbc.update("INSERT INTO restaurant_opening_hours(id,day_of_week,opens_at,closes_at) VALUES (?,?,'00:00','12:00')",UUID.randomUUID(),day);
             jdbc.update("INSERT INTO restaurant_opening_hours(id,day_of_week,opens_at,closes_at) VALUES (?,?,'12:00','00:00')",UUID.randomUUID(),day);
         }
+        verifiedPhone();
         item=UUID.randomUUID(); variation=UUID.randomUUID(); id=UUID.randomUUID();
         var category=UUID.randomUUID(); collection=UUID.randomUUID();
         jdbc.update("INSERT INTO menu_category(id,name,slug) VALUES (?,'Order test',?)",category,"order-"+category);
@@ -80,11 +81,15 @@ class CreateOrderIntegrationTest {
                 .andExpect(status().isOk()).andExpect(jsonPath("$.status.enabled").value(true));
         em.clear(); create();
     }
+    void verifiedPhone() {
+        phoneVerificationId=UUID.randomUUID();
+        jdbc.update("INSERT INTO contact_verification(id,channel,destination_hash,created_at,expires_at,verified_at) VALUES (?,'SMS',?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP+INTERVAL '10 minutes',CURRENT_TIMESTAMP)",phoneVerificationId,au.com.nakornthai.notification.domain.ContactDestination.hash("SMS:+61400000000"));
+    }
     String payload(long price) {
         return """
-            {"requestId":"%s","trackingToken":"%s","customerName":"Test Customer","phone":"0400000000","notes":"No cutlery",
+            {"requestId":"%s","trackingToken":"%s","customerName":"Test Customer","phone":"0400000000","notes":"No cutlery","phoneVerificationId":"%s",
             "items":[{"variationId":"%s","quantity":2,"expectedUnitPriceMinor":%d,"collectionId":"%s","selectedOptions":[]}]}
-            """.formatted(id,token,variation,price,collection);
+            """.formatted(id,token,phoneVerificationId,variation,price,collection);
     }
     void create() throws Exception {
         mvc.perform(post("/api/orders").with(csrf()).contentType("application/json").content(payload(2490)))
@@ -104,7 +109,7 @@ class CreateOrderIntegrationTest {
                 .andExpect(jsonPath("$.customerName").doesNotExist()).andExpect(jsonPath("$.phone").doesNotExist());
         mvc.perform(get("/api/orders/"+id).header("X-Order-Token","b".repeat(64))).andExpect(status().isNotFound());
         mvc.perform(get("/api/staff/foh/orders").with(user("front").roles("FOH")))
-                .andExpect(status().isOk()).andExpect(jsonPath("$[?(@.id == '"+id+"')].phone").value("0400000000"));
+                .andExpect(status().isOk()).andExpect(jsonPath("$[?(@.id == '"+id+"')].phone").value("+61400000000"));
         mvc.perform(get("/api/staff/kitchen/orders").with(user("cook").roles("BOH")))
                 .andExpect(status().isOk()).andExpect(jsonPath("$[?(@.id == '"+id+"')]").isEmpty());
         transition("FOH","ACCEPTED",false);
@@ -182,7 +187,7 @@ class CreateOrderIntegrationTest {
         jdbc.update("INSERT INTO menu_item_option_price(menu_item_id,option_group_id,option_id,price_delta_minor) VALUES (?,?,?,300)",second,group,choice);
         mvc.perform(post("/api/orders").with(csrf()).contentType("application/json").content(withOption(2690,choice,1)))
                 .andExpect(status().isCreated()).andExpect(jsonPath("$.items[0].selectedOptions[0].priceDeltaMinor").value(200));
-        id=UUID.randomUUID(); variation=secondVariation;
+        id=UUID.randomUUID(); verifiedPhone(); variation=secondVariation;
         mvc.perform(post("/api/orders").with(csrf()).contentType("application/json").content(withOption(2690,choice,1))).andExpect(status().isConflict());
         mvc.perform(post("/api/orders").with(csrf()).contentType("application/json").content(withOption(2790,choice,1)))
                 .andExpect(status().isCreated()).andExpect(jsonPath("$.totalMinor").value(5580))
@@ -227,7 +232,7 @@ class CreateOrderIntegrationTest {
         UUID option=option(optionGroup("MULTIPLE",0,2),600);
         String base="{\"variationId\":\""+variation+"\",\"quantity\":1,\"collectionId\":\""+collection+"\",\"expectedUnitPriceMinor\":2490,\"selectedOptions\":[]}";
         String configured=base.replace("2490","3090").replace("\"selectedOptions\":[]","\"selectedOptions\":[{\"optionId\":\""+option+"\",\"quantity\":1}]");
-        String prefix="{\"requestId\":\""+id+"\",\"trackingToken\":\""+token+"\",\"customerName\":\"Test\",\"phone\":\"0400000000\",\"notes\":\"\",\"items\":[";
+        String prefix="{\"phoneVerificationId\":\""+phoneVerificationId+"\",\"requestId\":\""+id+"\",\"trackingToken\":\""+token+"\",\"customerName\":\"Test\",\"phone\":\"0400000000\",\"notes\":\"\",\"items\":[";
         mvc.perform(post("/api/orders").with(csrf()).contentType("application/json").content(prefix+base+","+base+"]}"))
                 .andExpect(status().isBadRequest());
         mvc.perform(post("/api/orders").with(csrf()).contentType("application/json").content(prefix+base+","+configured+"]}"))
@@ -242,7 +247,7 @@ class CreateOrderIntegrationTest {
         mvc.perform(post("/api/orders").with(csrf()).contentType("application/json").content(payload(0)))
                 .andExpect(status().isCreated()).andExpect(jsonPath("$.totalMinor").value(0))
                 .andExpect(jsonPath("$.items[0].collectionPriceOverrideMinor").value(0));
-        id=UUID.randomUUID();
+        id=UUID.randomUUID(); verifiedPhone();
         jdbc.update("UPDATE menu_item_variation SET is_default=false WHERE id=?",variation); em.clear();
         mvc.perform(post("/api/orders").with(csrf()).contentType("application/json").content(payload(2490)))
                 .andExpect(status().isCreated()).andExpect(jsonPath("$.totalMinor").value(4980))

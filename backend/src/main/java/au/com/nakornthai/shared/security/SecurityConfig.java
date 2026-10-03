@@ -24,6 +24,8 @@ public class SecurityConfig {
                                 "/media/menu/*", "/actuator/health", "/actuator/prometheus").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/orders/options", "/api/orders/csrf", "/api/orders/*").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/orders").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/orders/contact-verifications/options").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/orders/contact-verifications", "/api/orders/contact-verifications/*/verify").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/payments/options", "/api/order-verification/options").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/payments/*", "/api/payments/*/check", "/api/order-verification/start", "/api/order-verification/check").permitAll()
                         .requestMatchers("/api/staff/payments/**").hasAnyRole("ADMIN", "FOH")

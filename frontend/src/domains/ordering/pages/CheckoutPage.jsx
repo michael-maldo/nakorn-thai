@@ -1,3 +1,6 @@
+import ContactVerification from '../../notification/components/ContactVerification.jsx';
+import { emptyVerification,isVerified } from '../../notification/model/contactVerification.js';
+import { startContactVerification,verifyContactCode } from '../../notification/api/contactVerificationApi.js';
 import { paymentRequest } from '../../payment/api/paymentApi';
 import { useEffect, useState } from 'react';
 import Header from '../../../website/components/Header';
@@ -15,13 +18,15 @@ function readPending() {
 export default function CheckoutPage() {
   const { cart, dispatch } = useCart();
   const [pending, setPending] = useState(readPending);
-  const [name, setName] = useState(pending?.customerName ?? ''); const [phone, setPhone] = useState(pending?.phone ?? ''); const [notes, setNotes] = useState(pending?.notes ?? '');
+  const [name, setName] = useState(pending?.customerName ?? ''); const [phone, setPhone] = useState(()=>emptyVerification(pending?.phone ?? '')); const [notes, setNotes] = useState(pending?.notes ?? '');
   const [busy, setBusy] = useState(false); const [error, setError] = useState('');
   const [enabled, setEnabled] = useState(false);
   const [orderingMessage, setOrderingMessage] = useState('Online ordering is currently closed or unavailable.');
   const [email, setEmail] = useState(pending?.email ?? '');
   const [paymentMethod, setPaymentMethod] = useState(pending?.paymentMethod ?? 'PAY_AT_RESTAURANT');
   const [paymentOptions, setPaymentOptions] = useState({});
+  const [now,setNow]=useState(Date.now());
+  useEffect(()=>{const timer=setInterval(()=>setNow(Date.now()),1000);return()=>clearInterval(timer);},[]);
   useEffect(() => { paymentRequest('/api/payments/options').then(setPaymentOptions).catch(() => {}); }, []);
   useEffect(() => { let active = true; getOrderingOptions().then((options) => { if (active) { setEnabled(options.enabled); setOrderingMessage(options.message || 'Online ordering is currently closed or unavailable.'); } }).catch((e) => { if (active) setError(e.message); }); return () => { active = false; }; }, []);
   function complete(payload) {
@@ -49,7 +54,7 @@ export default function CheckoutPage() {
     finally { setBusy(false); }
   }
   async function place(event) {
-    event.preventDefault(); if (busy) return; setBusy(true); setError('');
+    event.preventDefault(); if (busy) return; if(!pending&&!isVerified(phone)){setError('Verify your current mobile by SMS before placing an order.');return;} setBusy(true); setError('');
     let payload = pending;
     try {
       if (payload) {
@@ -58,7 +63,7 @@ export default function CheckoutPage() {
         const reviewed = await prepareCheckout(cart);
         dispatch({ type: 'replace', lines: reviewed.lines });
         payload = { requestId: crypto.randomUUID(), trackingToken: Array.from(crypto.getRandomValues(new Uint8Array(32)), (n) => n.toString(16).padStart(2, '0')).join(''),
-          customerName: name, phone, notes, email: email || null, paymentMethod, items: reviewed.items };
+          customerName: name, phone:phone.destination, phoneVerificationId:phone.id, notes, email: email || null, paymentMethod, items: reviewed.items };
         // Persist before submitting, so a lost response cannot duplicate the order.
         sessionStorage.setItem(PENDING_ORDER, JSON.stringify(payload)); setPending(payload);
         await submitOrder(payload);
@@ -86,8 +91,9 @@ export default function CheckoutPage() {
           <button type="button" disabled={busy} onClick={() => dispatch({ type: 'remove', id: line.key })}>Remove {line.dishName}</button></div>)}
         <p className="order-total">Total: {money(cartTotal(cart))}</p>
         <label>Your name<input required maxLength={100} autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} disabled={busy} /></label>
-        <label>Phone number<input required type="tel" maxLength={30} minLength={6} autoComplete="tel" value={phone} onChange={(e) => setPhone(e.target.value)} disabled={busy} /></label>
-        <label>Email for order verification (optional)<input type="email" maxLength={254} autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} disabled={busy} /></label>
+        <ContactVerification channel="SMS" label="Mobile number (required)" required state={phone} onChange={setPhone} now={now} disabled={busy} startVerification={startContactVerification} verifyCode={verifyContactCode} />
+        <label>Email for order updates (optional)<input type="email" maxLength={254} autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} disabled={busy} /></label>
+        <p>We send transactional order updates to your verified mobile and, if supplied, your email. Email verification is not required.</p>
         <p>Keep the full order ID on your receipt. Where enabled, you can request an SMS or email code to recover tracking access.</p>
         <label>Payment method<select value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)} disabled={busy}>
           <option value="PAY_AT_RESTAURANT">Pay at restaurant</option>
@@ -96,7 +102,7 @@ export default function CheckoutPage() {
         </select></label>
         <label>Order notes<textarea maxLength={1000} value={notes} onChange={(e) => setNotes(e.target.value)} disabled={busy} /></label>
       </>}
-      <button className="button button-primary" disabled={busy || (!pending && (!enabled || cart.some((line) => line.issue)))}>{busy ? 'Submitting…' : pending ? 'Retry submission' : 'Place pickup order'}</button>
+      <button className="button button-primary" disabled={busy || (!pending && (!enabled || !isVerified(phone,now) || cart.some((line) => line.issue)))}>{busy ? 'Submitting…' : pending ? 'Retry submission' : 'Place pickup order'}</button>
     </form>}
     <a href="#/menu">Back to menu and cart</a>
   </main></>;

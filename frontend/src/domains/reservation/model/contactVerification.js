@@ -1,6 +1,5 @@
-export function emptyVerification(destination='') { return {destination,status:'idle',id:null,code:'',error:'',expiresAt:null,resendAt:null}; }
-export function changeDestination(state,destination) { return state.destination===destination?state:emptyVerification(destination); }
-export function isVerified(state,now=Date.now()) { return state.status==='verified' && state.id && Date.parse(state.expiresAt)>now; }
+import { isVerified } from '../../notification/model/contactVerification.js';
+export { emptyVerification,changeDestination,isVerified } from '../../notification/model/contactVerification.js';
 export function verificationIds(phone,email,now=Date.now()) {
  return {phoneVerificationId:isVerified(phone,now)?phone.id:null,emailVerificationId:isVerified(email,now)?email.id:null};
 }

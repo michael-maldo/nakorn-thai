@@ -82,9 +82,12 @@ class LunchSpecialIntegrationTest {
             assertThrows(IllegalArgumentException.class,()->MenuPricing.calculate(1490,true,null,MenuCatalogRules.groups(rice),List.of(new MenuPricing.Selection(option.getId(),1))));
     }
     @Test void seededOrderStoresSnapshotsAndSuccessfulReplaySurvivesCutoff() {
+        time("14:29:00");
+        var challenge=UUID.randomUUID();
+        jdbc.update("INSERT INTO contact_verification(id,channel,destination_hash,created_at,expires_at,verified_at) VALUES (?,'SMS',?,?,?,?)",challenge,au.com.nakornthai.notification.domain.ContactDestination.hash("SMS:+61400000000"),java.sql.Timestamp.from(clock.instant()),java.sql.Timestamp.from(clock.instant().plusSeconds(600)),java.sql.Timestamp.from(clock.instant()));
         var request=new CreateOrderRequest(UUID.randomUUID(),"a".repeat(64),"Lunch Test","0400000000","",
                 List.of(new CreateOrderRequest.Line(UUID.fromString("6e78deed-b9bc-537a-8a08-fc7e0eafbf62"),2,2090,lunch,
-                        List.of(new CreateOrderRequest.SelectedOption(UUID.fromString("a9938cdf-241d-5a0d-8009-42f7c5cc385f"),1)))));
+                        List.of(new CreateOrderRequest.SelectedOption(UUID.fromString("a9938cdf-241d-5a0d-8009-42f7c5cc385f"),1)))),null,null,challenge);
         time("14:29:00");var response=orders.handle(request);assertEquals(4180,response.totalMinor());assertEquals("lunch-special",response.items().getFirst().collectionSlug());
         assertEquals(1490L,response.items().getFirst().variationBasePriceMinor());assertNull(response.items().getFirst().collectionPriceOverrideMinor());
         assertEquals("Prawns",response.items().getFirst().selectedOptions().getFirst().optionName());

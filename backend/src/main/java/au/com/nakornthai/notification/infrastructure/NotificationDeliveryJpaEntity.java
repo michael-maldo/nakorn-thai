@@ -8,6 +8,7 @@ import java.util.UUID;
 public class NotificationDeliveryJpaEntity {
  @Id private UUID id;
  private UUID reservationId;
+ private UUID orderId;
  @Enumerated(EnumType.STRING) private NotificationType type;
  @Enumerated(EnumType.STRING) private NotificationChannel channel;
  private String recipient;

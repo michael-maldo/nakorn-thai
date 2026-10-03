@@ -13,5 +13,6 @@ public class ContactVerificationJpaEntity {
  private Instant expiresAt;
  private Instant verifiedAt;
  private UUID consumedBy;
+ private UUID consumedOrderId;
  private int attempts;
 }

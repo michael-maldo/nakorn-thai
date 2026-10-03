@@ -1,5 +1,10 @@
 package au.com.nakornthai.ordering.createorder;
 import au.com.nakornthai.ordering.infrastructure.*;
+import au.com.nakornthai.notification.contactverification.ContactVerificationHandler;
+import au.com.nakornthai.notification.orderconfirmation.SendOrderConfirmationHandler;
+import au.com.nakornthai.notification.orderconfirmation.SendOrderConfirmationCommand;
+import au.com.nakornthai.notification.domain.ContactDestination;
+import au.com.nakornthai.notification.domain.NotificationType;
 import au.com.nakornthai.menu.infrastructure.*;
 import jakarta.persistence.*;
 import au.com.nakornthai.restaurant.orderingsettings.OrderingSettingsHandler;
@@ -23,10 +28,12 @@ public class CreateOrderHandler {
     private final OrderingSettingsHandler ordering;
     private final RestaurantAvailabilityService availability;
     private final Clock clock;
+    private final ContactVerificationHandler verification;
+    private final SendOrderConfirmationHandler notifications;
     @Value("${PAYPAL_ENABLED:false}") private boolean paypalEnabled;
     @Value("${PAYID_ENABLED:false}") private boolean payidEnabled;
-    public CreateOrderHandler(EntityManager em, OrderMapper mapper, OrderingSettingsHandler ordering, RestaurantAvailabilityService availability, Clock clock) {
-        this.em=em; this.mapper=mapper; this.ordering=ordering; this.availability=availability; this.clock=clock;
+    public CreateOrderHandler(EntityManager em, OrderMapper mapper, OrderingSettingsHandler ordering, RestaurantAvailabilityService availability, Clock clock, ContactVerificationHandler verification, SendOrderConfirmationHandler notifications) {
+        this.em=em; this.mapper=mapper; this.ordering=ordering; this.availability=availability; this.clock=clock;this.verification=verification;this.notifications=notifications;
     }
     public boolean enabled() { return ordering.status().enabled(); }
     public OrderingSettingsHandler.Status orderingStatus() { return ordering.status(); }
@@ -49,6 +56,7 @@ public class CreateOrderHandler {
                 throw new ResponseStatusException(HttpStatus.CONFLICT, "This checkout was already submitted with different details");
             return mapper.map(existing, false);
         }
+        String phone=ContactDestination.normalizeMobile(request.phone());
         ordering.requireAcceptingOrders();
         if((paymentMethod.equals("PAYPAL")&&!paypalEnabled) || (paymentMethod.equals("PAYID")&&!payidEnabled))throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,"Selected payment method is unavailable");
         Instant checkoutAt = clock.instant();
@@ -57,8 +65,8 @@ public class CreateOrderHandler {
         var order = new OrderJpaEntity(); order.setId(request.requestId());
         order.setPaymentMethod(paymentMethod);
         order.setTrackingHash(hash(request.trackingToken())); order.setRequestHash(fingerprint);
-        order.setCustomerName(request.customerName().trim()); order.setPhone(request.phone().trim()); order.setNotes(request.notes().trim());
-        order.setEmail(request.email()==null || request.email().isBlank()?null:request.email().trim().toLowerCase(Locale.ROOT));
+        order.setCustomerName(request.customerName().trim()); order.setPhone(phone);order.setPhoneVerified(true); order.setNotes(request.notes().trim());
+        order.setEmail(request.email()==null || request.email().isBlank()?null:ContactDestination.normalize("EMAIL",request.email()));
         if (request.items().stream().anyMatch(l -> l.collectionId() == null))
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Collection is required for every new order line");
         MenuCatalogLock.read(em);
@@ -107,9 +115,12 @@ public class CreateOrderHandler {
             }
             order.getItems().add(snapshot);
         }
+        if(!verification.consumeForOrder(request.phoneVerificationId(),phone,request.requestId()))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Verify your mobile by SMS before placing an order");
         em.persist(order); em.flush();
         var event = new OrderEventJpaEntity(); event.setOrderId(order.getId()); event.setStatus("NEW");
         event.setActor("CUSTOMER"); event.setCreatedAt(order.getCreatedAt()); em.persist(event);
+        notifications.handle(new SendOrderConfirmationCommand(order.getId(),NotificationType.ORDER_RECEIVED,order.getPhone(),order.getEmail(),order.getCustomerName(),order.getTotalMinor(),null,restaurantSchedule.timezone()));
         return mapper.map(order, false);
     }
     static String fingerprintLines(CreateOrderRequest request) {

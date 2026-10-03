@@ -5,7 +5,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.http.*;
 import java.util.*;
-@RestController @RequiredArgsConstructor @RequestMapping("/api/reservations/contact-verifications")
+@RestController @RequiredArgsConstructor @RequestMapping({"/api/reservations/contact-verifications","/api/orders/contact-verifications"})
 public class ContactVerificationController {
  private final ContactVerificationHandler handler;
  public record Start(@NotNull @Pattern(regexp="SMS|EMAIL") String channel,@NotBlank @Size(max=254) String destination) {}

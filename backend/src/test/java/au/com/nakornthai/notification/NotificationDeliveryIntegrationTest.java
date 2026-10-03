@@ -26,6 +26,7 @@ class NotificationDeliveryIntegrationTest {
  @Autowired PlatformTransactionManager transactionManager;
  @Autowired SendReservationConfirmationHandler confirmation;
  @Autowired NotificationDeliveryWorker worker;
+ @Autowired au.com.nakornthai.notification.orderconfirmation.SendOrderConfirmationHandler orderingNotifications;
  @MockitoBean SmsSender sms;
  @MockitoBean EmailSender email;
  @MockitoBean Clock clock;
@@ -33,6 +34,7 @@ class NotificationDeliveryIntegrationTest {
  @MockitoBean(name="taskScheduler") org.springframework.scheduling.TaskScheduler scheduler;
  final Instant now=Instant.parse("2030-10-03T00:00:00Z");
  final Set<UUID> reservationIds=new HashSet<>();
+ final Set<UUID> orderIds=new HashSet<>();
  TransactionTemplate transaction;
  @BeforeEach void setup() {
   when(clock.instant()).thenReturn(now);
@@ -40,6 +42,10 @@ class NotificationDeliveryIntegrationTest {
   transaction=new TransactionTemplate(transactionManager);
  }
  @AfterEach void cleanup() {
+  for(UUID id:orderIds)transaction.executeWithoutResult(status -> {
+   jdbc.update("DELETE FROM notification_delivery WHERE order_id=?",id);
+   jdbc.update("DELETE FROM restaurant_order WHERE id=?",id);
+  });
   for(UUID id:reservationIds)transaction.executeWithoutResult(status -> {
    jdbc.update("DELETE FROM notification_delivery WHERE reservation_id=?",id);
    jdbc.update("DELETE FROM reservation WHERE id=?",id);
@@ -58,6 +64,27 @@ class NotificationDeliveryIntegrationTest {
  }
  void assertStatus(UUID id,String channel,String expected) {
   assertEquals(expected,jdbc.queryForObject("SELECT status FROM notification_delivery WHERE reservation_id=? AND channel=?",String.class,id,channel));
+ }
+
+ @Test void orderingUsesSameWorkerAndRetriesSmsWithoutResendingEmail() {
+  UUID id=UUID.randomUUID();orderIds.add(id);
+  transaction.executeWithoutResult(status -> {
+   jdbc.update("INSERT INTO restaurant_order(id,tracking_hash,request_hash,customer_name,phone,notes,total_minor,phone_verified,created_at,updated_at) VALUES (?,? ,?,'Guest','+61412345678','',1990,true,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)",id,"a".repeat(64),"b".repeat(64));
+   var handler=orderingNotifications;
+   handler.handle(new au.com.nakornthai.notification.orderconfirmation.SendOrderConfirmationCommand(id,NotificationType.ORDER_READY,"+61412345678","Guest@example.com","Guest",1990,null,ZoneId.of("Australia/Melbourne")));
+  });
+  // Durable protection still applies to a caller bypassing the enqueue check.
+  assertThrows(org.springframework.dao.DataIntegrityViolationException.class,()->transaction.executeWithoutResult(status->
+   jdbc.update("INSERT INTO notification_delivery(id,order_id,type,channel,recipient,subject,body,created_at,next_attempt_at) SELECT ?,order_id,type,channel,recipient,subject,body,created_at,next_attempt_at FROM notification_delivery WHERE order_id=? AND channel='SMS'",UUID.randomUUID(),id)));
+  doThrow(new IllegalStateException("Fake provider unavailable")).when(sms).send(any(),any());
+  worker.deliver();
+  assertEquals("SENT",jdbc.queryForObject("SELECT status FROM notification_delivery WHERE order_id=? AND channel='EMAIL'",String.class,id));
+  assertEquals("FAILED",jdbc.queryForObject("SELECT status FROM notification_delivery WHERE order_id=? AND channel='SMS'",String.class,id));
+  worker.deliver();verify(sms,times(1)).send(any(),any());verify(email,times(1)).send(any(),any(),any());
+  jdbc.update("UPDATE notification_delivery SET next_attempt_at=? WHERE order_id=? AND channel='SMS'",java.sql.Timestamp.from(now.minusSeconds(1)),id);
+  doNothing().when(sms).send(any(),any());worker.deliver();
+  assertEquals(2,jdbc.queryForObject("SELECT count(*) FROM notification_delivery WHERE order_id=? AND status='SENT'",Integer.class,id));
+  verify(sms,times(2)).send(eq("+61412345678"),any());verify(email,times(1)).send(eq("Guest@example.com"),any(),any());
  }
  @Test void databaseWorkerRetriesFailedChannelWithoutResendingSuccessfulChannel() {
   UUID id=committedNotifications();
