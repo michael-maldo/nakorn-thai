@@ -8,8 +8,8 @@ This version records **requests, not guaranteed table availability**. Staff must
 check seating availability and call the guest before confirming. New requests are
 validated against [restaurant scheduling](../restaurant/scheduling.md); closed requested
 times are rejected by the backend.
-There is no table allocation, automatic capacity calculation, deposit, email/SMS
-notification or public booking lookup. Customers should contact the restaurant to
+There is no table allocation, automatic capacity calculation, deposit or public
+booking lookup. Transactional notifications use the shared outbox and worker. Customers should contact the restaurant to
 change or cancel their request, quoting the reference shown after submission.
 
 ## Staff workflow
@@ -41,7 +41,8 @@ and JWT configuration in [dashboard-identity.md](../identity/dashboard-identity.
 | `PATCH /api/staff/reservations/{id}` | ADMIN or FOH, CSRF required |
 
 Create body: `requestId` (client-generated UUID), `customerName`, `phone`,
-`partySize`, `requestedAt` (local ISO datetime without timezone), and `notes`.
+`phoneVerificationId`, optional `email`, `partySize`, `requestedAt` (local ISO
+datetime without timezone), and `notes`.
 The response contains a reference and a request acknowledgment, without contact
 information. Exact retries with the same UUID return the same acknowledgment;
 changed details require a new UUID. The form retains the UUID during retries on
@@ -62,44 +63,67 @@ restrictions and stale updates. Frontend API tests cover CSRF and server message
 Deploy through the existing workflow after setting the production JWT signing key.
 
 
-## Verified contacts and confirmation delivery
+## Verified mobile and transactional booking delivery
 
-Customers supply a phone, an email, or both and verify at least one before requesting
- a table. The public reservation page handles OTP entry and clears verification on
-contact edits. Creation remains REQUESTED; verification never confirms a table.
+Reservations and ordering require a mobile successfully verified by SMS. Email is
+optional and needs no OTP; when supplied, it also receives transactional updates.
+Checkout shares the notification verification component/model with ordering. Mobile
+edits immediately clear verification; the backend independently enforces it.
+Creation remains REQUESTED and never confirms a table.
 
-Public endpoints (writes retain CSRF from `/api/reservations/csrf`):
-- GET `/api/reservations/contact-verifications/options`: SMS/email availability.
-- POST `/api/reservations/contact-verifications`: `{channel: "SMS" | "EMAIL", destination}`;
-  returns `id`, `expiresAt`, `resendAt`.
+Public endpoints (writes retain CSRF from `/api/reservations/csrf`) are unchanged:
+- GET `/api/reservations/contact-verifications/options`: generic channel availability.
+- POST `/api/reservations/contact-verifications`: `{channel: "SMS", destination}` for
+  this business flow; returns `id`, `expiresAt`, `resendAt`.
 - POST `/api/reservations/contact-verifications/{id}/verify`: `{code}`;
   returns `id`, `verified`, `expiresAt`.
-- POST `/api/reservations`: existing fields plus optional `email`,
-  `phoneVerificationId`, `emailVerificationId`. Phone is optional. At least one
-  successful, unexpired, matching challenge is required. Each supplied challenge
-  is consumed atomically with creation. Retrying the same request UUID/payload
-  returns the existing receipt. A different request cannot reuse that challenge.
+- POST `/api/reservations`: phone and `phoneVerificationId` are required for new
+  requests. Optional email receives messages without verification.
+  `emailVerificationId` remains accepted for compatibility but is ignored and
+  cannot substitute for SMS. The shared EMAIL capability remains available for
+  future uses; neither reservation nor ordering checkout uses it.
 
-Twilio Verify manages OTP generation/storage for both channels behind
-ContactVerificationProvider; email OTP requires the Verify service's email integration.
-Set VERIFY_SMS_ENABLED/VERIFY_EMAIL_ENABLED plus TWILIO_ACCOUNT_SID,
-TWILIO_AUTH_TOKEN and TWILIO_VERIFY_SERVICE_SID. Missing/invalid configuration
-leaves the channel unavailable without preventing startup. Codes expire after
-10 minutes locally; configure the Verify service consistently. Checks are limited
-to five attempts; requests have a 60-second cooldown and five-per-hour limit per
-normalized destination/channel, serialized by PostgreSQL advisory locks.
-Email matching preserves local-part case and normalizes the domain. Australian
-local phone numbers accept spaces and normalize to E.164. No OTPs, complete
-contacts, provider errors or credentials are included in operational logs.
+The shared handler locks the challenge, checks successful SMS verification,
+matching normalized mobile, expiry and absence of any reservation/order consumer.
+Consumption, creation and RESERVATION_RECEIVED jobs commit together; rollback
+restores challenge eligibility and leaves no booking or jobs. Exact existing
+request UUID/payload retries bypass new challenge checks and create no duplicate
+jobs. Staff status changes and their notifications also share one transaction.
 
-V29 adds contact_verification and notification_delivery, plus optional email and
-verified-channel flags on reservation. Existing reservations remain valid and
-unverified; staff can still manage them, but they do not generate automatic messages.
+Twilio Verify manages OTP generation/storage behind ContactVerificationProvider.
+Set VERIFY_SMS_ENABLED=true, TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN and
+TWILIO_VERIFY_SERVICE_SID. Email OTP configuration is not required for bookings.
+Missing/invalid configuration leaves the channel unavailable without preventing
+startup. Codes expire after ten minutes; five attempts, 60-second request cooldown
+and five requests/hour per normalized destination/channel remain shared across
+ordering/reservation aliases. Australian mobiles normalize to E.164 with ordering's
+normalizer; Australian landlines are rejected for new bookings. Optional email
+preserves local-part case and normalizes the domain. Logs omit full contacts,
+OTPs, provider errors and credentials.
 
-The existing staff PATCH transaction queues RESERVATION_CONFIRMED work only on
-REQUESTED -> CONFIRMED, one row per verified channel. Unique
-(reservation_id,type,channel) prevents duplicate work. Message content is snapshotted
-by the reservationconfirmation handler; delivery adapters only send content.
+| Event | Trigger | SMS | Optional supplied email |
+|---|---|---|---|
+| RESERVATION_RECEIVED | Successful creation, REQUESTED | Yes | Yes |
+| RESERVATION_CONFIRMED | REQUESTED -> CONFIRMED | Yes | Yes |
+| RESERVATION_DECLINED | REQUESTED -> DECLINED | Yes | Yes |
+| RESERVATION_CANCELLED | REQUESTED/CONFIRMED -> CANCELLED | Yes | Yes |
+
+Received says the table is not confirmed. Confirmed includes date/time and party
+size. Declined/cancelled have distinct content. SEATED and NO_SHOW queue nothing.
+The existing state machine, FOH/ADMIN permissions, row lock and version checks are
+unchanged. Unique (reservation_id,type,channel) durably prevents duplicate work;
+repeat enqueueing retains existing jobs, including sent/exhausted ones.
+
+V32 only broadens the existing outbox type/owner constraints. V29–V31 remain
+unchanged. All previously permitted rows satisfy the broadened constraints, and
+no new unique index risks existing duplicates. Historical contact fields and flags
+remain unchanged: email-only/unverified-phone records stay readable/manageable,
+but new transitions do not queue messages without a verified phone. Already queued
+historical jobs remain intact. Historical phone-verified records use the new
+notification policy, including email when supplied. No backfill claims verification.
+
+Message content remains in the reservationconfirmation handler; providers only
+perform delivery. No extra challenge table, outbox or worker was added.
 The scheduled worker polls every NOTIFICATION_POLL_MS (default 10000) and processes
 up to 10 notifications per poll, each in its own REQUIRES_NEW transaction. Each
 transaction selects one due row with FOR UPDATE SKIP LOCKED, makes one provider

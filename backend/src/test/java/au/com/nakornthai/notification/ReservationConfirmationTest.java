@@ -10,11 +10,12 @@ import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 class ReservationConfirmationTest {
- EntityManager em=mock(EntityManager.class);
+ EntityManager em=mock(EntityManager.class,RETURNS_DEEP_STUBS);
  Clock clock=Clock.fixed(Instant.parse("2026-10-03T00:00:00Z"),ZoneOffset.UTC);
  SmsSender sms=mock(SmsSender.class);EmailSender email=mock(EmailSender.class);
  SendReservationConfirmationHandler handler=new SendReservationConfirmationHandler(em,clock);
  NotificationDeliveryWorker worker=new NotificationDeliveryWorker(em,sms,email,clock,new io.micrometer.core.instrument.simple.SimpleMeterRegistry(),mock(org.springframework.transaction.PlatformTransactionManager.class));
+ @BeforeEach void setup(){when(em.createNativeQuery(anyString(),eq(Long.class)).setParameter(eq("id"),any()).setParameter(eq("type"),any()).setParameter(eq("channel"),any()).getSingleResult()).thenReturn(0L);}
  List<NotificationDeliveryJpaEntity> queue(String phone,String address,int count) {
   handler.handle(new SendReservationConfirmationCommand(UUID.randomUUID(),"Guest",LocalDateTime.parse("2026-10-10T19:00:00"),4,phone,address));
   var captured=ArgumentCaptor.forClass(NotificationDeliveryJpaEntity.class);
@@ -45,6 +46,18 @@ class ReservationConfirmationTest {
   assertEquals(1,notifications.stream().filter(n -> n.getChannel()==NotificationChannel.EMAIL && n.getRecipient().equals("Guest@example.com")).count());
  }
  @Test void noVerifiedDestinations(){queue(null,null,0);}
+ @Test void receivedDeclinedAndCancelledHaveDistinctContentAndChannels() {
+  for(var type:List.of(NotificationType.RESERVATION_RECEIVED,NotificationType.RESERVATION_DECLINED,NotificationType.RESERVATION_CANCELLED)){
+   handler.handle(new SendReservationConfirmationCommand(UUID.randomUUID(),"Guest",LocalDateTime.parse("2026-10-10T19:00:00"),4,"+61412345678","Guest@example.com",type));
+  }
+  var captured=ArgumentCaptor.forClass(NotificationDeliveryJpaEntity.class);verify(em,times(6)).persist(captured.capture());
+  for(var n:captured.getAllValues()) {
+   assertTrue(n.getBody().contains("4 guests"));assertTrue(n.getBody().contains("Saturday 10 Oct 2026"));
+   if(n.getType()==NotificationType.RESERVATION_RECEIVED)assertTrue(n.getBody().contains("not confirmed yet"));
+   else {assertTrue(n.getBody().contains(n.getType().name().substring(12).toLowerCase(Locale.ROOT)));assertFalse(n.getBody().contains("is confirmed"));assertFalse(n.getBody().contains("look forward"));}
+   assertEquals(n.getChannel()==NotificationChannel.SMS?"+61412345678":"Guest@example.com",n.getRecipient());
+  }
+ }
  NotificationDeliveryJpaEntity job(NotificationChannel channel){var n=new NotificationDeliveryJpaEntity();n.setId(UUID.randomUUID());n.setType(NotificationType.RESERVATION_CONFIRMED);n.setChannel(channel);n.setRecipient("destination");n.setBody("body");n.setSubject("subject");return n;}
  @Test void sentAndExhaustedJobsAreNotResent(){var sent=job(NotificationChannel.SMS);sent.setStatus(DeliveryStatus.SENT);var exhausted=job(NotificationChannel.EMAIL);exhausted.setAttempts(5);worker.deliverOne(sent);worker.deliverOne(exhausted);verifyNoInteractions(sms,email);}
  @Test void successfulDelivery(){var n=job(NotificationChannel.SMS);worker.deliverOne(n);assertEquals(DeliveryStatus.SENT,n.getStatus());assertEquals(clock.instant(),n.getSentAt());}

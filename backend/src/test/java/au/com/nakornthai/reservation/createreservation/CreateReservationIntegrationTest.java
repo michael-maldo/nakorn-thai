@@ -71,17 +71,17 @@ class CreateReservationIntegrationTest {
  assertEquals("SEATED",jdbc.queryForObject("SELECT status FROM reservation WHERE id=?",String.class,id));
  assertEquals("admin",jdbc.queryForObject("SELECT updated_by FROM reservation WHERE id=?",String.class,id));
  }
- @Test void confirmationQueuesOnlyVerifiedPhoneAndOnlyOnce() throws Exception {
+ @Test void receivedAndConfirmedQueueSmsAndOptionalUnverifiedEmailOnlyOnce() throws Exception {
   var id=UUID.randomUUID();String payload=body(id).replace("\"partySize\":4","\"email\":\"unverified@example.com\",\"partySize\":4");
   mvc.perform(post("/api/reservations").with(csrf()).contentType("application/json").content(payload)).andExpect(status().isCreated());
-  em.flush();assertEquals(0,jdbc.queryForObject("SELECT count(*) FROM notification_delivery WHERE reservation_id=?",Integer.class,id));
+  em.flush();assertEquals(2,jdbc.queryForObject("SELECT count(*) FROM notification_delivery WHERE reservation_id=? AND type='RESERVATION_RECEIVED'",Integer.class,id));
   String update="{\"version\":0,\"status\":\"CONFIRMED\",\"staffNote\":\"\"}";
   mvc.perform(patch("/api/staff/reservations/"+id).with(user("front").roles("FOH")).with(csrf()).contentType("application/json").content(update)).andExpect(status().isNoContent());
   em.flush();em.clear();
-  assertEquals(1,jdbc.queryForObject("SELECT count(*) FROM notification_delivery WHERE reservation_id=? AND channel='SMS'",Integer.class,id));
-  assertEquals(0,jdbc.queryForObject("SELECT count(*) FROM notification_delivery WHERE reservation_id=? AND channel='EMAIL'",Integer.class,id));
+  assertEquals(1,jdbc.queryForObject("SELECT count(*) FROM notification_delivery WHERE reservation_id=? AND type='RESERVATION_CONFIRMED' AND channel='SMS'",Integer.class,id));
+  assertEquals(1,jdbc.queryForObject("SELECT count(*) FROM notification_delivery WHERE reservation_id=? AND type='RESERVATION_CONFIRMED' AND channel='EMAIL'",Integer.class,id));
   mvc.perform(patch("/api/staff/reservations/"+id).with(user("front").roles("FOH")).with(csrf()).contentType("application/json").content(update.replace("\"version\":0","\"version\":1"))).andExpect(status().isConflict());
-  assertEquals(1,jdbc.queryForObject("SELECT count(*) FROM notification_delivery WHERE reservation_id=?",Integer.class,id));
+  assertEquals(4,jdbc.queryForObject("SELECT count(*) FROM notification_delivery WHERE reservation_id=?",Integer.class,id));
  }
  @Test void consumedChallengeCannotCreateAnotherReservation() throws Exception {
   var id=UUID.randomUUID();String payload=body(id);
@@ -117,7 +117,7 @@ class CreateReservationIntegrationTest {
   em.flush();assertEquals(5,jdbc.queryForObject("SELECT attempts FROM contact_verification WHERE id=?",Integer.class,UUID.fromString(challenge)));
   org.mockito.Mockito.verify(provider,org.mockito.Mockito.times(5)).check("email-reference","123456");
  }
- @Test void verifiedEmailCreatesRequestedReservationWithoutPhone() throws Exception {
+ @Test void verifiedEmailCannotReplaceSms() throws Exception {
   org.mockito.Mockito.when(provider.enabled("email")).thenReturn(true);
   org.mockito.Mockito.when(provider.start("EmailGuest@example.com","email")).thenReturn("email-booking-reference");
   org.mockito.Mockito.when(provider.check("email-booking-reference","123456")).thenReturn(true);
@@ -131,16 +131,86 @@ class CreateReservationIntegrationTest {
   UUID id=UUID.randomUUID();
   String payload=mapper.writeValueAsString(java.util.Map.of("requestId",id,"customerName","Email Guest","email","EmailGuest@EXAMPLE.COM",
    "emailVerificationId",challenge,"partySize",4,"requestedAt",time,"notes",""));
-  mvc.perform(post("/api/reservations").with(csrf()).contentType("application/json").content(payload)).andExpect(status().isCreated());
+  mvc.perform(post("/api/reservations").with(csrf()).contentType("application/json").content(payload)).andExpect(status().isBadRequest());
   em.flush();
-  assertEquals("REQUESTED",jdbc.queryForObject("SELECT status FROM reservation WHERE id=?",String.class,id));
-  assertEquals(true,jdbc.queryForObject("SELECT email_verified FROM reservation WHERE id=?",Boolean.class,id));
-  assertEquals(false,jdbc.queryForObject("SELECT phone_verified FROM reservation WHERE id=?",Boolean.class,id));
-  assertNull(jdbc.queryForObject("SELECT phone FROM reservation WHERE id=?",String.class,id));
-  assertEquals("EmailGuest@example.com",jdbc.queryForObject("SELECT email FROM reservation WHERE id=?",String.class,id));
-  assertEquals(id,jdbc.queryForObject("SELECT consumed_by FROM contact_verification WHERE id=?",UUID.class,challenge));
+  // A successful EMAIL challenge also fails when forged as the phone proof.
+  mvc.perform(post("/api/reservations").with(csrf()).contentType("application/json").content(payload.replace("emailVerificationId","phoneVerificationId").replace("\"partySize\":4","\"phone\":\"0400000000\",\"partySize\":4"))).andExpect(status().isBadRequest());
+  assertEquals(0,jdbc.queryForObject("SELECT count(*) FROM reservation WHERE id=?",Integer.class,id));
+  assertNull(jdbc.queryForObject("SELECT consumed_by FROM contact_verification WHERE id=?",UUID.class,challenge));
   assertNotNull(jdbc.queryForObject("SELECT verified_at FROM contact_verification WHERE id=?",java.sql.Timestamp.class,challenge));
   org.mockito.Mockito.verify(provider).check("email-booking-reference","123456");
+ }
+
+ UUID proof(UUID id){return UUID.nameUUIDFromBytes((id+"verification").getBytes(java.nio.charset.StandardCharsets.UTF_8));}
+ void create(String payload,int expected) throws Exception {em.flush();em.clear();mvc.perform(post("/api/reservations").with(csrf()).contentType("application/json").content(payload)).andExpect(status().is(expected));}
+ int jobs(UUID id,String type){em.flush();return jdbc.queryForObject("SELECT count(*) FROM notification_delivery WHERE reservation_id=? AND type=?",Integer.class,id,type);}
+ void change(UUID id,String status,int expected) throws Exception {
+  em.flush();em.clear();long version=jdbc.queryForObject("SELECT version FROM reservation WHERE id=?",Long.class,id);
+  mvc.perform(patch("/api/staff/reservations/"+id).with(user("front").roles("FOH")).with(csrf()).contentType("application/json").content("{\"version\":"+version+",\"status\":\""+status+"\",\"staffNote\":\"\"}")).andExpect(status().is(expected));
+ }
+ @Test void rejectsWrongExpiredUnverifiedMismatchedAndLandlineProof() throws Exception {
+  UUID id=UUID.randomUUID();String payload=body(id);UUID challenge=proof(id);
+  create(payload.replace(challenge.toString(),UUID.randomUUID().toString()),400);
+  jdbc.update("UPDATE contact_verification SET verified_at=NULL WHERE id=?",challenge);create(payload,400);
+  jdbc.update("UPDATE contact_verification SET verified_at=CURRENT_TIMESTAMP, expires_at=CURRENT_TIMESTAMP-interval '1 second' WHERE id=?",challenge);create(payload,400);
+  jdbc.update("UPDATE contact_verification SET expires_at=CURRENT_TIMESTAMP+interval '10 minutes' WHERE id=?",challenge);
+  create(payload.replace("0400000000","0499999999"),400);
+  create(payload.replace("0400000000","0391234567"),400);
+  create(payload.replace("0400000000",""),400);
+  assertEquals(0,jobs(id,"RESERVATION_RECEIVED"));assertNull(jdbc.queryForObject("SELECT consumed_by FROM contact_verification WHERE id=?",UUID.class,challenge));
+  create(payload.replace("0400000000","(0400) 000-000"),201);
+ }
+ @Test void receivedMeansRequestedAndExactReplayQueuesNoDuplicates() throws Exception {
+  UUID id=UUID.randomUUID();String payload=body(id);
+  create(payload,201);assertEquals(1,jobs(id,"RESERVATION_RECEIVED"));assertEquals(0,jobs(id,"RESERVATION_CONFIRMED"));
+  assertEquals("REQUESTED",jdbc.queryForObject("SELECT status FROM reservation WHERE id=?",String.class,id));
+  String message=jdbc.queryForObject("SELECT body FROM notification_delivery WHERE reservation_id=?",String.class,id);
+  assertTrue(message.contains("not confirmed yet"));assertTrue(message.contains("request"));
+  assertEquals("+61400000000",jdbc.queryForObject("SELECT recipient FROM notification_delivery WHERE reservation_id=?",String.class,id));
+  jdbc.update("UPDATE contact_verification SET expires_at=CURRENT_TIMESTAMP-interval '1 second' WHERE id=?",proof(id));em.clear();
+  create(payload,201);assertEquals(1,jobs(id,"RESERVATION_RECEIVED"));assertEquals(1,jdbc.queryForObject("SELECT count(*) FROM reservation WHERE id=?",Integer.class,id));
+ }
+ @Test void optionalEmailNeedsNoProofAndInvalidSyntaxIsRejected() throws Exception {
+  UUID id=UUID.randomUUID();String payload=body(id).replace("\"partySize\":4","\"email\":\"Case@EXAMPLE.COM\",\"emailVerificationId\":\""+UUID.randomUUID()+"\",\"partySize\":4");
+  create(payload.replace("Case@EXAMPLE.COM","malformed"),400);create(payload,201);
+  assertEquals(2,jobs(id,"RESERVATION_RECEIVED"));
+  assertTrue(jdbc.queryForObject("SELECT phone_verified FROM reservation WHERE id=?",Boolean.class,id));
+  assertFalse(jdbc.queryForObject("SELECT email_verified FROM reservation WHERE id=?",Boolean.class,id));
+  assertEquals("Case@example.com",jdbc.queryForObject("SELECT recipient FROM notification_delivery WHERE reservation_id=? AND channel='EMAIL'",String.class,id));
+ }
+ @Test void declinedAndCancelledEventsFollowExistingTransitionsExactlyOnce() throws Exception {
+  for(String terminal:java.util.List.of("DECLINED","CANCELLED")){
+   UUID id=UUID.randomUUID();create(body(id).replace("\"partySize\":4","\"email\":\"Guest@example.com\",\"partySize\":4"),201);
+   if(terminal.equals("CANCELLED")){change(id,"CONFIRMED",204);assertEquals(2,jobs(id,"RESERVATION_CONFIRMED"));}
+   change(id,terminal,204);assertEquals(2,jobs(id,"RESERVATION_"+terminal));
+   change(id,terminal,409);assertEquals(2,jobs(id,"RESERVATION_"+terminal));
+   String message=jdbc.queryForObject("SELECT body FROM notification_delivery WHERE reservation_id=? AND type=? AND channel='SMS'",String.class,id,"RESERVATION_"+terminal);
+   assertTrue(message.contains(terminal.toLowerCase(java.util.Locale.ROOT)));assertFalse(message.contains("is confirmed"));
+  }
+ }
+ @Test void historicalEmailOnlyReservationRemainsReadableAndManageable() throws Exception {
+  UUID id=UUID.randomUUID();jdbc.update("INSERT INTO reservation(id,customer_name,email,email_verified,party_size,requested_at,created_at,updated_at) VALUES (?,'Historical','old@example.com',true,4,?::timestamp,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)",id,time);
+  mvc.perform(get("/api/staff/reservations?date="+time.substring(0,10)).with(user("front").roles("FOH"))).andExpect(status().isOk());
+  change(id,"CONFIRMED",204);change(id,"CANCELLED",204);
+  assertEquals(0,jdbc.queryForObject("SELECT count(*) FROM notification_delivery WHERE reservation_id=?",Integer.class,id));
+  assertFalse(jdbc.queryForObject("SELECT phone_verified FROM reservation WHERE id=?",Boolean.class,id));assertTrue(jdbc.queryForObject("SELECT email_verified FROM reservation WHERE id=?",Boolean.class,id));
+ }
+ @Autowired org.springframework.transaction.PlatformTransactionManager transactionManager;
+ @Test void rollbackRestoresProofAndRemovesReservationAndAllEventJobs() throws Exception {
+  UUID id=UUID.randomUUID();var independent=new org.springframework.transaction.support.TransactionTemplate(transactionManager);
+  independent.setPropagationBehavior(org.springframework.transaction.TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+  String payload=independent.execute(status->body(id));UUID challenge=proof(id);
+  try {
+   create(payload,201);assertEquals(1,jobs(id,"RESERVATION_RECEIVED"));change(id,"CONFIRMED",204);assertEquals(1,jobs(id,"RESERVATION_CONFIRMED"));
+   assertEquals(id,jdbc.queryForObject("SELECT consumed_by FROM contact_verification WHERE id=?",UUID.class,challenge));
+   org.springframework.test.context.transaction.TestTransaction.flagForRollback();org.springframework.test.context.transaction.TestTransaction.end();
+   assertNull(jdbc.queryForObject("SELECT consumed_by FROM contact_verification WHERE id=?",UUID.class,challenge));
+   assertEquals(0,jdbc.queryForObject("SELECT count(*) FROM reservation WHERE id=?",Integer.class,id));
+   assertEquals(0,jdbc.queryForObject("SELECT count(*) FROM notification_delivery WHERE reservation_id=?",Integer.class,id));
+  } finally {
+   if(org.springframework.test.context.transaction.TestTransaction.isActive()){org.springframework.test.context.transaction.TestTransaction.flagForRollback();org.springframework.test.context.transaction.TestTransaction.end();}
+   jdbc.update("DELETE FROM contact_verification WHERE id=?",challenge);
+  }
  }
  @Autowired jakarta.persistence.EntityManager em;
 }

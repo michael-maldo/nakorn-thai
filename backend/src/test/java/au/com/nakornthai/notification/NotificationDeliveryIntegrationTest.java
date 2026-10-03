@@ -86,6 +86,16 @@ class NotificationDeliveryIntegrationTest {
   assertEquals(2,jdbc.queryForObject("SELECT count(*) FROM notification_delivery WHERE order_id=? AND status='SENT'",Integer.class,id));
   verify(sms,times(2)).send(eq("+61412345678"),any());verify(email,times(1)).send(eq("Guest@example.com"),any(),any());
  }
+ @Test void reservationEmailRetriesWithoutResendingSuccessfulSms() {
+  UUID id=committedNotifications();
+  doThrow(new IllegalStateException("Fake provider unavailable")).when(email).send(any(),any(),any());
+  worker.deliver();assertStatus(id,"SMS","SENT");assertStatus(id,"EMAIL","FAILED");
+  worker.deliver();verify(sms,times(1)).send(any(),any());verify(email,times(1)).send(any(),any(),any());
+  jdbc.update("UPDATE notification_delivery SET next_attempt_at=? WHERE reservation_id=? AND channel='EMAIL'",java.sql.Timestamp.from(now.minusSeconds(1)),id);
+  doNothing().when(email).send(any(),any(),any());worker.deliver();
+  assertStatus(id,"SMS","SENT");assertStatus(id,"EMAIL","SENT");
+  verify(sms,times(1)).send(eq("+61412345678"),any());verify(email,times(2)).send(eq("Guest@example.com"),any(),any());
+ }
  @Test void databaseWorkerRetriesFailedChannelWithoutResendingSuccessfulChannel() {
   UUID id=committedNotifications();
   doThrow(new IllegalStateException("Fake provider unavailable")).when(sms).send(any(),any());

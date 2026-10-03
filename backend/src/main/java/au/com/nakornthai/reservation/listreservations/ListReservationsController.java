@@ -31,7 +31,15 @@ public class ListReservationsController {
    default -> Set.<String>of();
   };
   if(!allowed.contains(request.status()))throw new ResponseStatusException(HttpStatus.CONFLICT,"Invalid booking status change");
-  if("REQUESTED".equals(r.getStatus()) && "CONFIRMED".equals(request.status()))confirmation.handle(new au.com.nakornthai.notification.reservationconfirmation.SendReservationConfirmationCommand(r.getId(),r.getCustomerName(),r.getRequestedAt(),r.getPartySize(),r.isPhoneVerified()?r.getPhone():null,r.isEmailVerified()?r.getEmail():null));
+  var type=switch(request.status()) {
+   case "CONFIRMED" -> au.com.nakornthai.notification.domain.NotificationType.RESERVATION_CONFIRMED;
+   case "DECLINED" -> au.com.nakornthai.notification.domain.NotificationType.RESERVATION_DECLINED;
+   case "CANCELLED" -> au.com.nakornthai.notification.domain.NotificationType.RESERVATION_CANCELLED;
+   default -> null;
+  };
+  // Historical email-only/unverified records remain manageable without claiming
+  // that their phone was verified. Previously queued work remains untouched.
+  if(type!=null && r.isPhoneVerified())confirmation.handle(new au.com.nakornthai.notification.reservationconfirmation.SendReservationConfirmationCommand(r.getId(),r.getCustomerName(),r.getRequestedAt(),r.getPartySize(),r.getPhone(),r.getEmail(),type));
   r.setStatus(request.status());r.setStaffNote(request.staffNote().trim());r.setUpdatedBy(auth.getName());r.setUpdatedAt(Instant.now());
  }
 }

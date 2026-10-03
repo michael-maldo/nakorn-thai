@@ -17,6 +17,7 @@ public class CreateReservationHandler {
  private final RestaurantAvailabilityService availability;
  private final Clock clock;
  private final au.com.nakornthai.notification.contactverification.ContactVerificationHandler verification;
+ private final au.com.nakornthai.notification.reservationconfirmation.SendReservationConfirmationHandler notifications;
  @Transactional public Map<String,Object> handle(CreateReservationRequest request) {
   em.createNativeQuery("SELECT pg_advisory_xact_lock(:key)",Object.class).setParameter("key",request.requestId().getMostSignificantBits()).getSingleResult();
   String phone=au.com.nakornthai.notification.domain.ContactDestination.normalize("SMS",request.phone());
@@ -28,6 +29,7 @@ public class CreateReservationHandler {
     throw new ResponseStatusException(HttpStatus.CONFLICT,"Request reference already used; start a new booking");
    return receipt(r);
   }
+  phone=au.com.nakornthai.notification.domain.ContactDestination.normalizeMobile(request.phone());
   Instant operationInstant=clock.instant();
   var schedule=availability.schedule();
   var now=LocalDateTime.ofInstant(operationInstant,schedule.timezone());
@@ -39,9 +41,10 @@ public class CreateReservationHandler {
   if(!schedule.isOpen(requestedInstant)) throw new RestaurantClosedException();
   var r=new ReservationJpaEntity();r.setCreatedAt(operationInstant);r.setUpdatedAt(operationInstant);r.setId(request.requestId());r.setCustomerName(request.customerName().trim());r.setPhone(phone);r.setEmail(email);r.setPartySize(request.partySize());r.setRequestedAt(request.requestedAt());r.setNotes(request.notes().trim());
   r.setPhoneVerified(verification.consume(request.phoneVerificationId(),"SMS",phone,r.getId()));
-  r.setEmailVerified(verification.consume(request.emailVerificationId(),"EMAIL",email,r.getId()));
-  if(!r.isPhoneVerified() && !r.isEmailVerified())throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Verify at least one contact method before requesting a booking");
-  reservations.saveAndFlush(r);return receipt(r);
+  if(!r.isPhoneVerified())throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Verify your mobile by SMS before requesting a booking");
+  reservations.saveAndFlush(r);
+  notifications.handle(new au.com.nakornthai.notification.reservationconfirmation.SendReservationConfirmationCommand(r.getId(),r.getCustomerName(),r.getRequestedAt(),r.getPartySize(),r.getPhone(),r.getEmail(),au.com.nakornthai.notification.domain.NotificationType.RESERVATION_RECEIVED));
+  return receipt(r);
  }
  private Map<String,Object> receipt(ReservationJpaEntity r) { return Map.of("reference",r.getId(),"message","Booking request received. Your table is not confirmed until staff contact you."); }
 }

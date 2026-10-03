@@ -36,7 +36,7 @@ const click = async text => {
   await evaluate('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
 };
 function fixture() {
- window.requests=[];window.verificationError='';window.startError='';
+ window.requests=[];window.verificationRequests=[];window.verificationError='';window.startError='';window.challengeId='challenge';window.submissionError=false;window.bookingIds=new Set();
  const realFetch=window.fetch;
  window.fetch=async(url,options={})=>{
   if(!String(url).startsWith('/api'))return realFetch(url,options);
@@ -44,14 +44,15 @@ function fixture() {
   if(url==='/api/identity/refresh')return new Response(null,{status:401});
   if(url==='/api/restaurant/availability')return Response.json({timezone:'Australia/Melbourne'});
   if(url==='/api/reservations/contact-verifications'){
+   window.verificationRequests.push(JSON.parse(options.body));
    if(window.startError)return Response.json({message:window.startError},{status:503});
-   return Response.json({id:'challenge',expiresAt:new Date(Date.now()+600000).toISOString(),resendAt:new Date(Date.now()+60000).toISOString()});
+   return Response.json({id:window.challengeId,expiresAt:new Date(Date.now()+600000).toISOString(),resendAt:new Date(Date.now()+60000).toISOString()});
   }
   if(url.endsWith('/verify')){
    if(window.verificationError)return Response.json({message:window.verificationError},{status:400});
-   return Response.json({id:'challenge',verified:true,expiresAt:new Date(Date.now()+600000).toISOString()});
+   return Response.json({id:window.challengeId,verified:true,expiresAt:new Date(Date.now()+600000).toISOString()});
   }
-  if(url==='/api/reservations'){window.requests.push(JSON.parse(options.body));return Response.json({reference:'booking',message:'Booking request received.'});}
+  if(url==='/api/reservations'){const body=JSON.parse(options.body);window.requests.push(body);window.bookingIds.add(body.requestId);if(window.submissionError)return Response.json({message:'Response lost; retry your request'},{status:503});return Response.json({reference:'booking',message:'Booking request received.'});}
   throw new Error(`Unexpected API: ${url}`);
  };
 }
@@ -64,6 +65,9 @@ try {
  await send('Page.navigate',{url:`${base}#/reservations`});
  await waitFor("document.querySelector('fieldset') && !document.querySelector('fieldset').disabled");
  assert.equal(await evaluate("document.querySelector('button[type=submit],button.button-primary').disabled"),true);
+ assert.equal(await evaluate("document.querySelectorAll('[aria-label=\"EMAIL verification\"]').length"),0);
+ await input('[name=email]','Guest@example.test');
+ assert.equal(await evaluate("document.querySelector('button.button-primary').disabled"),true);
  await input('[name=phone]','0412345678');await click('Send verification code');
  await waitFor("document.body.innerText.includes('Code sent.')");
  await input('[autocomplete=one-time-code]','123456');
@@ -78,7 +82,17 @@ try {
  await evaluate("window.startError='Verification channel unavailable'");await click('Send verification code');await waitFor("document.body.innerText.includes('Verification channel unavailable')");
  await input('[name=phone]','0412345678');await evaluate("window.startError=''");await click('Send verification code');await waitFor("document.querySelector('[autocomplete=one-time-code]')");await input('[autocomplete=one-time-code]','123456');await click('Verify code');await waitFor("!document.querySelector('button.button-primary').disabled");
  await input('[name=name]','Guest');await input('[name=time]','2026-10-10T19:00');
- await click('Request booking');await waitFor('window.requests.length===1');
- const body=await evaluate('window.requests[0]');assert.equal(body.phoneVerificationId,'challenge');assert.equal(body.emailVerificationId,null);
- assert.deepEqual(errors,[]);console.log('Reservation browser: verification, errors, expiry, destination change and submission passed.');
+ await evaluate('window.submissionError=true');await click('Request booking');await waitFor("document.body.innerText.includes('Response lost')");
+ // Renewing verification for unchanged booking details retains its request UUID.
+ await input('[name=phone]','0499999999');await input('[name=phone]','0412345678');
+ await evaluate("window.challengeId='renewed-challenge';window.submissionError=false");
+ await click('Send verification code');await waitFor("document.querySelector('[autocomplete=one-time-code]')");
+ await input('[autocomplete=one-time-code]','123456');await click('Verify code');await waitFor("!document.querySelector('button.button-primary').disabled");
+ await click('Request booking');await waitFor('window.requests.length===2');
+ assert.equal(await evaluate('window.requests[0].requestId===window.requests[1].requestId'),true);
+ assert.equal(await evaluate('window.requests[1].phoneVerificationId'),'renewed-challenge');
+ assert.equal(await evaluate('window.bookingIds.size'),1);
+ const body=await evaluate('window.requests[0]');assert.equal(body.phoneVerificationId,'challenge');assert.equal(body.emailVerificationId,undefined);assert.equal(body.email,'Guest@example.test');assert.equal(body.phone,'0412345678');
+ assert.equal(await evaluate("window.verificationRequests.every(r=>r.channel==='SMS')"),true);
+ assert.deepEqual(errors,[]);console.log('Reservation browser: verification, errors, expiry, destination change, optional email and lost-response retry with renewed SMS passed.');
 }finally{await send('Page.close');ws.close();}
