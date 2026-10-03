@@ -7,7 +7,10 @@ import java.util.UUID;
 public class ReservationJpaEntity {
  @Id private UUID id;
  @Column(nullable=false) private String customerName;
- @Column(nullable=false) private String phone;
+ private String phone;
+ private String email;
+ private boolean phoneVerified;
+ private boolean emailVerified;
  private int partySize;
  private LocalDateTime requestedAt;
  private String notes;

@@ -16,12 +16,15 @@ public class CreateReservationHandler {
  private final EntityManager em;
  private final RestaurantAvailabilityService availability;
  private final Clock clock;
+ private final au.com.nakornthai.notification.contactverification.ContactVerificationHandler verification;
  @Transactional public Map<String,Object> handle(CreateReservationRequest request) {
   em.createNativeQuery("SELECT pg_advisory_xact_lock(:key)",Object.class).setParameter("key",request.requestId().getMostSignificantBits()).getSingleResult();
+  String phone=au.com.nakornthai.notification.domain.ContactDestination.normalize("SMS",request.phone());
+  String email=au.com.nakornthai.notification.domain.ContactDestination.normalize("EMAIL",request.email());
   var existing=reservations.findById(request.requestId());
   if(existing.isPresent()) {
    var r=existing.get();
-   if(!r.getCustomerName().equals(request.customerName().trim()) || !r.getPhone().equals(request.phone().trim()) || r.getPartySize()!=request.partySize() || !r.getRequestedAt().equals(request.requestedAt()) || !r.getNotes().equals(request.notes().trim()))
+   if(!r.getCustomerName().equals(request.customerName().trim()) || !Objects.equals(r.getPhone(),phone) || !Objects.equals(r.getEmail(),email) || r.getPartySize()!=request.partySize() || !r.getRequestedAt().equals(request.requestedAt()) || !r.getNotes().equals(request.notes().trim()))
     throw new ResponseStatusException(HttpStatus.CONFLICT,"Request reference already used; start a new booking");
    return receipt(r);
   }
@@ -34,7 +37,10 @@ public class CreateReservationHandler {
   try { requestedInstant=schedule.requestedInstant(request.requestedAt()); }
   catch (IllegalArgumentException invalid) { throw new ResponseStatusException(HttpStatus.BAD_REQUEST,invalid.getMessage()); }
   if(!schedule.isOpen(requestedInstant)) throw new RestaurantClosedException();
-  var r=new ReservationJpaEntity();r.setCreatedAt(operationInstant);r.setUpdatedAt(operationInstant);r.setId(request.requestId());r.setCustomerName(request.customerName().trim());r.setPhone(request.phone().trim());r.setPartySize(request.partySize());r.setRequestedAt(request.requestedAt());r.setNotes(request.notes().trim());
+  var r=new ReservationJpaEntity();r.setCreatedAt(operationInstant);r.setUpdatedAt(operationInstant);r.setId(request.requestId());r.setCustomerName(request.customerName().trim());r.setPhone(phone);r.setEmail(email);r.setPartySize(request.partySize());r.setRequestedAt(request.requestedAt());r.setNotes(request.notes().trim());
+  r.setPhoneVerified(verification.consume(request.phoneVerificationId(),"SMS",phone,r.getId()));
+  r.setEmailVerified(verification.consume(request.emailVerificationId(),"EMAIL",email,r.getId()));
+  if(!r.isPhoneVerified() && !r.isEmailVerified())throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Verify at least one contact method before requesting a booking");
   reservations.saveAndFlush(r);return receipt(r);
  }
  private Map<String,Object> receipt(ReservationJpaEntity r) { return Map.of("reference",r.getId(),"message","Booking request received. Your table is not confirmed until staff contact you."); }

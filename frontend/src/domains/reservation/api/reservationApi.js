@@ -7,3 +7,10 @@ export async function reservationRequest(path='', {method='GET',body,authorizati
  const csrf=method==='GET'?null:await decode(await fetch('/api/reservations/csrf',{credentials:'same-origin'}));
  return decode(await fetchWithIdentity(path.startsWith('/staff')?`/api${path}`:`/api/reservations${path}`,{method,credentials:'same-origin',headers:{...(authorization?{Authorization:authorization}:{}),...(body?{'Content-Type':'application/json'}:{}),...(csrf?{[csrf.headerName]:csrf.token}:{})},...(body?{body:JSON.stringify(body)}:{})}));
 }
+
+export function startContactVerification(channel,destination) {
+ return reservationRequest('/contact-verifications',{method:'POST',body:{channel,destination}});
+}
+export function verifyContactCode(id,code) {
+ return reservationRequest(`/contact-verifications/${id}/verify`,{method:'POST',body:{code}});
+}

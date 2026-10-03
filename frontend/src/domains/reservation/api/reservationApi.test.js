@@ -10,3 +10,16 @@ test('booking validation message reaches customer',async()=>{
  const original=globalThis.fetch;globalThis.fetch=async()=>new Response(JSON.stringify({message:'Choose a future time'}),{status:400});
  try{await assert.rejects(reservationRequest('/bad'),/Choose a future time/);}finally{globalThis.fetch=original;}
 });
+
+test('contact verification uses reservation CSRF and code endpoints',async()=>{
+ const {startContactVerification,verifyContactCode}=await import('./reservationApi.js');
+ const calls=[];const original=globalThis.fetch;
+ globalThis.fetch=async(url,options)=>{calls.push({url,options});return {ok:true,status:200,json:async()=>url.endsWith('/csrf')?{headerName:'X-CSRF-TOKEN',token:'csrf'}:{id:'challenge',verified:true}};};
+ try {
+  await startContactVerification('SMS','0412 345 678');await verifyContactCode('challenge','123456');
+  assert.equal(calls[1].url,'/api/reservations/contact-verifications');
+  assert.deepEqual(JSON.parse(calls[1].options.body),{channel:'SMS',destination:'0412 345 678'});
+  assert.equal(calls[3].url,'/api/reservations/contact-verifications/challenge/verify');
+  assert.deepEqual(JSON.parse(calls[3].options.body),{code:'123456'});
+ }finally{globalThis.fetch=original;}
+});

@@ -3,7 +3,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.http.*;
 import org.springframework.web.server.ResponseStatusException;
 import java.util.Map;
-@RestControllerAdvice(basePackages="au.com.nakornthai.reservation")
+@RestControllerAdvice(basePackages={"au.com.nakornthai.reservation","au.com.nakornthai.notification.contactverification"})
 public class ReservationExceptionHandler {
  @ExceptionHandler(au.com.nakornthai.restaurant.domain.RestaurantClosedException.class)
  public ResponseEntity<Map<String,String>> restaurantClosed() {

@@ -17,14 +17,29 @@ class CreateReservationHandlerTest {
     final RestaurantAvailabilityService availability = mock(RestaurantAvailabilityService.class);
     final Clock clock = mock(Clock.class);
     final Instant operationInstant = Instant.parse("2026-09-07T01:00:00Z");
-    final CreateReservationHandler handler = new CreateReservationHandler(reservations, em, availability, clock);
+    final au.com.nakornthai.notification.contactverification.ContactVerificationHandler verification = mock(au.com.nakornthai.notification.contactverification.ContactVerificationHandler.class);
+    final CreateReservationHandler handler = new CreateReservationHandler(reservations, em, availability, clock, verification);
     final CreateReservationRequest request = new CreateReservationRequest(UUID.randomUUID(), "Guest", "0400000000", 4,
-            LocalDateTime.parse("2026-09-07T18:00:00"), "");
+            LocalDateTime.parse("2026-09-07T18:00:00"), "", null, UUID.randomUUID(), null);
     RestaurantSchedule schedule(boolean active, LocalDate... closures) {
         return new RestaurantSchedule(ZoneId.of("Australia/Melbourne"),
                 List.of(new OpeningHours(1, LocalTime.of(17,0), LocalTime.of(22,0), active)), Set.of(closures));
     }
-    @BeforeEach void setup() { when(clock.instant()).thenReturn(operationInstant); }
+    @BeforeEach void setup() { when(clock.instant()).thenReturn(operationInstant); when(verification.consume(eq(request.phoneVerificationId()),eq("SMS"),eq("+61400000000"),eq(request.requestId()))).thenReturn(true); }
+    @Test void unverifiedContactCannotCreateBooking() {
+        when(availability.schedule()).thenReturn(schedule(true));
+        when(verification.consume(any(),any(),any(),any())).thenReturn(false);
+        assertEquals(400,assertThrows(ResponseStatusException.class,()->handler.handle(request)).getStatusCode().value());
+        verify(reservations,never()).saveAndFlush(any());
+    }
+    @Test void emailVerificationCanCreateRequestedBooking() {
+        when(availability.schedule()).thenReturn(schedule(true));
+        UUID emailId=UUID.randomUUID(),id=UUID.randomUUID();
+        when(verification.consume(emailId,"EMAIL","Guest@example.com",id)).thenReturn(true);
+        handler.handle(new CreateReservationRequest(id,"Guest",null,4,request.requestedAt(),"","Guest@EXAMPLE.COM",null,emailId));
+        var capture=org.mockito.ArgumentCaptor.forClass(ReservationJpaEntity.class);verify(reservations).saveAndFlush(capture.capture());
+        assertEquals("REQUESTED",capture.getValue().getStatus());assertTrue(capture.getValue().isEmailVerified());assertFalse(capture.getValue().isPhoneVerified());
+    }
     @Test void closedRequestedTimeRejectsWithoutSaving() {
         when(availability.schedule()).thenReturn(schedule(false));
         assertThrows(RestaurantClosedException.class, () -> handler.handle(request));

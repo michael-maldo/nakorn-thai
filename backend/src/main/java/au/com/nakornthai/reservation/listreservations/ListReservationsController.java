@@ -15,6 +15,7 @@ import java.util.*;
 public class ListReservationsController {
  private final SpringDataReservationRepository reservations;
  private final EntityManager em;
+ private final au.com.nakornthai.notification.reservationconfirmation.SendReservationConfirmationHandler confirmation;
  @GetMapping ResponseEntity<List<ReservationJpaEntity>> list(@RequestParam LocalDate date) {
   return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(reservations.findByRequestedAtGreaterThanEqualAndRequestedAtLessThanOrderByRequestedAtAsc(date.atStartOfDay(),date.plusDays(1).atStartOfDay()));
  }
@@ -30,6 +31,7 @@ public class ListReservationsController {
    default -> Set.<String>of();
   };
   if(!allowed.contains(request.status()))throw new ResponseStatusException(HttpStatus.CONFLICT,"Invalid booking status change");
+  if("REQUESTED".equals(r.getStatus()) && "CONFIRMED".equals(request.status()))confirmation.handle(new au.com.nakornthai.notification.reservationconfirmation.SendReservationConfirmationCommand(r.getId(),r.getCustomerName(),r.getRequestedAt(),r.getPartySize(),r.isPhoneVerified()?r.getPhone():null,r.isEmailVerified()?r.getEmail():null));
   r.setStatus(request.status());r.setStaffNote(request.staffNote().trim());r.setUpdatedBy(auth.getName());r.setUpdatedAt(Instant.now());
  }
 }
