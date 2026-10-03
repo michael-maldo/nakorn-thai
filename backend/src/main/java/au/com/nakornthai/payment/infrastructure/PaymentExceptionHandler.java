@@ -7,5 +7,9 @@ import java.util.Map;
 public class PaymentExceptionHandler {
  @ExceptionHandler({org.springframework.web.bind.MethodArgumentNotValidException.class,org.springframework.http.converter.HttpMessageNotReadableException.class,org.springframework.web.bind.MissingRequestHeaderException.class})
  ResponseEntity<?> invalid(){return ResponseEntity.badRequest().body(Map.of("message","Check required payment or verification fields"));}
+ @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
+ ResponseEntity<?> conflict(){return ResponseEntity.status(409).cacheControl(CacheControl.noStore()).body(Map.of("message","Payment changed or reference already used; review before retrying"));}
+ @ExceptionHandler(org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class)
+ ResponseEntity<?> malformed(){return ResponseEntity.badRequest().body(Map.of("message","Invalid payment reference"));}
  @ExceptionHandler(ResponseStatusException.class) ResponseEntity<?> failure(ResponseStatusException e){return ResponseEntity.status(e.getStatusCode()).cacheControl(CacheControl.noStore()).body(Map.of("message",e.getReason()==null?"Request could not be completed":e.getReason()));}
 }

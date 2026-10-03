@@ -19,14 +19,14 @@ export function StaffOrderCard({ order, role, busy, onAction, onPayment }) {
     <ul>{order.items.map((item, index) => <li key={item.id || index}><strong>{item.quantity} × {item.dishName}</strong>{item.variationName && <> — {item.variationName}</>}<OrderItemOptions options={item.selectedOptions || []} /></li>)}</ul>
     {order.notes && <p className="staff-order-notes"><strong>Customer notes:</strong> {order.notes}</p>}
     {order.cancellationReason && <p>Cancellation: {order.cancellationReason}</p>}
-    {front && <p>{money(order.totalMinor)} · {order.paymentMethod?.replaceAll('_', ' ')} · {order.paidAt ? 'Paid' : 'Unpaid'}</p>}
+    {front && <p>{money(order.totalMinor)} · {order.paymentMethod?.replaceAll('_', ' ')} · {order.paidAt ? 'Paid' : ['PAYPAL','PAYID'].includes(order.paymentMethod) ? 'Payment pending' : 'Unpaid'}</p>}
     <fieldset disabled={busy}>
       <legend className="sr-only">Order actions for {order.reference}</legend>
       {front && blocked && !['COMPLETED', 'CANCELLED'].includes(order.status) && <div>
         <p>Verify payment before accepting or handing over this order.</p>
-        {order.paymentMethod === 'PAYID' && <form onSubmit={event => { event.preventDefault(); const data = new FormData(event.currentTarget); onPayment(order, { version: order.version, bankReference: data.get('bankReference').trim() }); }}>
+        {order.paymentMethod === 'PAYID' && <form onSubmit={event => { event.preventDefault(); const data = new FormData(event.currentTarget); onPayment(order, { version: order.version, bankReference: data.get('bankReference').trim(), bankReceiptChecked: data.get('bankReceiptChecked') === 'on' }); }}>
           <label>Bank transaction reference<input name="bankReference" required maxLength={150} pattern=".*\S.*" /></label>
-          <label><span><input type="checkbox" required /> I verified receipt of {money(order.totalMinor)} in the bank account.</span></label>
+          <label><span><input type="checkbox" name="bankReceiptChecked" required /> I verified receipt of {money(order.totalMinor)} in the bank account.</span></label>
           <button>Confirm PayID payment</button>
         </form>}
         {order.paymentMethod === 'PAYPAL' && <button type="button" onClick={() => onPayment(order)}>Check PayPal payment</button>}

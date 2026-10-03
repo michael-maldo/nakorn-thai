@@ -42,7 +42,7 @@ export default function OrderConfirmationPage() {
       {order.cancellationReason && <p>{order.cancellationReason}</p>}
       {order.items.map((line,index) => <CheckoutSummary key={line.id ?? index} line={line} historical />)}
       <p>Total: <strong>{money(order.totalMinor)}</strong></p>
-      {receipt && <PaymentForm order={order} receipt={receipt} />}
+      {receipt && <PaymentForm key={order.id} order={order} receipt={receipt} />}
       <p>Pickup: 233 Glenferrie Rd, Malvern VIC 3144.</p>
       <p>Full order ID: <strong>{order.id}</strong></p><p>Keep this receipt for tracking. <a href="#/track-order">Recover tracking with an SMS or email verification code</a>.</p>
     </section>}

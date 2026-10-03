@@ -10,7 +10,7 @@ import java.util.*;
 public class CreatePaymentController {
  private final CreatePaymentHandler handler;
  public record Start(@NotNull @Pattern(regexp="PAYPAL|PAYID|PAY_AT_RESTAURANT") String method){}
- public record Confirm(@Min(0) long version,@NotBlank @Size(max=150) String bankReference){}
+ public record Confirm(@NotNull @Min(0) Long version,@NotBlank @Size(max=150) String bankReference,@AssertTrue boolean bankReceiptChecked){}
  @GetMapping("/api/payments/options") ResponseEntity<?> options(){return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(handler.options());}
  @PostMapping("/api/payments/{id}") ResponseEntity<?> start(@PathVariable UUID id,@RequestHeader("X-Order-Token") String token,@Valid @RequestBody Start request){return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(handler.start(id,token,request.method()));}
  @PostMapping("/api/payments/{id}/check") ResponseEntity<?> check(@PathVariable UUID id,@RequestHeader("X-Order-Token") String token){return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(handler.check(id,token,true,false));}

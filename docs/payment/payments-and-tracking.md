@@ -16,9 +16,9 @@ Existing orders and saved submissions without a payment method remain pay-at-res
 
 Payment method is fixed once the order is submitted. A customer needing a different
 method should contact the restaurant; there is no self-service method-switch API.
-PayPal approval and payment checking occur on the receipt page. After returning from
-PayPal, press **Confirm / check PayPal payment** to capture an approved payment and
-reconcile its state. A browser redirect alone never marks an order paid.
+PayPal approval and payment checking occur on the receipt page. The receipt automatically sets up payment and checks authoritative status on arrival,
+return or refresh. **Continue to PayPal** opens approval in the same tab. The
+**Confirm / check PayPal payment** button allows an explicit retry. A browser redirect alone never marks an order paid.
 
 ## PayPal setup
 
@@ -155,3 +155,78 @@ Using sandbox/test accounts, verify a mixed cart across page changes, PayPal app
 and capture, reload/retry after a lost response, PayID manual reconciliation, SMS/email
 code recovery on a second browser, expired/wrong codes, and staff payment guards.
 No live messages, bank transfers or PayPal charges were sent during implementation.
+
+
+## Payment reliability and release notes
+
+V30 adds a unique method/confirmation-reference index: a capture or bank transaction
+cannot pay two restaurant orders. Before applying this migration through the normal
+reviewed release process, check for pre-existing duplicate non-null references and
+reconcile them manually. No financial records are silently removed by migration.
+
+PayPal setup persists the pending payment intent before contacting the provider.
+A failed setup can be retried against the same food order with the same request ID.
+PayPal's default idempotency retention is finite (six hours for Orders requests);
+setup without a stored PayPal ID is blocked five hours after food-order creation
+(or an older pending intent) for restaurant review rather
+than risking a fresh provider order after a lost response or process crash. Capture retries first
+read the stored PayPal order; completed captures reconcile without recapturing.
+Both provider order identity and CAPTURE intent, single purchase unit/custom_id,
+AUD amount and one completed final capture with a nonempty identifier are checked.
+The backend holds the existing order lock during provider reconciliation, with
+bounded HTTP timeouts. This preserves current payment slice ownership.
+
+Return/cancel URLs add ?paypal=return or ?paypal=cancel before the configured hash.
+These markers only affect customer wording; they cannot mark anything paid.
+Keep the same browser tab and origin so sessionStorage retains the tracking token.
+If the receipt is lost, use existing SMS/email tracking recovery or contact staff.
+Do not create another food order merely because provider setup/check failed.
+
+PayID staff confirmation requires bankReceiptChecked=true, current order version,
+and the exact bank transaction reference. Only ADMIN/FOH may confirm. A repeat with
+the same receipt is safe; a different receipt or reused reference is rejected.
+The customer-facing transfer reference is the stable full order UUID. Check bank
+description length limits; if it is truncated, staff must independently match the
+actual bank receipt, amount and customer before confirming. Viewing instructions
+and customer assertions never change paid_at. A cancelled order needs manual
+reconciliation/refund if money arrives later; new PayID confirmation is blocked.
+
+## Controlled manual acceptance checks
+
+No automated test calls real PayPal or transfers bank funds.
+
+PayPal Sandbox:
+1. Configure the sandbox merchant REST app's client ID/secret with PAYPAL_ENV=sandbox,
+   PAYPAL_ENABLED=true and PAYPAL_RETURN_URL=http://localhost:5173/#/order-confirmation.
+   Load the trusted backend environment explicitly; enable ordering with the existing
+   ordering/restaurant settings and use a separate sandbox personal buyer account.
+2. In one browser tab add a dish, choose PayPal and place the order. Check that the
+   Nakorn receipt persists and automatically presents Continue to PayPal.
+3. Approve using the sandbox buyer. On return the backend checks/captures payment;
+   verify the receipt displays payment received and staff may accept it.
+4. Refresh/check again: confirm only one food order and one capture exist. Repeat
+   with cancelled approval and a provider outage: order remains unpaid, staff cannot
+   accept, and retry uses the same order. Never use live credentials for this test.
+5. Independently compare the merchant sandbox capture's AUD total/custom_id with
+   the Nakorn order and paid_at. Check that cancellation does not claim a refund.
+
+PayID:
+1. Configure PAYID_ENABLED=true, PAYID_IDENTIFIER and PAYID_ACCOUNT_NAME with the
+   restaurant-approved account values outside source control. Use an isolated
+   environment; first test instructions with a fake reference and no transfer.
+2. Place a PayID order, refresh its receipt, and check identifier/name/exact AUD
+   amount/stable reference. Verify customer has no paid-confirmation action.
+3. For a separately authorized real transfer test, verify the recipient in the
+   banking app and send the agreed amount/reference. This implementation never
+   initiates that transfer. FOH checks the actual restaurant bank receipt.
+4. FOH enters the bank transaction reference, checks the receipt acknowledgement,
+   and confirms. Verify actor/reference/time, paid_at and subsequent acceptance.
+   BOH and guests must be denied; stale versions and reused bank receipts rejected.
+5. Reconcile any test funds/refunds directly with the bank and restaurant.
+
+Webhooks/refund handlers remain scaffolds: no unsigned webhook endpoint was added.
+Browser/server checks and deliberate staff reconciliation are primary. Orders not
+revisited need staff PayPal receipt checking. Refunds, disputes and automatic bank
+feeds remain operational/manual responsibilities.
+
+Provider reference: [PayPal Orders request idempotency retention](https://developer.paypal.com/sdk/orders/v2/orders-create/).
