@@ -16,6 +16,8 @@ public class ListReservationsController {
  private final SpringDataReservationRepository reservations;
  private final EntityManager em;
  private final au.com.nakornthai.notification.reservationconfirmation.SendReservationConfirmationHandler confirmation;
+ private au.com.nakornthai.restaurant.configuration.RuntimeConfiguration configuration;
+ @org.springframework.beans.factory.annotation.Autowired public void configure(au.com.nakornthai.restaurant.configuration.RuntimeConfiguration configuration){this.configuration=configuration;}
  @GetMapping ResponseEntity<List<ReservationJpaEntity>> list(@RequestParam LocalDate date) {
   return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(reservations.findByRequestedAtGreaterThanEqualAndRequestedAtLessThanOrderByRequestedAtAsc(date.atStartOfDay(),date.plusDays(1).atStartOfDay()));
  }
@@ -39,7 +41,7 @@ public class ListReservationsController {
   };
   // Historical email-only/unverified records remain manageable without claiming
   // that their phone was verified. Previously queued work remains untouched.
-  if(type!=null && r.isPhoneVerified())confirmation.handle(new au.com.nakornthai.notification.reservationconfirmation.SendReservationConfirmationCommand(r.getId(),r.getCustomerName(),r.getRequestedAt(),r.getPartySize(),r.getPhone(),r.getEmail(),type));
+  if(type!=null && (r.isPhoneVerified() || configuration!=null&&!configuration.snapshot().flag("reservationPhoneRequired")))confirmation.handle(new au.com.nakornthai.notification.reservationconfirmation.SendReservationConfirmationCommand(r.getId(),r.getCustomerName(),r.getRequestedAt(),r.getPartySize(),r.isPhoneVerified()?r.getPhone():null,r.getEmail(),type));
   r.setStatus(request.status());r.setStaffNote(request.staffNote().trim());r.setUpdatedBy(auth.getName());r.setUpdatedAt(Instant.now());
  }
 }

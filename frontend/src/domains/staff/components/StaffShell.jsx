@@ -11,6 +11,7 @@ const links = [
   { href: '#/staff/reservations', label: 'Reservations', roles: ['ADMIN', 'FOH'] },
   { href: '#/staff/functions', label: 'Function enquiries', roles: ['ADMIN', 'FOH'] },
   { href: '#/staff/restaurant', label: 'Restaurant settings', roles: ['ADMIN'] },
+  { href: '#/staff/settings', label: 'Settings and integrations', roles: ['ADMIN'] },
   { href: '#/staff/users', label: 'Staff accounts', roles: ['ADMIN'] },
 ];
 

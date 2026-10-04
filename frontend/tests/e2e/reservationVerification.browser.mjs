@@ -42,6 +42,7 @@ function fixture() {
   if(!String(url).startsWith('/api'))return realFetch(url,options);
   if(url.endsWith('/csrf'))return Response.json({headerName:'X-CSRF-TOKEN',token:'test'});
   if(url==='/api/identity/refresh')return new Response(null,{status:401});
+  if(url==='/api/reservations/options')return Response.json({enabled:true,phoneRequired:true});
   if(url==='/api/restaurant/availability')return Response.json({timezone:'Australia/Melbourne'});
   if(url==='/api/reservations/contact-verifications'){
    window.verificationRequests.push(JSON.parse(options.body));

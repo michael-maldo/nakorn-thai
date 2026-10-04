@@ -12,6 +12,10 @@ import java.util.*;
 import java.math.BigDecimal;
 @Component @lombok.extern.slf4j.Slf4j
 public class PayPalPaymentProvider {
+ private au.com.nakornthai.restaurant.configuration.RuntimeConfiguration configuration;
+ @org.springframework.beans.factory.annotation.Autowired
+ public PayPalPaymentProvider(au.com.nakornthai.restaurant.configuration.RuntimeConfiguration configuration) {this(false,"sandbox","","","http://localhost:5173/#/order-confirmation");this.configuration=configuration;}
+ private PayPalPaymentProvider configured(boolean diagnostic) {var c=configuration.snapshot();if(!c.configured("PAYPAL"))throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,"PayPal is unavailable");return new PayPalPaymentProvider(diagnostic||enabled(),c.text("environment"),c.text("clientId"),c.text("clientSecret"),c.text("returnUrl"));}
  private final RestClient api;
  private final String clientId,secret,returnUrl;
  private final boolean enabled;
@@ -28,8 +32,10 @@ public class PayPalPaymentProvider {
   var factory=new JdkClientHttpRequestFactory(HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build());factory.setReadTimeout(Duration.ofSeconds(15));
   api=RestClient.builder().requestFactory(factory).baseUrl(environment.equals("live")?"https://api-m.paypal.com":"https://api-m.sandbox.paypal.com").build();
  }
- public boolean enabled(){return enabled;}
+ public boolean enabled(){if(configuration==null)return enabled;var c=configuration.snapshot();return c.flag("paypalEnabled")&&c.configured("PAYPAL")&&(!c.text("environment").equals("live")||!c.flag("paypalDashboardManaged")||c.flag("paypalValidated"));}
+ public void testConnection(){if(configuration!=null){configured(true).testConnection();return;}token();}
  public boolean validApprovalUrl(String value) {
+  if(configuration!=null){var c=configuration.snapshot();try{var uri=java.net.URI.create(value);var hosts=c.text("environment").equals("live")?Set.of("paypal.com","www.paypal.com"):Set.of("sandbox.paypal.com","www.sandbox.paypal.com");return "https".equals(uri.getScheme())&&uri.getUserInfo()==null&&uri.getPort()==-1&&hosts.contains(uri.getHost());}catch(Exception e){return false;}}
   if(value==null)return false;
   try {
    var uri=java.net.URI.create(value);
@@ -43,14 +49,16 @@ public class PayPalPaymentProvider {
   catch(Exception e){log.warn("payment_provider_unavailable provider=PAYPAL");throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,"PayPal could not be reached. Please retry.");}
  }
  public JsonNode create(UUID orderId,long total) {
+  if(configuration!=null)return configured(false).create(orderId,total);
   var amount=Map.of("currency_code","AUD","value",BigDecimal.valueOf(total,2).toPlainString());
   return send("/v2/checkout/orders",Map.of("intent","CAPTURE","purchase_units",List.of(Map.of("custom_id",orderId.toString(),"amount",amount)),"payment_source",Map.of("paypal",Map.of("experience_context",Map.of("return_url",callback("return"),"cancel_url",callback("cancel"),"user_action","PAY_NOW","shipping_preference","NO_SHIPPING")))),orderId.toString());
  }
  public JsonNode details(String id) {
+  if(configuration!=null)return configured(true).details(id);
   try{return api.get().uri("/v2/checkout/orders/{id}",id).headers(h->h.setBearerAuth(token())).retrieve().body(JsonNode.class);}
   catch(Exception e){log.warn("payment_provider_unavailable provider=PAYPAL");throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,"PayPal status is unavailable. Retry before paying again.");}
  }
- public JsonNode capture(String id,UUID orderId) {return send("/v2/checkout/orders/"+id+"/capture",Map.of(),UUID.nameUUIDFromBytes(("capture:"+orderId).getBytes(java.nio.charset.StandardCharsets.UTF_8)).toString());}
+ public JsonNode capture(String id,UUID orderId) {if(configuration!=null)return configured(true).capture(id,orderId);return send("/v2/checkout/orders/"+id+"/capture",Map.of(),UUID.nameUUIDFromBytes(("capture:"+orderId).getBytes(java.nio.charset.StandardCharsets.UTF_8)).toString());}
  private JsonNode send(String path,Object body,String key) {
   try{return api.post().uri(path).headers(h->{h.setBearerAuth(token());h.set("PayPal-Request-Id",key);h.set("Prefer","return=representation");}).contentType(MediaType.APPLICATION_JSON).body(body).retrieve().body(JsonNode.class);}
   catch(Exception e){log.warn("payment_provider_unavailable provider=PAYPAL");throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,"PayPal request could not be completed. Check payment status before retrying.");}

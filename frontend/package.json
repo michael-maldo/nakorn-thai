@@ -7,12 +7,13 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node --test --test-isolation=none src/domains/menu/api/menuApi.test.js src/domains/ordering/api/orderApi.test.js src/domains/identity/api/identityApi.test.js src/domains/reservation/api/reservationApi.test.js src/domains/reservation/api/functionApi.test.js src/domains/ordering/api/checkoutApi.test.js src/domains/payment/api/paymentApi.test.js src/domains/menu/model/menuOptions.test.js src/domains/menu/model/menuPhotoLayout.test.js src/domains/ordering/model/cartModel.test.js src/domains/ordering/api/customerPresentation.test.js src/domains/restaurant/api/restaurantApi.test.js src/domains/menu/model/menuAdminNavigation.test.js src/domains/staff/components/staffShell.test.js src/domains/menu/model/itemOptionPrices.test.js src/domains/ordering/model/orderModel.test.js src/domains/reservation/model/contactVerification.test.js src/domains/payment/model/paymentModel.test.js src/domains/notification/api/contactVerificationApi.test.js src/domains/notification/model/contactVerification.test.js",
+    "test": "node --test --test-isolation=none src/domains/menu/api/menuApi.test.js src/domains/ordering/api/orderApi.test.js src/domains/identity/api/identityApi.test.js src/domains/reservation/api/reservationApi.test.js src/domains/reservation/api/functionApi.test.js src/domains/ordering/api/checkoutApi.test.js src/domains/payment/api/paymentApi.test.js src/domains/menu/model/menuOptions.test.js src/domains/menu/model/menuPhotoLayout.test.js src/domains/ordering/model/cartModel.test.js src/domains/ordering/api/customerPresentation.test.js src/domains/restaurant/api/restaurantApi.test.js src/domains/menu/model/menuAdminNavigation.test.js src/domains/staff/components/staffShell.test.js src/domains/menu/model/itemOptionPrices.test.js src/domains/ordering/model/orderModel.test.js src/domains/reservation/model/contactVerification.test.js src/domains/payment/model/paymentModel.test.js src/domains/notification/api/contactVerificationApi.test.js src/domains/notification/model/contactVerification.test.js src/domains/restaurant/model/integrationSettings.test.js",
     "test:homepage-browser": "node tests/e2e/homepageMenu.browser.mjs",
     "test:menu-browser": "node tests/e2e/menuAdmin.browser.mjs",
     "test:menu-navigation-browser": "node tests/e2e/menuNavigation.browser.mjs",
     "test:reservation-browser": "node tests/e2e/reservationVerification.browser.mjs",
-    "test:payment-browser": "node tests/e2e/payments.browser.mjs"
+    "test:payment-browser": "node tests/e2e/payments.browser.mjs",
+    "test:settings-browser": "node tests/e2e/adminSettings.browser.mjs"
   },
   "dependencies": {
     "@vitejs/plugin-react": "latest",

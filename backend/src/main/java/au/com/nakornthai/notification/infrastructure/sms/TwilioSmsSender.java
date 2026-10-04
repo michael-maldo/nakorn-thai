@@ -10,6 +10,10 @@ import java.net.http.HttpClient;
 import java.time.Duration;
 @Component
 public class TwilioSmsSender implements SmsSender {
+ private au.com.nakornthai.restaurant.configuration.RuntimeConfiguration configuration;
+ @org.springframework.beans.factory.annotation.Autowired
+ public TwilioSmsSender(au.com.nakornthai.restaurant.configuration.RuntimeConfiguration configuration) {this("","","");this.configuration=configuration;}
+ private TwilioSmsSender configured() {var c=configuration.snapshot();return new TwilioSmsSender(c.text("accountSid"),c.text("authToken"),c.text("smsFrom"));}
  private final String account,secret,from;
  private final RestClient api;
  public TwilioSmsSender(@Value("${TWILIO_ACCOUNT_SID:}") String account,@Value("${TWILIO_AUTH_TOKEN:}") String secret,@Value("${TWILIO_SMS_FROM:}") String from) {
@@ -18,6 +22,7 @@ public class TwilioSmsSender implements SmsSender {
   api=RestClient.builder().requestFactory(factory).baseUrl("https://api.twilio.com/2010-04-01").build();
  }
  public void send(String recipient,String message) {
+  if(configuration!=null){configured().send(recipient,message);return;}
   if(account.isBlank() || secret.isBlank() || from.isBlank())throw new IllegalStateException("SMS delivery unavailable");
   var body=new LinkedMultiValueMap<String,String>();body.add("To",recipient);body.add("From",from);body.add("Body",message);
   try {api.post().uri("/Accounts/{account}/Messages.json",account).headers(h->h.setBasicAuth(account,secret)).contentType(MediaType.APPLICATION_FORM_URLENCODED).body(body).retrieve().toBodilessEntity();}

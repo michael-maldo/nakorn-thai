@@ -8,7 +8,6 @@ import au.com.nakornthai.notification.domain.NotificationType;
 import au.com.nakornthai.menu.infrastructure.*;
 import jakarta.persistence.*;
 import au.com.nakornthai.restaurant.orderingsettings.OrderingSettingsHandler;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
@@ -30,13 +29,24 @@ public class CreateOrderHandler {
     private final Clock clock;
     private final ContactVerificationHandler verification;
     private final SendOrderConfirmationHandler notifications;
-    @Value("${PAYPAL_ENABLED:false}") private boolean paypalEnabled;
-    @Value("${PAYID_ENABLED:false}") private boolean payidEnabled;
+    private au.com.nakornthai.restaurant.configuration.RuntimeConfiguration configuration;
+    @org.springframework.beans.factory.annotation.Autowired public void configure(au.com.nakornthai.restaurant.configuration.RuntimeConfiguration configuration){this.configuration=configuration;}
+    private boolean paypalEnabled;
+    private boolean payidEnabled;
     public CreateOrderHandler(EntityManager em, OrderMapper mapper, OrderingSettingsHandler ordering, RestaurantAvailabilityService availability, Clock clock, ContactVerificationHandler verification, SendOrderConfirmationHandler notifications) {
         this.em=em; this.mapper=mapper; this.ordering=ordering; this.availability=availability; this.clock=clock;this.verification=verification;this.notifications=notifications;
     }
     public boolean enabled() { return ordering.status().enabled(); }
-    public OrderingSettingsHandler.Status orderingStatus() { return ordering.status(); }
+    public boolean phoneRequired(){return configuration==null||configuration.snapshot().flag("orderPhoneRequired");}
+    public OrderingSettingsHandler.Status orderingStatus() {
+        var status = ordering.status();
+        if (status.enabled() && configuration != null) {
+            var c = configuration.snapshot();
+            if (c.flag("orderPhoneRequired") && !au.com.nakornthai.restaurant.configuration.ConfigurationFields.verifyConfigured(c))
+                return new OrderingSettingsHandler.Status(false, "CONTACT_VERIFICATION_UNAVAILABLE", "Online ordering is temporarily unavailable.");
+        }
+        return status;
+    }
     public static String hash(String value) {
         try { return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8))); }
         catch (java.security.NoSuchAlgorithmException e) { throw new IllegalStateException(e); }
@@ -58,14 +68,17 @@ public class CreateOrderHandler {
         }
         String phone=ContactDestination.normalizeMobile(request.phone());
         ordering.requireAcceptingOrders();
-        if((paymentMethod.equals("PAYPAL")&&!paypalEnabled) || (paymentMethod.equals("PAYID")&&!payidEnabled))throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,"Selected payment method is unavailable");
+        var config=configuration==null?null:configuration.snapshot();
+        boolean paypalAvailable=config==null?paypalEnabled:config.flag("paypalEnabled")&&config.configured("PAYPAL")&&(!config.text("environment").equals("live")||!config.flag("paypalDashboardManaged")||config.flag("paypalValidated"));
+        boolean payidAvailable=config==null?payidEnabled:config.flag("payidEnabled")&&config.configured("PAYID");
+        if((paymentMethod.equals("PAYPAL")&&!paypalAvailable) || (paymentMethod.equals("PAYID")&&!payidAvailable) || (paymentMethod.equals("PAY_AT_RESTAURANT")&&config!=null&&!config.flag("payAtRestaurantEnabled")))throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,"Selected payment method is unavailable");
         Instant checkoutAt = clock.instant();
         var restaurantSchedule = availability.schedule();
         if (!restaurantSchedule.isOpen(checkoutAt)) throw new RestaurantClosedException();
         var order = new OrderJpaEntity(); order.setId(request.requestId());
         order.setPaymentMethod(paymentMethod);
         order.setTrackingHash(hash(request.trackingToken())); order.setRequestHash(fingerprint);
-        order.setCustomerName(request.customerName().trim()); order.setPhone(phone);order.setPhoneVerified(true); order.setNotes(request.notes().trim());
+        order.setCustomerName(request.customerName().trim()); order.setPhone(phone); order.setNotes(request.notes().trim());
         order.setEmail(request.email()==null || request.email().isBlank()?null:ContactDestination.normalize("EMAIL",request.email()));
         if (request.items().stream().anyMatch(l -> l.collectionId() == null))
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Collection is required for every new order line");
@@ -115,12 +128,14 @@ public class CreateOrderHandler {
             }
             order.getItems().add(snapshot);
         }
-        if(!verification.consumeForOrder(request.phoneVerificationId(),phone,request.requestId()))
+        boolean verified=verification.consumeForOrder(request.phoneVerificationId(),phone,request.requestId());
+        order.setPhoneVerified(verified);
+        if((config==null||config.flag("orderPhoneRequired"))&&!verified)
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Verify your mobile by SMS before placing an order");
         em.persist(order); em.flush();
         var event = new OrderEventJpaEntity(); event.setOrderId(order.getId()); event.setStatus("NEW");
         event.setActor("CUSTOMER"); event.setCreatedAt(order.getCreatedAt()); em.persist(event);
-        notifications.handle(new SendOrderConfirmationCommand(order.getId(),NotificationType.ORDER_RECEIVED,order.getPhone(),order.getEmail(),order.getCustomerName(),order.getTotalMinor(),null,restaurantSchedule.timezone()));
+        notifications.handle(new SendOrderConfirmationCommand(order.getId(),NotificationType.ORDER_RECEIVED,order.isPhoneVerified()?order.getPhone():null,order.getEmail(),order.getCustomerName(),order.getTotalMinor(),null,restaurantSchedule.timezone()));
         return mapper.map(order, false);
     }
     static String fingerprintLines(CreateOrderRequest request) {

@@ -11,7 +11,7 @@ public class RestaurantExceptionHandler {
             org.springframework.http.converter.HttpMessageNotReadableException.class,
             org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class,
             org.springframework.web.bind.MissingServletRequestParameterException.class})
-    ResponseEntity<Map<String,String>> invalid() { return ResponseEntity.badRequest().body(Map.of("message", "Check the restaurant settings and required fields")); }
+    ResponseEntity<Map<String,String>> invalid() { return ResponseEntity.badRequest().cacheControl(CacheControl.noStore()).body(Map.of("message", "Check the restaurant settings and required fields")); }
     @ExceptionHandler(ResponseStatusException.class)
     ResponseEntity<Map<String,String>> failure(ResponseStatusException e) {
         return ResponseEntity.status(e.getStatusCode()).cacheControl(CacheControl.noStore())
@@ -20,6 +20,6 @@ public class RestaurantExceptionHandler {
     @ExceptionHandler({org.springframework.dao.DataIntegrityViolationException.class,
             org.springframework.orm.ObjectOptimisticLockingFailureException.class})
     ResponseEntity<Map<String,String>> conflict() {
-        return ResponseEntity.status(409).body(Map.of("message", "Schedule entry changed or the date is already closed; reload before saving"));
+        return ResponseEntity.status(409).cacheControl(CacheControl.noStore()).body(Map.of("message", "Schedule entry changed or the date is already closed; reload before saving"));
     }
 }

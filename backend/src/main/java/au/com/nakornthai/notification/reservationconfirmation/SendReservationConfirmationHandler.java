@@ -13,6 +13,9 @@ import java.util.*;
 public class SendReservationConfirmationHandler {
  private final EntityManager em;
  private final Clock clock;
+ private au.com.nakornthai.restaurant.configuration.RuntimeConfiguration configuration;
+ @org.springframework.beans.factory.annotation.Autowired public void configure(au.com.nakornthai.restaurant.configuration.RuntimeConfiguration configuration){this.configuration=configuration;}
+
  @Transactional(propagation=Propagation.MANDATORY)
  public void handle(SendReservationConfirmationCommand c) {
   String time=c.requestedAt().format(DateTimeFormatter.ofPattern("EEEE d MMM uuuu 'at' h:mm a",Locale.ENGLISH));
@@ -24,8 +27,8 @@ public class SendReservationConfirmationHandler {
    default -> throw new IllegalArgumentException("Unsupported reservation notification");
   };
   String details=event+" "+time+" for "+c.partySize()+" guests. Ref: "+c.reservationId();
-  if(c.verifiedPhone()!=null)queue(c.reservationId(),c.type(),NotificationChannel.SMS,c.verifiedPhone(),"Nakorn Thai: "+details);
-  if(c.email()!=null)queue(c.reservationId(),c.type(),NotificationChannel.EMAIL,c.email(),"Hello "+c.customerName()+",\n\nNakorn Thai: "+details+"\n\nNakorn Thai");
+  if(c.verifiedPhone()!=null&&(configuration==null||configuration.snapshot().flag("reservationSms")))queue(c.reservationId(),c.type(),NotificationChannel.SMS,c.verifiedPhone(),"Nakorn Thai: "+details);
+  if(c.email()!=null&&(configuration==null||configuration.snapshot().flag("reservationEmail")))queue(c.reservationId(),c.type(),NotificationChannel.EMAIL,c.email(),"Hello "+c.customerName()+",\n\nNakorn Thai: "+details+"\n\nNakorn Thai");
  }
  private void queue(UUID reservationId,NotificationType type,NotificationChannel channel,String recipient,String body) {
   // Creation/status locks serialize enqueueing; the existing unique constraint

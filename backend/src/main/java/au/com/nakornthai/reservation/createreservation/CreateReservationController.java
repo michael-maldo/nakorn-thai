@@ -9,6 +9,7 @@ import java.util.Map;
 public class CreateReservationController {
  private final CreateReservationHandler handler;
  @GetMapping("/csrf") ResponseEntity<CsrfToken> csrf(CsrfToken token) { return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(token); }
+ @GetMapping("/options") public ResponseEntity<Map<String,Boolean>> options(){return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(handler.options());}
  @PostMapping ResponseEntity<Map<String,Object>> create(@Valid @RequestBody CreateReservationRequest request) {
   return ResponseEntity.status(201).cacheControl(CacheControl.noStore()).body(handler.handle(request));
  }

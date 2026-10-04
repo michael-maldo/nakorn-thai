@@ -11,7 +11,7 @@ public class CreateOrderController {
     @GetMapping("/options")
     ResponseEntity<Map<String,Object>> options() {
         var status = handler.orderingStatus();
-        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(Map.of("enabled", status.enabled(), "reason", status.reason(), "message", status.message(), "fulfilment", "PICKUP", "payment", "PAY_AT_RESTAURANT"));
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(Map.of("phoneRequired",handler.phoneRequired(),"enabled", status.enabled(), "reason", status.reason(), "message", status.message(), "fulfilment", "PICKUP", "payment", "PAY_AT_RESTAURANT"));
     }
     @GetMapping("/csrf")
     ResponseEntity<Map<String,String>> csrf(CsrfToken token) {

@@ -20,6 +20,8 @@ public class ChangeOrderStatusHandler {
     private final OrderMapper mapper;
     private final SendOrderConfirmationHandler notifications;
     private final RestaurantAvailabilityService availability;
+    private au.com.nakornthai.restaurant.configuration.RuntimeConfiguration configuration;
+    @org.springframework.beans.factory.annotation.Autowired public void configure(au.com.nakornthai.restaurant.configuration.RuntimeConfiguration configuration){this.configuration=configuration;}
     @Transactional
     public CreateOrderResponse handle(UUID id, ChangeOrderStatusCommand command, Authentication actor) {
         var roles = actor.getAuthorities().stream().map(a -> a.getAuthority()).toList();
@@ -61,8 +63,8 @@ public class ChangeOrderStatusHandler {
             case "CANCELLED" -> NotificationType.ORDER_CANCELLED;
             default -> null;
         };
-        if(type!=null && order.isPhoneVerified())
-            notifications.handle(new SendOrderConfirmationCommand(id,type,order.getPhone(),order.getEmail(),order.getCustomerName(),order.getTotalMinor(),order.getEstimatedReadyAt(),availability.schedule().timezone()));
+        if(type!=null && (order.isPhoneVerified() || configuration!=null&&!configuration.snapshot().flag("orderPhoneRequired")))
+            notifications.handle(new SendOrderConfirmationCommand(id,type,order.isPhoneVerified()?order.getPhone():null,order.getEmail(),order.getCustomerName(),order.getTotalMinor(),order.getEstimatedReadyAt(),availability.schedule().timezone()));
         return mapper.map(order, front);
     }
 }

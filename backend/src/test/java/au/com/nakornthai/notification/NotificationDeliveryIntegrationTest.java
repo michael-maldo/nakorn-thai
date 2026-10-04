@@ -29,6 +29,7 @@ class NotificationDeliveryIntegrationTest {
  @Autowired au.com.nakornthai.notification.orderconfirmation.SendOrderConfirmationHandler orderingNotifications;
  @MockitoBean SmsSender sms;
  @MockitoBean EmailSender email;
+ @MockitoBean au.com.nakornthai.restaurant.configuration.IntegrationDiagnostics diagnostics;
  @MockitoBean Clock clock;
  // Drive the real worker explicitly; background polling must not race assertions.
  @MockitoBean(name="taskScheduler") org.springframework.scheduling.TaskScheduler scheduler;

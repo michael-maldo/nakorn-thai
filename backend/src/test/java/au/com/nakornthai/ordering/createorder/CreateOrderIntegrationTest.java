@@ -59,7 +59,7 @@ class CreateOrderIntegrationTest {
     @Test void staffPauseBlocksNewOrdersButPreservesReplayTrackingAndStaffTransitions() throws Exception {
         create();
         long settingsVersion = jdbc.queryForObject("SELECT version FROM restaurant_settings WHERE id=1", Long.class);
-        mvc.perform(put("/api/staff/restaurant/ordering").with(user("front").roles("FOH")).with(csrf())
+        mvc.perform(put("/api/staff/restaurant/ordering").with(user("owner").roles("ADMIN")).with(csrf())
                 .contentType("application/json").content("{\"acceptingOrders\":false,\"pauseMessage\":\"Kitchen busy\",\"version\":" + settingsVersion + "}"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.status.reason").value("PAUSED_BY_STAFF"));
         em.clear();
@@ -76,7 +76,7 @@ class CreateOrderIntegrationTest {
     @Test void resumeAllowsNewOrdersWhileOpen() throws Exception {
         jdbc.update("UPDATE restaurant_settings SET ordering_paused=true WHERE id=1");
         long settingsVersion = jdbc.queryForObject("SELECT version FROM restaurant_settings WHERE id=1", Long.class);
-        mvc.perform(put("/api/staff/restaurant/ordering").with(user("front").roles("FOH")).with(csrf())
+        mvc.perform(put("/api/staff/restaurant/ordering").with(user("owner").roles("ADMIN")).with(csrf())
                 .contentType("application/json").content("{\"acceptingOrders\":true,\"version\":" + settingsVersion + "}"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.status.enabled").value(true));
         em.clear(); create();

@@ -14,11 +14,21 @@ public class CreatePaymentHandler {
  private final EntityManager em;private final OrderAccessService access;private final PayPalPaymentProvider paypal;
  private final io.micrometer.core.instrument.MeterRegistry metrics;
  private final String payid,name;private final boolean payidEnabled;
+ private au.com.nakornthai.restaurant.configuration.RuntimeConfiguration configuration;
+
+ private boolean payidEnabled(){if(configuration==null)return payidEnabled;var c=configuration.snapshot();return c.flag("payidEnabled")&&c.configured("PAYID");}
+ private String payid(){return configuration==null?payid:configuration.snapshot().text("identifier");}
+ private String accountName(){return configuration==null?name:configuration.snapshot().text("accountName");}
+ private boolean cashEnabled(){return configuration==null||configuration.snapshot().flag("payAtRestaurantEnabled");}
+ @org.springframework.beans.factory.annotation.Autowired
+ public CreatePaymentHandler(EntityManager em,OrderAccessService access,PayPalPaymentProvider paypal,io.micrometer.core.instrument.MeterRegistry metrics,au.com.nakornthai.restaurant.configuration.RuntimeConfiguration configuration){
+  this(em,access,paypal,metrics,false,"","");this.configuration=configuration;
+ }
  public CreatePaymentHandler(EntityManager em,OrderAccessService access,PayPalPaymentProvider paypal,io.micrometer.core.instrument.MeterRegistry metrics,@Value("${PAYID_ENABLED:false}") boolean enabled,@Value("${PAYID_IDENTIFIER:}") String payid,@Value("${PAYID_ACCOUNT_NAME:}") String name) {
   this.metrics=metrics;this.em=em;this.access=access;this.paypal=paypal;this.payidEnabled=enabled;this.payid=payid;this.name=name;
-  if(enabled && (payid.isBlank() || name.isBlank()))throw new IllegalArgumentException("Configure PayID identifier and account name");
+
  }
- public Map<String,Object> options(){return Map.of("paypal",paypal.enabled(),"payid",payidEnabled,"payAtRestaurant",true);}
+ public Map<String,Object> options(){return Map.of("paypal",paypal.enabled(),"payid",payidEnabled(),"payAtRestaurant",cashEnabled());}
  @Transactional(noRollbackFor=ResponseStatusException.class) public Map<String,Object> start(UUID id,String token,String method) {
   var order=em.find(OrderJpaEntity.class,id,LockModeType.PESSIMISTIC_WRITE);access.require(order,token);
   if(Set.of("CANCELLED","COMPLETED").contains(order.getStatus()))throw new ResponseStatusException(HttpStatus.CONFLICT,"Order is closed");
@@ -28,7 +38,7 @@ public class CreatePaymentHandler {
   if(payment!=null && !payment.getMethod().equals(method))throw new ResponseStatusException(HttpStatus.CONFLICT,"Payment already started with another method; contact the restaurant");
   if(!Set.of("PAYPAL","PAYID","PAY_AT_RESTAURANT").contains(method))throw new ResponseStatusException(HttpStatus.BAD_REQUEST);
   if(method.equals("PAY_AT_RESTAURANT"))return view(order,null);
-  if((method.equals("PAYPAL")&&!paypal.enabled()) || (method.equals("PAYID")&&!payidEnabled))throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,"Payment method unavailable");
+  if((method.equals("PAYPAL")&&!paypal.enabled()) || (method.equals("PAYID")&&!payidEnabled()))throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,"Payment method unavailable");
   if(payment==null){payment=new OrderPaymentJpaEntity();payment.setOrderId(id);payment.setMethod(method);em.persist(payment);em.flush();metrics.counter("nakorn.payment.initiated","method",method).increment();
    log.info("payment_initiated method={} order={}",method,id);}
   if(method.equals("PAYPAL") && payment.getProviderOrderId()==null) {
@@ -86,7 +96,7 @@ public class CreatePaymentHandler {
  private Map<String,Object> view(OrderJpaEntity o,OrderPaymentJpaEntity p) {
   var result=new HashMap<String,Object>();result.put("method",o.getPaymentMethod());result.put("paid",o.getPaidAt()!=null);result.put("totalMinor",o.getTotalMinor());result.put("currency","AUD");result.put("status",o.getPaidAt()!=null?"PAID":"PENDING");
   if(p!=null){result.put("status",p.getStatus());result.put("approvalUrl",p.getApprovalUrl());}
-  if(o.getPaymentMethod().equals("PAYID")){result.put("payid",payid);result.put("accountName",name);result.put("reference",o.getId().toString());}
+  if(o.getPaymentMethod().equals("PAYID")){result.put("payid",payid());result.put("accountName",accountName());result.put("reference",o.getId().toString());}
   return result;
  }
 }

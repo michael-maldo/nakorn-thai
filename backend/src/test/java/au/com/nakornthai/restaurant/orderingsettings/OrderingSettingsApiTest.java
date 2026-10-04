@@ -23,7 +23,7 @@ class OrderingSettingsApiTest {
     @MockitoBean au.com.nakornthai.identity.infrastructure.SpringDataStaffSessionRepository sessions;
     final String path = "/api/staff/restaurant/ordering";
     final String update = "{\"acceptingOrders\":false,\"pauseMessage\":\"Kitchen busy\",\"version\":0}";
-    @Test void adminAndFohCanReadAndWriteWithCsrfButBohAndGuestsCannot() throws Exception {
+    @Test void adminCanWriteFohCanOnlyReadAndBohAndGuestsCannot() throws Exception {
         mvc.perform(get(path)).andExpect(status().isUnauthorized());
         mvc.perform(put(path).with(csrf()).contentType("application/json").content(update)).andExpect(status().isUnauthorized());
         mvc.perform(get(path).with(user("boh").roles("BOH"))).andExpect(status().isForbidden());
@@ -32,9 +32,9 @@ class OrderingSettingsApiTest {
             mvc.perform(get(path).with(user("staff").roles(role))).andExpect(status().isOk()).andExpect(header().string("Cache-Control", "no-store"));
             mvc.perform(get("/api/staff/restaurant/csrf").with(user("staff").roles(role))).andExpect(status().isOk()).andExpect(jsonPath("$.token").isString());
             mvc.perform(put(path).with(user("staff").roles(role)).contentType("application/json").content(update)).andExpect(status().isForbidden());
-            mvc.perform(put(path).with(user("staff").roles(role)).with(csrf()).contentType("application/json").content(update)).andExpect(status().isOk());
+            mvc.perform(put(path).with(user("staff").roles(role)).with(csrf()).contentType("application/json").content(update)).andExpect(role.equals("ADMIN")?status().isOk():status().isForbidden());
         }
-        verify(handler, times(2)).save(any());
+        verify(handler, times(1)).save(any(),eq("staff"));
         mvc.perform(put("/api/staff/restaurant/settings").with(user("foh").roles("FOH")).with(csrf())
                 .contentType("application/json").content("{\"timezone\":\"UTC\",\"version\":0}")).andExpect(status().isForbidden());
         verifyNoInteractions(hours);
@@ -42,7 +42,7 @@ class OrderingSettingsApiTest {
     @Test void missingVersionMissingSwitchAndLongMessagesAreRejected() throws Exception {
         for (String body : new String[]{"{}", "{\"version\":0}", "{\"acceptingOrders\":true}",
                 update.replace("Kitchen busy", "x".repeat(301)), update.replace("\"version\":0", "\"version\":-1")})
-            mvc.perform(put(path).with(user("foh").roles("FOH")).with(csrf()).contentType("application/json").content(body)).andExpect(status().isBadRequest());
+            mvc.perform(put(path).with(user("admin").roles("ADMIN")).with(csrf()).contentType("application/json").content(body)).andExpect(status().isBadRequest());
         verifyNoInteractions(handler);
     }
     @Test void publicOptionsExplainPauseWithoutExposingStaffSettings() throws Exception {

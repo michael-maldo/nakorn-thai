@@ -14,6 +14,14 @@ import java.util.*;
 public class OpeningHoursHandler {
     private final JpaRestaurantRepository restaurant;
     private final EntityManager em;
+    private au.com.nakornthai.restaurant.configuration.ConfigurationHandler audit;
+    @org.springframework.beans.factory.annotation.Autowired
+    public void configureAudit(au.com.nakornthai.restaurant.configuration.ConfigurationHandler audit) { this.audit = audit; }
+    private void audit(String action, Set<String> fields) {
+        if (audit == null) return;
+        var actor = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        audit.recordChange("SETTINGS", action, fields, actor == null ? "SYSTEM" : actor.getName());
+    }
     public record ScheduleView(RestaurantSettingsJpaEntity settings, List<OpeningHoursJpaEntity> hours,
                                List<ClosedDateJpaEntity> closedDates) {}
     @Transactional
@@ -32,7 +40,7 @@ public class OpeningHoursHandler {
         var settings = restaurant.settings(LockModeType.PESSIMISTIC_WRITE);
         version(settings, request.version());
         settings.setTimezone(request.timezone());
-        em.flush(); return settings;
+        em.flush(); audit("RESTAURANT_SETTINGS_UPDATED", Set.of("timezone")); return settings;
     }
     @Transactional
     public OpeningHoursJpaEntity saveWindow(UUID id, OpeningHoursRequest.Window request) {
@@ -44,7 +52,7 @@ public class OpeningHoursHandler {
         window.setDayOfWeek(request.dayOfWeek()); window.setOpensAt(request.opensAt()); window.setClosesAt(request.closesAt());
         window.setActive(request.active()); window.setDisplayOrder(request.displayOrder());
         if (id == null) em.persist(window);
-        em.flush(); return window;
+        em.flush(); audit("OPENING_HOURS_UPDATED", Set.of("dayOfWeek", "opensAt", "closesAt", "active", "displayOrder")); return window;
     }
     @Transactional
     public ClosedDateJpaEntity saveClosure(UUID id, OpeningHoursRequest.Closure request) {
@@ -56,7 +64,7 @@ public class OpeningHoursHandler {
         closure.setClosedDate(request.closedDate());
         closure.setReason(request.reason() == null || request.reason().isBlank() ? null : request.reason().trim());
         if (id == null) em.persist(closure);
-        em.flush(); return closure;
+        em.flush(); audit("CLOSED_DATE_UPDATED", Set.of("closedDate", "reason")); return closure;
     }
     @Transactional
     public void deleteWindow(UUID id, Long version) { delete(OpeningHoursJpaEntity.class, id, version); }
@@ -65,6 +73,7 @@ public class OpeningHoursHandler {
     private <T extends RestaurantAuditJpaEntity> void delete(Class<T> type, UUID id, Long expectedVersion) {
         restaurant.settings(LockModeType.PESSIMISTIC_WRITE);
         var entity = find(type, id); version(entity, expectedVersion); em.remove(entity); em.flush();
+        audit(type == OpeningHoursJpaEntity.class ? "OPENING_HOURS_DELETED" : "CLOSED_DATE_DELETED", Set.of("scheduleEntry"));
     }
     private <T> T find(Class<T> type, UUID id) {
         var entity = em.find(type, id);

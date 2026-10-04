@@ -18,6 +18,11 @@ public class OrderingSettingsHandler {
     private final RestaurantAvailabilityService availability;
     private final Clock clock;
     private final boolean configured;
+    private au.com.nakornthai.restaurant.configuration.RuntimeConfiguration configuration;
+    @org.springframework.beans.factory.annotation.Autowired public void configure(au.com.nakornthai.restaurant.configuration.RuntimeConfiguration configuration){this.configuration=configuration;}
+    private au.com.nakornthai.restaurant.configuration.ConfigurationHandler audit;
+    @org.springframework.beans.factory.annotation.Autowired public void configureAudit(au.com.nakornthai.restaurant.configuration.ConfigurationHandler audit){this.audit=audit;}
+    private boolean configured(){return configuration==null?configured:configuration.snapshot().flag("orderingEnabled");}
 
     public OrderingSettingsHandler(JpaRestaurantRepository restaurant, EntityManager em,
             RestaurantAvailabilityService availability, Clock clock,
@@ -38,7 +43,8 @@ public class OrderingSettingsHandler {
     public Status status() { return read().status(); }
 
     @Transactional
-    public Settings save(Update request) {
+    public Settings save(Update request) {return save(request,"SYSTEM");}
+    @Transactional public Settings save(Update request,String actor) {
         var settings = restaurant.settings(LockModeType.PESSIMISTIC_WRITE);
         if (!request.version().equals(settings.getVersion()))
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Restaurant settings changed; reload before saving");
@@ -46,13 +52,14 @@ public class OrderingSettingsHandler {
         settings.setOrderingPauseMessage(request.pauseMessage() == null || request.pauseMessage().isBlank()
                 ? null : request.pauseMessage().trim());
         em.flush();
+        if(audit!=null)audit.recordChange("SETTINGS","ORDERING_PAUSE_UPDATED",java.util.Set.of("acceptingOrders","pauseMessage"),actor);
         return view(settings);
     }
 
     // Called inside the order transaction; the shared settings lock serializes pause with new orders.
     @Transactional
     public void requireAcceptingOrders() {
-        if (!configured) throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Online ordering is currently unavailable");
+        if (!configured()) throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Online ordering is currently unavailable");
         var settings = restaurant.settings(LockModeType.PESSIMISTIC_READ);
         if (settings.isOrderingPaused())
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, pauseMessage(settings));
@@ -60,11 +67,11 @@ public class OrderingSettingsHandler {
 
     private Settings view(RestaurantSettingsJpaEntity settings) {
         boolean open = availability.isOpen(clock.instant());
-        Status status = !configured ? new Status(false, "DISABLED_BY_CONFIGURATION", "Online ordering is currently unavailable.")
+        Status status = !configured() ? new Status(false, "DISABLED_BY_CONFIGURATION", "Online ordering is currently unavailable.")
                 : settings.isOrderingPaused() ? new Status(false, "PAUSED_BY_STAFF", pauseMessage(settings))
                 : !open ? new Status(false, "OUTSIDE_OPENING_HOURS", "Online ordering is closed outside restaurant opening hours.")
                 : new Status(true, "AVAILABLE", "Online ordering is available.");
-        return new Settings(configured, !settings.isOrderingPaused(), settings.getOrderingPauseMessage(), open, settings.getVersion(), status);
+        return new Settings(configured(), !settings.isOrderingPaused(), settings.getOrderingPauseMessage(), open, settings.getVersion(), status);
     }
     private String pauseMessage(RestaurantSettingsJpaEntity settings) {
         return settings.getOrderingPauseMessage() == null ? "Online ordering is temporarily paused. Please try again later."

@@ -1,7 +1,9 @@
+import { useAuth } from '../../identity/model/AuthContext';
 import { useEffect, useState } from 'react';
 import { restaurantRequest } from '../api/restaurantApi';
 
 export default function OnlineOrderingPage() {
+  const {user}=useAuth();
   const [settings, setSettings] = useState(null);
   const [acceptingOrders, setAcceptingOrders] = useState(true);
   const [pauseMessage, setPauseMessage] = useState('');
@@ -42,8 +44,8 @@ export default function OnlineOrderingPage() {
         <p>Menu schedules, ordering cutoffs and dish availability also apply.</p>
         {!settings.status.enabled && <p>Customer message: {settings.status.message}</p>}
       </section>
-      <form className="staff-panel" onSubmit={save}><fieldset disabled={busy}>
-        <legend>Staff ordering control</legend>
+      <form className="staff-panel" onSubmit={save}><fieldset disabled={busy||user?.role!=='ADMIN'}>
+        <legend>ADMIN ordering control</legend>
         <label className="staff-check"><input type="checkbox" checked={acceptingOrders} onChange={e => setAcceptingOrders(e.target.checked)} />Accept online orders</label>
         <p>Uncheck to pause new orders. Existing orders and their payments remain accessible. Resuming respects restaurant hours and menu availability.</p>
         <label>Customer message while paused (optional)<textarea maxLength={300} value={pauseMessage} onChange={e => setPauseMessage(e.target.value)} /></label>

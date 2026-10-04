@@ -20,7 +20,7 @@ export async function restaurantRequest(path = '/schedule', { method = 'GET', bo
     headers[csrf.headerName] = csrf.token;
   }
   return decode(await fetchWithIdentity(`/api/staff/restaurant${path}`, {
-    method, credentials: 'same-origin', headers: { ...headers, ...(body ? { 'Content-Type': 'application/json' } : {}) },
+    method, cache: 'no-store', credentials: 'same-origin', headers: { ...headers, ...(body ? { 'Content-Type': 'application/json' } : {}) },
     ...(body ? { body: JSON.stringify(body) } : {}),
   }));
 }

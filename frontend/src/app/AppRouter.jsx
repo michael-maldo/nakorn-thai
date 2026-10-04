@@ -1,3 +1,4 @@
+import IntegrationSettingsPage from '../domains/restaurant/pages/IntegrationSettingsPage';
 import HomepageSettingsPage from '../domains/menu/pages/HomepageSettingsPage';
 import OrdersAdminPage from '../domains/ordering/pages/OrdersAdminPage';
 import OnlineOrderingPage from '../domains/restaurant/pages/OnlineOrderingPage';
@@ -72,6 +73,7 @@ export default function AppRouter() {
   if (hash === '#/staff/homepage') return staffPage(<HomepageSettingsPage />, ['ADMIN']);
   if (hash === '#/staff/orders') return staffPage(<OrdersAdminPage />, ['ADMIN', 'FOH', 'BOH']);
   if (hash === '#/staff/ordering') return staffPage(<OnlineOrderingPage />, ['ADMIN', 'FOH']);
+  if (hash === '#/staff/settings') return staffPage(<IntegrationSettingsPage />, ['ADMIN']);
   if (hash === '#/staff/restaurant') return staffPage(<RestaurantSchedulePage />, ['ADMIN']);
   if (hash === '#/staff/users') return staffPage(<UsersPage />, ['ADMIN']);
   if (hash === '#/staff/menu' || hash.startsWith('#/staff/menu/')) return staffPage(<StaffMenuPage hash={hash} />, ['ADMIN']);

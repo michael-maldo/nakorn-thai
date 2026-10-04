@@ -20,6 +20,12 @@ class ProviderContractsTest {
   assertEquals("PP1",provider.create(id,1990).path("id").asText());server.verify();
  }
 
+ @Test void connectionValidationOnlyAuthenticatesWithoutCreatingOrCapturingPayment() {
+  var builder=RestClient.builder().baseUrl("https://api-m.sandbox.paypal.com");var server=MockRestServiceServer.bindTo(builder).build();
+  var provider=new PayPalPaymentProvider(true,"sandbox","client","secret","http://localhost:5173/#/order-confirmation");ReflectionTestUtils.setField(provider,"api",builder.build());
+  server.expect(requestTo("https://api-m.sandbox.paypal.com/v1/oauth2/token")).andExpect(method(HttpMethod.POST)).andExpect(content().string("grant_type=client_credentials")).andRespond(withSuccess("{\"access_token\":\"test-access\"}",MediaType.APPLICATION_JSON));
+  provider.testConnection();server.verify();
+ }
  @Test void captureUsesDeterministicIdempotencyAndCorrectEndpoint() {
   var builder=RestClient.builder().baseUrl("https://api-m.sandbox.paypal.com");var server=MockRestServiceServer.bindTo(builder).build();
   var provider=new PayPalPaymentProvider(true,"sandbox","client","secret","http://localhost:5173/#/order-confirmation");ReflectionTestUtils.setField(provider,"api",builder.build());UUID id=UUID.randomUUID();

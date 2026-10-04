@@ -18,6 +18,9 @@ public class CreateReservationHandler {
  private final Clock clock;
  private final au.com.nakornthai.notification.contactverification.ContactVerificationHandler verification;
  private final au.com.nakornthai.notification.reservationconfirmation.SendReservationConfirmationHandler notifications;
+ private au.com.nakornthai.restaurant.configuration.RuntimeConfiguration configuration;
+ @org.springframework.beans.factory.annotation.Autowired public void configure(au.com.nakornthai.restaurant.configuration.RuntimeConfiguration configuration){this.configuration=configuration;}
+ public Map<String,Boolean> options(){var c=configuration.snapshot();return Map.of("enabled",c.flag("reservationsEnabled")&&(!c.flag("reservationPhoneRequired")||au.com.nakornthai.restaurant.configuration.ConfigurationFields.verifyConfigured(c)),"phoneRequired",c.flag("reservationPhoneRequired"));}
  @Transactional public Map<String,Object> handle(CreateReservationRequest request) {
   em.createNativeQuery("SELECT pg_advisory_xact_lock(:key)",Object.class).setParameter("key",request.requestId().getMostSignificantBits()).getSingleResult();
   String phone=au.com.nakornthai.notification.domain.ContactDestination.normalize("SMS",request.phone());
@@ -29,6 +32,8 @@ public class CreateReservationHandler {
     throw new ResponseStatusException(HttpStatus.CONFLICT,"Request reference already used; start a new booking");
    return receipt(r);
   }
+  var config=configuration==null?null:configuration.snapshot();
+  if(config!=null&&!config.flag("reservationsEnabled"))throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,"Online reservation requests are unavailable");
   phone=au.com.nakornthai.notification.domain.ContactDestination.normalizeMobile(request.phone());
   Instant operationInstant=clock.instant();
   var schedule=availability.schedule();
@@ -41,9 +46,9 @@ public class CreateReservationHandler {
   if(!schedule.isOpen(requestedInstant)) throw new RestaurantClosedException();
   var r=new ReservationJpaEntity();r.setCreatedAt(operationInstant);r.setUpdatedAt(operationInstant);r.setId(request.requestId());r.setCustomerName(request.customerName().trim());r.setPhone(phone);r.setEmail(email);r.setPartySize(request.partySize());r.setRequestedAt(request.requestedAt());r.setNotes(request.notes().trim());
   r.setPhoneVerified(verification.consume(request.phoneVerificationId(),"SMS",phone,r.getId()));
-  if(!r.isPhoneVerified())throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Verify your mobile by SMS before requesting a booking");
+  if((config==null||config.flag("reservationPhoneRequired"))&&!r.isPhoneVerified())throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Verify your mobile by SMS before requesting a booking");
   reservations.saveAndFlush(r);
-  notifications.handle(new au.com.nakornthai.notification.reservationconfirmation.SendReservationConfirmationCommand(r.getId(),r.getCustomerName(),r.getRequestedAt(),r.getPartySize(),r.getPhone(),r.getEmail(),au.com.nakornthai.notification.domain.NotificationType.RESERVATION_RECEIVED));
+  notifications.handle(new au.com.nakornthai.notification.reservationconfirmation.SendReservationConfirmationCommand(r.getId(),r.getCustomerName(),r.getRequestedAt(),r.getPartySize(),r.isPhoneVerified()?r.getPhone():null,r.getEmail(),au.com.nakornthai.notification.domain.NotificationType.RESERVATION_RECEIVED));
   return receipt(r);
  }
  private Map<String,Object> receipt(ReservationJpaEntity r) { return Map.of("reference",r.getId(),"message","Booking request received. Your table is not confirmed until staff contact you."); }

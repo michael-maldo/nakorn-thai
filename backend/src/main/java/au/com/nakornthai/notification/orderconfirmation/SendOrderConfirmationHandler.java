@@ -14,6 +14,9 @@ import java.util.*;
 public class SendOrderConfirmationHandler {
  private final EntityManager em;
  private final Clock clock;
+ private au.com.nakornthai.restaurant.configuration.RuntimeConfiguration configuration;
+ @org.springframework.beans.factory.annotation.Autowired public void configure(au.com.nakornthai.restaurant.configuration.RuntimeConfiguration configuration){this.configuration=configuration;}
+
  @Transactional(propagation=Propagation.MANDATORY)
  public void handle(SendOrderConfirmationCommand c) {
   String reference=c.orderId().toString().substring(0,8).toUpperCase(Locale.ROOT);
@@ -25,8 +28,8 @@ public class SendOrderConfirmationHandler {
    default -> throw new IllegalArgumentException("Unsupported order notification");
   };
   String sms="Nakorn Thai: "+message+" Ref: "+reference;
-  queue(c,NotificationChannel.SMS,c.verifiedPhone(),sms);
-  if(c.email()!=null)queue(c,NotificationChannel.EMAIL,c.email(),"Hello "+c.customerName()+",\n\n"+sms+"\nTotal: AUD "+BigDecimal.valueOf(c.totalMinor(),2).toPlainString()+"\n\nNakorn Thai");
+  if(c.verifiedPhone()!=null&&(configuration==null||configuration.snapshot().flag("orderSms")))queue(c,NotificationChannel.SMS,c.verifiedPhone(),sms);
+  if(c.email()!=null&&(configuration==null||configuration.snapshot().flag("orderEmail")))queue(c,NotificationChannel.EMAIL,c.email(),"Hello "+c.customerName()+",\n\n"+sms+"\nTotal: AUD "+BigDecimal.valueOf(c.totalMinor(),2).toPlainString()+"\n\nNakorn Thai");
  }
  private void queue(SendOrderConfirmationCommand c,NotificationChannel channel,String recipient,String body) {
   // Creation/status locks serialize this event; the unique database index is
