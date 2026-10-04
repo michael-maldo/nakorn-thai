@@ -36,19 +36,26 @@ const click = async text => {
   await evaluate('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
 };
 function fixture(){
- window.role='ADMIN';window.writes=[];window.audit=[];window.stale=false;window.confirm=()=>true;
+ window.role='ADMIN';window.writes=[];window.audit=[];window.stale=false;window.reads=0;window.holdWrite=false;window.rejectMessage='';window.auditFailure=false;window.confirm=()=>true;
  window.configuration={encryptionAvailable:true};
  const fields={SETTINGS:{orderingEnabled:'false',reservationsEnabled:'true',orderPhoneRequired:'true',reservationPhoneRequired:'true',orderSms:'true',orderEmail:'true',reservationSms:'true',reservationEmail:'true',paypalEnabled:'false',payidEnabled:'false',payAtRestaurantEnabled:'true'},PAYPAL:{environment:'sandbox',clientId:''},PAYID:{identifier:'',accountName:''},TWILIO:{accountSid:'',verifyServiceSid:'',smsFrom:'',verifySmsEnabled:'false',verifyEmailEnabled:'false'},SMTP:{host:'',port:'587',username:'',from:'',starttls:'true'}};
- for(const [category,values] of Object.entries(fields))window.configuration[category]={fields:values,version:0,sources:Object.fromEntries(Object.keys(values).map(k=>[k,'ENVIRONMENT_DEFAULT'])),secretsConfigured:category==='PAYPAL'?{clientSecret:false}:category==='TWILIO'?{authToken:false}:category==='SMTP'?{password:false}:{},state:'NOT_CONFIGURED',configured:false,enabled:false,validationStatus:'NOT_TESTED',returnUrl:'https://restaurant.example.test/#/order-confirmation',pendingPayments:2,smsVerificationConfigured:false,smsSendingConfigured:false};
+ for(const [category,values] of Object.entries(fields))window.configuration[category]={fields:values,version:category==='SETTINGS'?6:0,sources:Object.fromEntries(Object.keys(values).map(k=>[k,'ENVIRONMENT_DEFAULT'])),secretsConfigured:category==='PAYPAL'?{clientSecret:false}:category==='TWILIO'?{authToken:false}:category==='SMTP'?{password:false}:{},state:'NOT_CONFIGURED',configured:false,enabled:false,validationStatus:'NOT_TESTED',returnUrl:'https://restaurant.example.test/#/order-confirmation',pendingPayments:2,smsVerificationConfigured:false,smsSendingConfigured:false};
  const realFetch=window.fetch;
  window.fetch=async(url,options={})=>{
   if(!String(url).startsWith('/api'))return realFetch(url,options);
   if(url.endsWith('/csrf'))return Response.json({headerName:'X-CSRF-TOKEN',token:'test'});
   if(url==='/api/identity/refresh')return Response.json({accessToken:'test',expiresAt:new Date(Date.now()+3600000).toISOString(),user:{username:'Owner',role:window.role}});
-  if(url==='/api/staff/restaurant/configuration/audit')return Response.json(window.audit);
-  if(url==='/api/staff/restaurant/configuration')return Response.json(window.configuration);
+  if(url==='/api/staff/restaurant/configuration/audit'){if(window.auditFailure)return Response.json({message:'Audit unavailable'},{status:500});return Response.json(window.audit);}
+  if(url==='/api/staff/restaurant/configuration'){
+   window.reads++;
+   // StrictMode cleans up the first mount effect before starting the current read.
+   if(window.reads===1){const stale=structuredClone(window.configuration);stale.SETTINGS.version=1;return new Promise(resolve=>{window.releaseInitialRead=()=>resolve(Response.json(stale));});}
+   return Response.json(window.configuration);
+  }
   if(url.startsWith('/api/staff/restaurant/configuration/')){
    const body=JSON.parse(options.body);window.writes.push({url,body,headers:options.headers});
+   if(window.holdWrite)await new Promise(resolve=>{window.releaseWrite=resolve;});
+   if(window.rejectMessage)return Response.json({message:window.rejectMessage},{status:400});
    if(window.stale){window.stale=false;return Response.json({message:'Configuration changed; refresh before saving or testing'},{status:409});}
    const category=url.split('/')[5],row=window.configuration[category];row.version++;
    if(options.method==='PUT'){
@@ -72,7 +79,43 @@ try{
  await send('Page.navigate',{url:`${base}#/staff/settings`});await waitFor("document.body.innerText.includes('Integrations overview')");
  assert.equal(await evaluate("document.querySelector('a[href=\"#/staff/settings\"]')!==null"),true);
  assert.equal(await evaluate("document.body.innerText.includes('Configure Twilio SMS Verify')"),true);
- await category('PayPal');await input('clientId','sandbox-test-merchant');await input('clientSecret','browser-test-secret');await click('Save paypal');await waitFor("document.body.innerText.includes('Configuration saved')");
+ // Save applies returned metadata/version without a GET; pending submits cannot overlap.
+ await waitFor("!document.querySelector('fieldset').disabled");
+ const reads=await evaluate('window.reads');
+ await evaluate("document.querySelector('[name=orderingEnabled]').click();window.holdWrite=true");
+ await click('Save business settings');await waitFor('window.releaseWrite');
+ assert.equal(await evaluate("document.querySelector('button[type=submit]').disabled"),true);
+ await evaluate("document.querySelector('form').dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}))");
+ assert.equal(await evaluate('window.writes.length'),1);
+ await evaluate('window.holdWrite=false;window.releaseWrite()');await waitFor("document.body.innerText.includes('Business settings saved.')&&!document.querySelector('fieldset').disabled");
+ assert.equal(await evaluate("document.querySelector('[name=orderingEnabled]').checked"),true);
+ assert.equal(await evaluate("document.querySelector('[name=orderingEnabled]').closest('label').textContent.includes('Dashboard managed')"),true);
+ assert.equal(await evaluate('window.writes.at(-1).body.version'),6);
+ assert.equal(await evaluate('window.reads'),reads);
+ // The abandoned initial request resolves after the save and must not overwrite it.
+ await evaluate('window.releaseInitialRead();new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))');
+ assert.equal(await evaluate("document.querySelector('[name=orderingEnabled]').checked"),true);
+ assert.equal(await evaluate("document.querySelector('[name=orderingEnabled]').closest('label').textContent.includes('Dashboard managed')"),true);
+ // Audit failure must not turn a persisted save into an apparent save failure.
+ await evaluate('window.auditFailure=true');await click('Save business settings');
+ await waitFor("document.body.innerText.includes('audit history is unavailable')&&!document.querySelector('fieldset').disabled");
+ assert.equal(await evaluate('window.writes.at(-1).body.version'),7);
+ assert.equal(await evaluate("document.body.innerText.includes('Business settings saved.')"),true);
+ await evaluate("window.auditFailure=false;window.rejectMessage='Configure SMTP before enabling email notifications';document.querySelector('[name=orderingEnabled]').click()");
+ await click('Save business settings');await waitFor("document.body.innerText.includes('Configure SMTP before enabling email notifications')&&!document.querySelector('fieldset').disabled");
+ assert.equal(await evaluate("document.querySelector('[role=alert]').textContent"),'Configure SMTP before enabling email notifications');
+ assert.equal(await evaluate("document.querySelector('[role=status]')"),null);
+ assert.equal(await evaluate("document.querySelector('[name=orderingEnabled]').checked"),false);
+ assert.equal(await evaluate("window.configuration.SETTINGS.fields.orderingEnabled"),'true');
+ assert.equal(await evaluate('window.configuration.SETTINGS.version'),8);
+ // Explicit refresh discards edits in favor of a fresh authoritative GET.
+ await evaluate("window.rejectMessage='';window.configuration.SETTINGS.version=9;window.configuration.SETTINGS.sources.orderingEnabled='ENVIRONMENT_DEFAULT'");
+ await click('Refresh configuration');await waitFor("!document.querySelector('fieldset').disabled");
+ assert.equal(await evaluate("document.querySelector('[name=orderingEnabled]').checked"),true);
+ assert.equal(await evaluate("document.querySelector('[name=orderingEnabled]').closest('label').textContent.includes('Environment/default supplied')"),true);
+ await click('Save business settings');await waitFor("document.body.innerText.includes('Business settings saved.')&&!document.querySelector('fieldset').disabled");
+ assert.equal(await evaluate('window.writes.at(-1).body.version'),9);
+ await category('PayPal');await input('clientId','sandbox-test-merchant');await input('clientSecret','browser-test-secret');await click('Save paypal');await waitFor("document.body.innerText.includes('configuration saved')");
  assert.equal(await evaluate("document.querySelector('[name=clientSecret]')===null"),true);
  assert.equal(await evaluate("document.body.innerText.includes('browser-test-secret')"),false);
  assert.equal(await evaluate("JSON.stringify(window.configuration).includes('browser-test-secret')"),false);
@@ -81,10 +124,10 @@ try{
  await click('Test connection');await waitFor("document.body.innerText.includes('VALID: Connection validation succeeded')");
  await click('Replace client secret');await input('clientSecret','unsaved-secret');await evaluate('window.stale=true');await click('Save paypal');await waitFor("document.body.innerText.includes('Configuration changed')");assert.equal(await evaluate("document.querySelector('[name=clientSecret]').value"),'');
  await click('Refresh configuration');await waitFor("!document.querySelector('[name=clientSecret]')");
- await category('PayID');await input('identifier','restaurant@example.test');await input('accountName','Restaurant Test');await click('Save payid');await waitFor("document.body.innerText.includes('Configuration saved')");
+ await category('PayID');await input('identifier','restaurant@example.test');await input('accountName','Restaurant Test');await click('Save payid');await waitFor("document.body.innerText.includes('configuration saved')");
  assert.equal(await evaluate("window.writes.at(-1).body.acknowledgePendingPayments"),true);
  assert.equal(await evaluate("window.configuration.PAYID.fields.accountName"),'Restaurant Test');
- await click('Business settings');await evaluate("document.querySelector('[name=payidEnabled]').click()");await click('Save business settings');await waitFor("document.body.innerText.includes('Configuration saved')");assert.equal(await evaluate("window.configuration.SETTINGS.fields.payidEnabled"),'true');
+ await click('Business settings');await evaluate("document.querySelector('[name=payidEnabled]').click()");await click('Save business settings');await waitFor("document.body.innerText.includes('Business settings saved.')");assert.equal(await evaluate("window.configuration.SETTINGS.fields.payidEnabled"),'true');
  assert.equal(await evaluate("document.body.innerText.includes('PAYID_CONFIGURATION_UPDATED')"),true);
  assert.equal(await evaluate("window.writes.every(r=>r.headers['X-CSRF-TOKEN']==='test')"),true);
  // Same route guards FOH: no settings panel or admin navigation is rendered.
@@ -92,5 +135,5 @@ try{
  // Auth context refresh requires a new document; overriding fixture defaults after installation.
  await send('Page.addScriptToEvaluateOnNewDocument',{source:"window.role='FOH'"});await send('Page.reload');await waitFor("document.body.innerText.includes('Access restricted')");
  assert.equal(await evaluate("document.querySelector('a[href=\"#/staff/settings\"]')===null"),true);
- assert.deepEqual(errors,[]);console.log('Admin settings browser: metadata, dependency warnings, write-only replacement, stale conflict, tests, PayID warning, business toggle, audit and ADMIN access passed.');
+ assert.deepEqual(errors,[]);console.log('Admin settings browser: metadata, dependency warnings, write-only replacement, stale conflict, tests, PayID warning, authoritative save/source/version, validation errors, duplicate protection, stale response protection, refresh, audit failure isolation and ADMIN access passed.');
 }finally{await send('Page.close');ws.close();}

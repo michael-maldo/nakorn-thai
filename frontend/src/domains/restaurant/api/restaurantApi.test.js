@@ -65,3 +65,17 @@ test('FOH ordering updates retain the pause message and version with CSRF protec
     await logout();
   } finally { globalThis.fetch = original; }
 });
+
+test('configuration saves preserve authoritative metadata and backend validation messages', async () => {
+  const original = globalThis.fetch;
+  const authoritative = { SETTINGS: { fields: { orderingEnabled: 'true' }, sources: { orderingEnabled: 'DASHBOARD' }, version: 7, configured: true, enabled: true, state: 'ENABLED', validationStatus: 'NOT_TESTED' } };
+  let fail = false;
+  globalThis.fetch = async url => url.endsWith('/csrf')
+    ? Response.json({ headerName: 'X-CSRF-TOKEN', token: 'test' })
+    : fail ? Response.json({ message: 'Configure SMTP before enabling email notifications' }, { status: 400 }) : Response.json(authoritative);
+  try {
+    assert.deepEqual(await restaurantRequest('/configuration/SETTINGS', { method: 'PUT', body: { version: 6 } }), authoritative);
+    fail = true;
+    await assert.rejects(restaurantRequest('/configuration/SETTINGS', { method: 'PUT', body: { version: 7 } }), error => error.status === 400 && error.message === 'Configure SMTP before enabling email notifications');
+  } finally { globalThis.fetch = original; }
+});

@@ -1,22 +1,44 @@
-import {useEffect,useState} from 'react';
+import {useEffect,useRef,useState} from 'react';
 import {restaurantRequest} from '../api/restaurantApi';
 import {definitions,booleanFields,dependencyWarnings,replacementBody} from '../model/integrationSettings';
 export default function IntegrationSettingsPage(){
  const [configuration,setConfiguration]=useState(null),[category,setCategory]=useState('SETTINGS'),[fields,setFields]=useState({}),[secrets,setSecrets]=useState({}),[replace,setReplace]=useState({}),[clear,setClear]=useState([]),[audit,setAudit]=useState([]),[recipient,setRecipient]=useState('');
- const [busy,setBusy]=useState(true),[error,setError]=useState(''),[notice,setNotice]=useState('');
+ const [busy,setBusy]=useState(true),[error,setError]=useState(''),[notice,setNotice]=useState(''),[auditError,setAuditError]=useState(''),[activity,setActivity]=useState('refresh');
+ const request=useRef(null);
+ function begin(action){if(request.current)return null;const ticket={};request.current=ticket;setBusy(true);setActivity(action);setError('');setNotice('');setAuditError('');return ticket;}
+ function current(ticket){return request.current===ticket;}
+ function finish(ticket){if(current(ticket)){request.current=null;setBusy(false);setActivity('');}}
+ async function loadAudit(ticket){try{const data=await restaurantRequest('/configuration/audit');if(current(ticket))setAudit(data);}catch{if(current(ticket))setAuditError('Configuration audit history is unavailable. The configuration result above is unchanged.');}}
  function loaded(data,key=category){setConfiguration(data);setFields({...data[key].fields});setSecrets({});setReplace({});setClear([]);}
- async function refresh(){setBusy(true);setError('');try{const data=await restaurantRequest('/configuration');loaded(data);setAudit(await restaurantRequest('/configuration/audit'));}catch(e){setError(e.message);}finally{setBusy(false);}}
- useEffect(()=>{refresh();},[]);
- function choose(key){setCategory(key);setFields({...configuration[key].fields});setSecrets({});setReplace({});setClear([]);setError('');setNotice('');}
- async function save(e){e.preventDefault();let acknowledge=false;
+ async function refresh(){const ticket=begin('refresh');if(!ticket)return;try{const data=await restaurantRequest('/configuration');if(!current(ticket))return;loaded(data);await loadAudit(ticket);}catch(e){if(current(ticket))setError(e.message);}finally{finish(ticket);}}
+ useEffect(()=>{refresh();return()=>{request.current=null;};},[]);
+ function choose(key){if(request.current)return;setCategory(key);setFields({...configuration[key].fields});setSecrets({});setReplace({});setClear([]);setError('');setNotice('');}
+ async function save(e){e.preventDefault();if(request.current)return;let acknowledge=false;
   if(category==='PAYPAL'&&fields.environment==='live'&&configuration.PAYPAL.fields.environment!=='live'&&!window.confirm('Switch to live PayPal? Checkout will remain disabled until live credentials are tested and explicitly enabled.'))return;
   if(category==='PAYID'&&configuration.PAYID.pendingPayments>0){acknowledge=window.confirm('Unpaid PayID orders may have previous payment instructions. Coordinate with staff before changing PayID. Continue?');if(!acknowledge)return;}
   if(category==='SETTINGS'&&configuration.SETTINGS.fields.payAtRestaurantEnabled==='true'&&fields.payAtRestaurantEnabled==='false'&&!window.confirm('Disable pay at restaurant? Online ordering must retain another configured payment method.'))return;
   if(category==='SETTINGS'&&((configuration.SETTINGS.fields.orderPhoneRequired==='true'&&fields.orderPhoneRequired==='false')||(configuration.SETTINGS.fields.reservationPhoneRequired==='true'&&fields.reservationPhoneRequired==='false'))&&!window.confirm('Disable mandatory mobile verification? SMS updates for that flow must also be disabled.'))return;
   if(clear.length&&!window.confirm('Clear the selected credentials? Required features must be disabled first.'))return;
-  setBusy(true);setError('');setNotice('');try{loaded(await restaurantRequest('/configuration/'+category,{method:'PUT',body:replacementBody(configuration[category].version,fields,secrets,clear,acknowledge)}));setNotice('Configuration saved. Configured does not mean tested or enabled.');setAudit(await restaurantRequest('/configuration/audit'));}catch(e){setError(e.message);}finally{setSecrets({});setBusy(false);}
+  const key=category,ticket=begin('save');if(!ticket)return;
+  try{
+   const data=await restaurantRequest('/configuration/'+key,{method:'PUT',body:replacementBody(configuration[key].version,fields,secrets,clear,acknowledge)});
+   if(!current(ticket))return;
+   loaded(data,key);setNotice(key==='SETTINGS'?'Business settings saved.':definitions[key].label+' configuration saved. Configured does not mean tested or enabled.');
+   await loadAudit(ticket);
+  }catch(e){if(current(ticket)){setNotice('');setError(e.message);}}
+  finally{if(current(ticket))setSecrets({});finish(ticket);}
  }
- async function test(sendEmail=false){if(sendEmail&&!window.confirm(`Send one explicit test email to ${recipient}?`))return;setBusy(true);setError('');setNotice('');try{const result=await restaurantRequest('/configuration/'+category+(sendEmail?'/test-email':'/test'),{method:'POST',body:{version:configuration[category].version,...(sendEmail?{recipient}:{})}});loaded(result.configuration);setNotice(result.status+': '+result.message);setAudit(await restaurantRequest('/configuration/audit'));}catch(e){setError(e.message);}finally{setSecrets({});setBusy(false);}}
+ async function test(sendEmail=false){
+  if(request.current)return;
+  if(sendEmail&&!window.confirm(`Send one explicit test email to ${recipient}?`))return;
+  const key=category,ticket=begin('test');if(!ticket)return;
+  try{
+   const result=await restaurantRequest('/configuration/'+key+(sendEmail?'/test-email':'/test'),{method:'POST',body:{version:configuration[key].version,...(sendEmail?{recipient}:{})}});
+   if(!current(ticket))return;
+   loaded(result.configuration,key);setNotice(result.status+': '+result.message);await loadAudit(ticket);
+  }catch(e){if(current(ticket))setError(e.message);}
+  finally{if(current(ticket))setSecrets({});finish(ticket);}
+ }
  const row=configuration?.[category],definition=definitions[category];
  const warnings=configuration&&category==='SETTINGS'?dependencyWarnings(fields,configuration):[];
  return <main className="staff-menu page-width"><header className="staff-heading"><h1>Settings and integrations</h1><button disabled={busy} onClick={refresh}>Refresh configuration</button></header>
@@ -34,10 +56,10 @@ export default function IntegrationSettingsPage(){
  {row.secretsConfigured[key]&&!replace[key]?<button type="button" onClick={()=>setReplace({...replace,[key]:true})}>Replace {label.toLowerCase()}</button>:<label>{label}<input name={key} type="password" autoComplete="new-password" maxLength={4096} value={secrets[key]??''} onChange={e=>setSecrets({...secrets,[key]:e.target.value})}/></label>}
  <label><input type="checkbox" checked={clear.includes(key)} onChange={e=>setClear(e.target.checked?[...clear,key]:clear.filter(k=>k!==key))}/>Explicitly clear {label.toLowerCase()} (also suppresses environment fallback)</label></section>)}
  {warnings.map(message=><p role="alert" key={message}>{message}</p>)}
- <button type="submit">Save {definition.label.toLowerCase()}</button>
+ <button type="submit" disabled={busy}>{activity==='save'?'Saving…':'Save '+definition.label.toLowerCase()}</button>
  {category!=='SETTINGS'&&<button type="button" disabled={!row.configured} onClick={()=>test()}>Test connection</button>}
  {category==='SMTP'&&<><label>Test email recipient<input type="email" name="testRecipient" maxLength={254} value={recipient} onChange={e=>setRecipient(e.target.value)}/></label><button type="button" disabled={!row.configured||!recipient} onClick={()=>test(true)}>Send test email</button></>}
  </fieldset></form>
- <section className="staff-panel"><h2>Configuration audit history</h2><p>Most recent 100 events. Secrets and credential material are never recorded.</p><ul>{audit.map((entry,i)=><li key={i}>{String(entry.timestamp)} · {entry.actor} · {entry.category} · {entry.action} · {String(entry.fields)}</li>)}</ul></section></>}
+ <section className="staff-panel"><h2>Configuration audit history</h2>{auditError&&<p className="staff-error" role="alert">{auditError}</p>}<p>Most recent 100 events. Secrets and credential material are never recorded.</p><ul>{audit.map((entry,i)=><li key={i}>{String(entry.timestamp)} · {entry.actor} · {entry.category} · {entry.action} · {String(entry.fields)}</li>)}</ul></section></>}
  </main>;
 }
