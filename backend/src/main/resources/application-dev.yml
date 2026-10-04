@@ -1,14 +1,8 @@
 
 
-spring:
-  datasource:
-    url: jdbc:postgresql://localhost:5432/nakorn_thai
-    username: nakorn_app
-    password: nakorn_app
-
 logging:
   file:
-    name: ${user.home}/logs/nakorn-thai/backend.json.log
+    name: ${LOG_FILE:${user.home}/logs/nakorn-thai/backend.json.log}
 
   level:
     au.com.nakornthai: DEBUG
