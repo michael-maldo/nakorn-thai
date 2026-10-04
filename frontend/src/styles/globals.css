@@ -125,14 +125,13 @@ button, input { font: inherit; }
   border-radius: inherit;
   box-shadow: inset 0 0 18px 5px rgba(251,248,242,.34);
 }
-.dish-card img { width: 100%; height: 100%; object-fit: cover; transition: transform .3s ease; }
 .dish-preview {
   position: absolute;
   z-index: 8;
   left: 50%;
   bottom: calc(100% - 20px);
   width: min(440px, 155%);
-  aspect-ratio: 1.25;
+  aspect-ratio: 1.45;
   overflow: hidden;
   border: 5px solid rgba(255,253,249,.96);
   border-radius: 8px;
@@ -145,7 +144,7 @@ button, input { font: inherit; }
   transform-origin: center bottom;
   transition: opacity .2s ease, transform .25s ease, visibility .2s ease;
 }
-.dish-preview img { width: 100%; height: 100%; object-fit: cover; transform: scale(1.42); }
+.dish-preview-photo { width: 100%; }
 .dish-preview-actions { position: absolute; inset: auto 10px 9px; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .dish-preview-actions > span { padding: 6px 9px; color: #fff; background: rgba(41,25,14,.78); border-radius: 2px; font: 600 10px var(--sans); letter-spacing: .06em; text-transform: uppercase; }
 .dish-preview-actions > a { padding: 8px 11px; color: #fff; background: linear-gradient(135deg, #bf811c, #a5680d); border: 1px solid rgba(255,255,255,.62); border-radius: 2px; box-shadow: 0 3px 10px rgba(24,14,4,.22); font-size: 9px; font-style: normal; font-weight: 700; letter-spacing: .045em; text-transform: uppercase; white-space: nowrap; }

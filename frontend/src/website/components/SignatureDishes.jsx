@@ -2,6 +2,8 @@ import { useState } from 'react';
 import useHomepageMenu from '../../domains/menu/hooks/useHomepageMenu';
 import { presentDish } from '../../domains/menu/model/menuModel';
 import SectionTitle from './SectionTitle';
+import MenuPhoto from '../../domains/menu/components/MenuPhoto';
+import { menuPhotoPresentation } from '../../domains/menu/model/menuPhotoLayout';
 
 export default function SignatureDishes() {
   const [openDish, setOpenDish] = useState(null);
@@ -20,50 +22,47 @@ export default function SignatureDishes() {
         <h3 className="homepage-menu-collection-title">{collection.name}</h3>
         <div className="dish-grid">
           {collection.dishes.map((dish) => (
-            <article className="dish-card" key={dish.id}>
-              {dish.image ? <button
-                className="dish-image-trigger"
-                type="button"
-                aria-expanded={openDish === `${collection.id}:${dish.id}`}
-                aria-label={`Preview ${dish.name}`}
-                onClick={() => setOpenDish(openDish === `${collection.id}:${dish.id}` ? null : `${collection.id}:${dish.id}`)}
-              >
-                <span className="dish-image">
-                  <img
-                    src={dish.image}
-                    alt={dish.imageAlt}
-                    style={{
-                      objectPosition: dish.imagePosition,
-                      transformOrigin: dish.imageOrigin,
-                      transform: `scale(${dish.imageScale ?? 1}) rotate(${dish.imageRotation ?? '0deg'})`,
-                    }}
-                  />
-                </span>
-              </button> : <div className="dish-photo-placeholder">Photo coming soon</div>}
-              <div className={`dish-preview${openDish === `${collection.id}:${dish.id}` ? ' is-open' : ''}`}>
-                {dish.image && <img
-                  src={dish.image}
-                  alt=""
-                  style={{ objectPosition: dish.imagePosition, transformOrigin: dish.imageOrigin, ...(dish.imageOrigin ? { transform: `scale(${dish.imageScale})` } : {}) }}
-                />}
-                <button className="dish-preview-close" type="button" onClick={() => setOpenDish(null)} aria-label={`Close ${dish.name} preview`}>×</button>
-                <div className="dish-preview-actions">
-                  <span>{dish.name}</span>
-                  {dish.available ? <a href="#/menu" aria-label={`Order ${dish.name} online`}>
-                    <i aria-hidden="true" /> Available — Order online
-                  </a> : <span>Currently unavailable</span>}
-                </div>
-              </div>
-              <h3>{dish.name}</h3>
-              <p>{dish.description}</p>
-              {!dish.available && <p className="dish-unavailable">Currently unavailable</p>}
-              <a href="#/menu">View dish <span aria-hidden="true">→</span></a>
-            </article>
+            <FeaturedDishCard key={dish.id} dish={dish} open={openDish === `${collection.id}:${dish.id}`}
+              onToggle={() => setOpenDish(openDish === `${collection.id}:${dish.id}` ? null : `${collection.id}:${dish.id}`)}
+              onClose={() => setOpenDish(null)} />
           ))}
         </div>
         </div>)}
         <a className="button button-outline centered-button" href="#/menu">View full menu</a>
       </div>
     </section>
+  );
+}
+
+// Keep the card independently renderable while the homepage hook owns discovery.
+export function FeaturedDishCard({ dish, open, onToggle, onClose }) {
+  return (
+    <article className="dish-card">
+      {dish.image ? <button
+        className="dish-image-trigger"
+        type="button"
+        aria-expanded={open}
+        aria-label={`Preview ${dish.name}`}
+        onClick={onToggle}
+      >
+        <MenuPhoto src={dish.image} alt={dish.imageAlt} className="dish-image" loading="lazy"
+          {...menuPhotoPresentation(dish)} />
+      </button> : <div className="dish-photo-placeholder">Photo coming soon</div>}
+      <div className={`dish-preview${open ? ' is-open' : ''}`}>
+        {dish.image && <MenuPhoto src={dish.image} alt="" className="dish-preview-photo"
+          {...menuPhotoPresentation(dish)} />}
+        <button className="dish-preview-close" type="button" onClick={onClose} aria-label={`Close ${dish.name} preview`}>×</button>
+        <div className="dish-preview-actions">
+          <span>{dish.name}</span>
+          {dish.available ? <a href="#/menu" aria-label={`Order ${dish.name} online`}>
+            <i aria-hidden="true" /> Available — Order online
+          </a> : <span>Currently unavailable</span>}
+        </div>
+      </div>
+      <h3>{dish.name}</h3>
+      <p>{dish.description}</p>
+      {!dish.available && <p className="dish-unavailable">Currently unavailable</p>}
+      <a href="#/menu">View dish <span aria-hidden="true">→</span></a>
+    </article>
   );
 }

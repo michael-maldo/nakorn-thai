@@ -40,7 +40,7 @@
     left: 50%;
     width: min(88vw, 520px);
     max-height: 72vh;
-    aspect-ratio: 1.15;
+    aspect-ratio: 1.45;
     transform: translate(-50%, -44%) scale(.9);
   }
   .dish-card:hover .dish-preview { opacity: 0; visibility: hidden; pointer-events: none; transform: translate(-50%, -44%) scale(.9); }

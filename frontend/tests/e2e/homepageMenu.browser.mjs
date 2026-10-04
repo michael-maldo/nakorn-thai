@@ -47,6 +47,12 @@ function fixture() {
     { id: 'draft', name: 'Draft collection', status: 'DRAFT' },
   ] };
   window.failHomepageSave = false; window.homepageWrites = [];
+  window.photoCollection = c => ({ ...c, slug: c.id, availability: { available: true },
+    categories: [{ id: 'photo-category', name: 'Photo examples' }],
+    items: Array.from({ length: 6 }, (_, i) => ({ id: `${c.id}-${i}`, name: `${c.name} dish ${i}`,
+      description: 'Test dish', available: true, category: { id: 'photo-category' }, displayOrder: i, variations: [], optionGroups: [],
+      image: { url: 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="100" height="250"><rect width="100" height="250" fill="#d99724"/><path d="M0 0L100 250M100 0L0 250" stroke="#6d2853" stroke-width="8"/></svg>'),
+        alt: 'Synthetic portrait regression photo', ...(i === 0 ? { focusX: 45, focusY: 55, zoom: 1.6, rotation: 45 } : {}) } })) });
   const realFetch = window.fetch;
   window.fetch = async (url, options = {}) => {
     if (!String(url).startsWith('/api')) return realFetch(url, options);
@@ -62,12 +68,31 @@ function fixture() {
       }
       return Response.json(savedHomepage);
     }
-    if (url === '/api/menu/homepage') return Response.json(savedHomepage.collectionIds
-      .map(id => savedHomepage.collections.find(c => c.id === id)).filter(c => c.status === 'PUBLISHED')
-      .map(c => ({ ...c, items: Array.from({ length: 6 }, (_, i) => ({ id: `${c.id}-${i}`, name: `${c.name} dish ${i}`, description: 'Test dish', available: true, image: null })) })));
+    if (url === '/api/menu/homepage' || url === '/api/menu/collections') return Response.json(savedHomepage.collectionIds
+      .map(id => savedHomepage.collections.find(c => c.id === id)).filter(c => c.status === 'PUBLISHED').map(window.photoCollection));
+    if (String(url).startsWith('/api/menu/collections/')) return Response.json(window.photoCollection(savedHomepage.collections.find(c => String(url).includes('/'+c.id+'/'))));
+    if (url === '/api/orders/options') return Response.json({ enabled: false });
     throw new Error(`Unexpected API: ${url}`);
   };
 }
+// Assert browser-painted geometry, not just the transform string. The inverse
+// transform must map every viewport corner to retained source-image pixels.
+const photoGeometry = async selector => {
+  await waitFor(`document.querySelector(${JSON.stringify(selector)})?.querySelector('img')?.naturalHeight === 250 && parseFloat(document.querySelector(${JSON.stringify(selector)}).querySelector('img').style.height) > 100`);
+  return evaluate(`(() => {
+    const frame=document.querySelector(${JSON.stringify(selector)}), layer=frame.querySelector('.menu-photo-layer'), img=layer.querySelector('img');
+    const computed=getComputedStyle(layer), photo=getComputedStyle(img);
+    const [ox,oy]=computed.transformOrigin.split(' ').map(parseFloat);
+    const inverse=new DOMMatrix(computed.transform).inverse();
+    const left=parseFloat(photo.left),top=parseFloat(photo.top),width=parseFloat(photo.width),height=parseFloat(photo.height);
+    const covered=[[0,0],[frame.clientWidth,0],[0,frame.clientHeight],[frame.clientWidth,frame.clientHeight]].every(([x,y])=>{
+      const p=inverse.transformPoint(new DOMPoint(x-ox,y-oy));
+      return p.x+ox>=left-1 && p.x+ox<=left+width+1 && p.y+oy>=top-1 && p.y+oy<=top+height+1;
+    });
+    return {covered, frameOverflow:getComputedStyle(frame).overflow,layerOverflow:computed.overflow,objectFit:photo.objectFit,imageTransform:photo.transform,
+      presentation:{transform:layer.style.transform,origin:layer.style.transformOrigin,width:img.style.width,height:img.style.height,left:img.style.left,top:img.style.top}};
+  })()`);
+};
 try {
   await send('Page.enable'); await send('Runtime.enable');
   await send('Page.addScriptToEvaluateOnNewDocument', { source: `(${fixture.toString()})()` });
@@ -86,6 +111,16 @@ try {
   await waitFor("document.querySelectorAll('.homepage-menu-collection').length === 2");
   assert.deepEqual(await evaluate("Array.from(document.querySelectorAll('.homepage-menu-collection-title')).map(el => el.textContent)"), ['Second collection', 'First collection']);
   assert.deepEqual(await evaluate("Array.from(document.querySelectorAll('.homepage-menu-collection')).map(el => el.querySelectorAll('.dish-card').length)"), [4, 4]);
+  const homepagePhoto=await photoGeometry('.dish-image');
+  assert.equal(homepagePhoto.covered,true);assert.equal(homepagePhoto.frameOverflow,'hidden');assert.equal(homepagePhoto.layerOverflow,'visible');assert.equal(homepagePhoto.objectFit,'fill');assert.equal(homepagePhoto.imageTransform,'none');
+  await evaluate("document.querySelector('.dish-image-trigger').click()");
+  const previewPhoto=await photoGeometry('.dish-preview-photo');assert.deepEqual(previewPhoto.presentation,homepagePhoto.presentation);assert.equal(previewPhoto.covered,true);
+  await send('Emulation.setDeviceMetricsOverride', { width: 1360, height: 1000, deviceScaleFactor: 1, mobile: false });
+  assert.equal((await photoGeometry('.dish-image')).covered,true);
+  await evaluate("window.location.hash='/menu'");
+  const menuPhoto=await photoGeometry('.restaurant-menu-photo');assert.deepEqual(menuPhoto.presentation,homepagePhoto.presentation);assert.equal(menuPhoto.covered,true);
+  await send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
+  assert.equal((await photoGeometry('.restaurant-menu-photo')).covered,true);
   await evaluate("window.location.hash = '/staff/homepage'");
   await waitFor("document.querySelectorAll('.homepage-collection-choices input').length === 3");
   await toggle('First collection'); await evaluate('window.failHomepageSave = true');
@@ -99,7 +134,7 @@ try {
   await evaluate("window.location.hash = 'home'");
   await waitFor("document.querySelector('.hero') && !document.querySelector('.signature')");
   assert.deepEqual(errors, []);
-  console.log('Home page browser checks passed: select/order/save/reload, conflict recovery, mobile layout, four dishes per published collection, empty selection.');
+  console.log('Home page browser checks passed: select/order/save/reload, conflict recovery, mobile layout, four dishes per published collection, empty selection, and full-source position/zoom/rotation parity across homepage, preview and Menu at mobile/desktop widths.');
 } finally {
   await send('Page.close'); ws.close();
 }

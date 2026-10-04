@@ -12,3 +12,13 @@ export function menuPhotoLayout(imageAspectRatio, focusX = 50, focusY = 50) {
     top: `${(1 - height) * focusY}%`,
   };
 }
+
+// Interpret presentDish's persisted/fallback presentation once for every public card.
+export function menuPhotoPresentation(dish) {
+  const [focusX, focusY] = (dish.imagePosition || '50% 50%').split(' ').map(parseFloat);
+  return {
+    focusX, focusY, zoom: dish.imageScale ?? 1,
+    rotation: parseFloat(dish.imageRotation ?? '0deg'),
+    origin: dish.imageOrigin ?? '50% 50%',
+  };
+}

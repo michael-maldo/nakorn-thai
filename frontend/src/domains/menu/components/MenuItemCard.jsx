@@ -1,4 +1,5 @@
 import MenuPhoto from './MenuPhoto';
+import { menuPhotoPresentation } from '../model/menuPhotoLayout';
 import { useState } from 'react';
 import { presentDish } from '../model/menuModel';
 import { evaluateOptions } from '../model/menuOptions';
@@ -8,7 +9,6 @@ import { money } from '../../ordering/model/cartReducer';
 
 export default function MenuItemCard({ item, collection, enabled, cart, onAdd }) {
   const dish = presentDish(item);
-  const [focusX, focusY] = (dish.imagePosition || '50% 50%').split(' ').map(parseFloat);
   const [variationId, setVariationId] = useState(() => item.variations.find((entry) => entry.defaultVariation)?.id ?? item.variations[0]?.id ?? '');
   const [selections, setSelections] = useState([]);
   const variation = item.variations.find((entry) => entry.id === variationId);
@@ -25,8 +25,7 @@ export default function MenuItemCard({ item, collection, enabled, cart, onAdd })
     : !existing && cart.length >= 30 ? 'Your cart has reached 30 different configurations.' : '';
   return <article className="restaurant-menu-item">
     {dish.image && <MenuPhoto src={dish.image} alt={dish.imageAlt} className="restaurant-menu-photo" loading="lazy"
-      focusX={focusX} focusY={focusY} zoom={dish.imageScale ?? 1} rotation={item.image?.rotation ?? 0}
-      origin={dish.imageOrigin ?? '50% 50%'} />}
+      {...menuPhotoPresentation(dish)} />}
     <div className="restaurant-menu-item-content">
       <h3>{dish.name}</h3><p>{dish.description}</p>
       {collection.availability.available && !item.available && <p className="dish-unavailable">Currently unavailable</p>}
