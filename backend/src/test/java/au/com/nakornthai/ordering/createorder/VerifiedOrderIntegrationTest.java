@@ -26,7 +26,16 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@SpringBootTest(properties={"ONLINE_ORDERING_ENABLED=true","PAYPAL_ENABLED=true","PAYID_ENABLED=true","PAYID_IDENTIFIER=merchant@example.test","PAYID_ACCOUNT_NAME=Test"})
+@SpringBootTest(properties={
+    "ONLINE_ORDERING_ENABLED=true",
+    "PAYPAL_ENABLED=true",
+    "PAYPAL_ENV=sandbox",
+    "PAYPAL_CLIENT_ID=test-client-id",
+    "PAYPAL_CLIENT_SECRET=test-client-secret",
+    "PAYID_ENABLED=true",
+    "PAYID_IDENTIFIER=merchant@example.test",
+    "PAYID_ACCOUNT_NAME=Test"
+})
 @AutoConfigureMockMvc @Transactional
 @EnabledIfEnvironmentVariable(named="DB_TEST_URL",matches=".+")
 class VerifiedOrderIntegrationTest {
