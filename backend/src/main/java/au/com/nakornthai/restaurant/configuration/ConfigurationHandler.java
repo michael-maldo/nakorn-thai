@@ -22,7 +22,7 @@ public class ConfigurationHandler {
    Map<String,String> secrets,Set<String> clearSecrets,Boolean acknowledgePendingPayments) {
   @Override public String toString(){return "ConfigurationUpdate[redacted]";}
  }
- @Transactional(readOnly=true) public Map<String,Object> read(){
+ @Transactional(readOnly=true,isolation=org.springframework.transaction.annotation.Isolation.REPEATABLE_READ) public Map<String,Object> read(){
   var c=runtime.snapshot();var result=new LinkedHashMap<String,Object>();
   for(String category:List.of("SETTINGS","PAYPAL","PAYID","TWILIO","SMTP"))result.put(category,view(category,c));
   result.put("encryptionAvailable",cipher.available());return result;

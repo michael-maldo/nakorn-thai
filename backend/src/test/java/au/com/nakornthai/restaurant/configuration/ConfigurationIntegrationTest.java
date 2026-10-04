@@ -33,6 +33,43 @@ class ConfigurationIntegrationTest {
  @Autowired EntityManager em;@Autowired JdbcTemplate jdbc;@Autowired Environment environment;@Autowired java.time.Clock clock;
  @MockitoBean IntegrationDiagnostics diagnostics;
  @Autowired au.com.nakornthai.payment.infrastructure.PayPalPaymentProvider paypal;
+ @Autowired org.springframework.transaction.PlatformTransactionManager transactionManager;
+ @Test
+ @Transactional(propagation=org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
+ void adminReadWorksWithoutWritableTestTransaction()throws Exception{
+  mvc.perform(get(PATH).with(user("owner").roles("ADMIN")))
+    .andExpect(status().isOk()).andExpect(header().string("Cache-Control","no-store"))
+    .andExpect(jsonPath("$.SETTINGS.version").isNumber())
+    .andExpect(jsonPath("$.PAYID.fields.identifier").value("fallback@example.test"));
+ }
+ @Test
+ @Transactional(propagation=org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
+ void snapshotWorksInGenuinelyReadOnlyPostgresTransactionWithoutRowLock(){
+  var transaction=new org.springframework.transaction.support.TransactionTemplate(transactionManager);
+  transaction.setReadOnly(true);
+  transaction.setIsolationLevel(org.springframework.transaction.TransactionDefinition.ISOLATION_REPEATABLE_READ);
+  transaction.executeWithoutResult(status->{
+   assertEquals("on",jdbc.queryForObject("SHOW transaction_read_only",String.class));
+   assertEquals("repeatable read",jdbc.queryForObject("SHOW transaction_isolation",String.class));
+   assertEquals("fallback@example.test",runtime.snapshot().text("identifier"));
+   assertEquals(jakarta.persistence.LockModeType.NONE,em.getLockMode(em.find(RestaurantSettingsJpaEntity.class,(short)1)));
+  });
+ }
+ @Test
+ @Transactional(propagation=org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
+ void adminReadDoesNotWaitForConfigurationWriterLock(){
+  var reader=java.util.concurrent.Executors.newSingleThreadExecutor();
+  try{
+   new org.springframework.transaction.support.TransactionTemplate(transactionManager).executeWithoutResult(status->{
+    var settings=em.find(RestaurantSettingsJpaEntity.class,(short)1,jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+    assertEquals(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE,em.getLockMode(settings));
+    var response=reader.submit(()->mvc.perform(get(PATH).with(user("owner").roles("ADMIN")))
+      .andExpect(status().isOk()).andExpect(jsonPath("$.SETTINGS.version").isNumber()));
+    // The writer still holds its real PostgreSQL row lock when the independent HTTP read finishes.
+    assertDoesNotThrow(()->response.get(10,java.util.concurrent.TimeUnit.SECONDS));
+   });
+  }finally{reader.shutdownNow();}
+ }
  long version(String c){return ((Number)((Map<?,?>)handler.read().get(c)).get("version")).longValue();}
  void save(String category,Map<String,String> fields,Map<String,String> secrets){handler.save(category,new ConfigurationHandler.Update(version(category),fields,secrets,Set.of(),false),"owner");}
  String body(String c,String fields,String secrets){return "{\"version\":"+version(c)+",\"fields\":"+fields+",\"secrets\":"+secrets+"}";}

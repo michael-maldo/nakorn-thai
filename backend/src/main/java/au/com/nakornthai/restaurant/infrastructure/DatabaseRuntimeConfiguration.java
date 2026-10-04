@@ -11,10 +11,12 @@ import java.util.*;
 @Service @RequiredArgsConstructor
 public class DatabaseRuntimeConfiguration implements RuntimeConfiguration,ApplicationRunner {
  private final EntityManager em;private final Environment environment;private final CredentialCipher cipher;
- @Transactional(readOnly=true) public Snapshot snapshot(){
+ // MVCC keeps standalone multi-query reads consistent without blocking configuration writers.
+ // When joining a business/write transaction, retain that caller's isolation and locks.
+ @Transactional(readOnly=true,isolation=org.springframework.transaction.annotation.Isolation.REPEATABLE_READ) public Snapshot snapshot(){
   var values=new HashMap<String,String>();ConfigurationFields.ENV.forEach((k,v)->values.put(k,environment.getProperty(v,ConfigurationFields.defaultValue(k))));
   values.put("returnUrl",environment.getProperty("PAYPAL_RETURN_URL","http://localhost:5173/#/order-confirmation"));
-  var settings=em.find(RestaurantSettingsJpaEntity.class,(short)1,LockModeType.PESSIMISTIC_READ);
+  var settings=em.find(RestaurantSettingsJpaEntity.class,(short)1);
   if(settings!=null)values.putAll(settings.getOperationalConfiguration());
   for(var row:em.createQuery("from IntegrationConfigurationJpaEntity",IntegrationConfigurationJpaEntity.class).getResultList()){
    values.putAll(row.getFields());row.getSecrets().forEach((k,v)->values.put(k,v.isEmpty()?"":cipher.decrypt(row.getCategory()+"."+k,v)));
