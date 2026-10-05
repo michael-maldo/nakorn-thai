@@ -81,6 +81,17 @@ try{
  assert.equal(await evaluate("document.body.innerText.includes('Configure Twilio SMS Verify')"),true);
  // Save applies returned metadata/version without a GET; pending submits cannot overlap.
  await waitFor("!document.querySelector('fieldset').disabled");
+ assert.deepEqual(await evaluate("Array.from(document.querySelectorAll('.business-settings-group')).map(group=>[group.querySelector('h3').textContent,Array.from(group.querySelectorAll('input')).map(input=>input.name)])"),[
+  ['Online ordering',['orderingEnabled']],['Reservations',['reservationsEnabled']],
+  ['Customer verification',['orderPhoneRequired','reservationPhoneRequired']],
+  ['Order notifications',['orderSms','orderEmail']],['Reservation notifications',['reservationSms','reservationEmail']],
+  ['Payment methods',['paypalEnabled','payidEnabled','payAtRestaurantEnabled']]
+ ]);
+ assert.equal(await evaluate("document.querySelectorAll('form').length===1&&document.querySelectorAll('button[type=submit]').length===1"),true);
+ assert.equal(await evaluate("Array.from(document.querySelectorAll('.business-settings-group label')).every(label=>label.firstElementChild.firstElementChild.type==='checkbox'&&label.lastElementChild.tagName==='SMALL')"),true);
+ await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
+ assert.equal(await evaluate("Array.from(document.querySelectorAll('.configuration-checkbox')).every(row=>{const box=row.querySelector('input').getBoundingClientRect(),text=row.querySelector('span').getBoundingClientRect();return box.right<=text.left&&text.right<=innerWidth;})"),true);
+ await send('Emulation.clearDeviceMetricsOverride');
  const reads=await evaluate('window.reads');
  await evaluate("document.querySelector('[name=orderingEnabled]').click();window.holdWrite=true");
  await click('Save business settings');await waitFor('window.releaseWrite');

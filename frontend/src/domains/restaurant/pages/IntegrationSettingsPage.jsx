@@ -1,6 +1,14 @@
 import {useEffect,useRef,useState} from 'react';
 import {restaurantRequest} from '../api/restaurantApi';
 import {definitions,booleanFields,dependencyWarnings,replacementBody} from '../model/integrationSettings';
+const businessSettingGroups=[
+ ['Online ordering',['orderingEnabled']],
+ ['Reservations',['reservationsEnabled']],
+ ['Customer verification',['orderPhoneRequired','reservationPhoneRequired']],
+ ['Order notifications',['orderSms','orderEmail']],
+ ['Reservation notifications',['reservationSms','reservationEmail']],
+ ['Payment methods',['paypalEnabled','payidEnabled','payAtRestaurantEnabled']]
+];
 export default function IntegrationSettingsPage(){
  const [configuration,setConfiguration]=useState(null),[category,setCategory]=useState('SETTINGS'),[fields,setFields]=useState({}),[secrets,setSecrets]=useState({}),[replace,setReplace]=useState({}),[clear,setClear]=useState([]),[audit,setAudit]=useState([]),[recipient,setRecipient]=useState('');
  const [busy,setBusy]=useState(true),[error,setError]=useState(''),[notice,setNotice]=useState(''),[auditError,setAuditError]=useState(''),[activity,setActivity]=useState('refresh');
@@ -46,17 +54,18 @@ export default function IntegrationSettingsPage(){
  }
  const row=configuration?.[category],definition=definitions[category];
  const warnings=configuration&&category==='SETTINGS'?dependencyWarnings(fields,configuration):[];
+ function renderField(key,label){return <label key={key}>{booleanFields.has(key)?<span className="configuration-checkbox"><input name={key} type="checkbox" checked={fields[key]==='true'} onChange={e=>setFields({...fields,[key]:String(e.target.checked)})}/><span>{label}</span></span>:<>{label}{key==='environment'?<select name={key} value={fields[key]} onChange={e=>setFields({...fields,[key]:e.target.value})}><option value="sandbox">Sandbox</option><option value="live">Live</option></select>:<input name={key} type={key==='port'?'number':'text'} min={key==='port'?1:undefined} max={key==='port'?65535:undefined} maxLength={500} value={fields[key]??''} onChange={e=>setFields({...fields,[key]:e.target.value})}/>}</>}<small>Source: {row.sources[key]==='DASHBOARD'?'Dashboard managed':'Environment/default supplied'}</small></label>;}
  return <main className="staff-menu page-width"><header className="staff-heading"><h1>Settings and integrations</h1><button disabled={busy} onClick={refresh}>Refresh configuration</button></header>
  <p>ADMIN controls restaurant operations and integrations. Configured, enabled and tested are separate states. Secrets are write-only.</p>
  {error&&<p className="staff-error" role="alert">{error}</p>}{notice&&<p role="status">{notice}</p>}
  {configuration&&<><section className="staff-panel"><h2>Integrations overview</h2><div className="staff-toolbar">{Object.entries(definitions).map(([key,d])=><button disabled={busy} aria-pressed={key===category} key={key} onClick={()=>choose(key)}>{d.label}{key==='SETTINGS'?'':` · ${configuration[key].state} · ${configuration[key].validationStatus}`}</button>)}</div></section>
- <form className="staff-panel" onSubmit={save}><fieldset disabled={busy}><legend>{definition.label}</legend>
+ <form className="staff-panel" onSubmit={save}><fieldset disabled={busy}><legend className="configuration-heading"><h2>{definition.label}</h2></legend>
  {category==='SETTINGS'&&<p>Ordering, reservations, notifications and payment methods. Opening hours and restaurant details remain in Restaurant settings. All changes are validated on the server.</p>}
  {category==='PAYPAL'&&<p>Return URL is deployment-managed: {row.returnUrl}. Saving PayPal changes disables its checkout offer until deliberately re-enabled. Live credentials require successful testing.</p>}
  {category==='PAYID'&&<p>PayID requires manual bank receipt reconciliation. {row.pendingPayments} unpaid PayID orders may have previous instructions.</p>}
  {category==='TWILIO'&&<p>Tests check account/service access without sending SMS. SMS sender capability remains not delivery-tested.</p>}
  {!configuration.encryptionAvailable&&definition.secrets&&<p role="alert">A deployment credential master key is required to store new secrets.</p>}
- {Object.entries(definition.fields).map(([key,label])=><label key={key}>{label} {booleanFields.has(key)?<input name={key} type="checkbox" checked={fields[key]==='true'} onChange={e=>setFields({...fields,[key]:String(e.target.checked)})}/>:key==='environment'?<select name={key} value={fields[key]} onChange={e=>setFields({...fields,[key]:e.target.value})}><option value="sandbox">Sandbox</option><option value="live">Live</option></select>:<input name={key} type={key==='port'?'number':'text'} min={key==='port'?1:undefined} max={key==='port'?65535:undefined} maxLength={500} value={fields[key]??''} onChange={e=>setFields({...fields,[key]:e.target.value})}/>}<small>Source: {row.sources[key]==='DASHBOARD'?'Dashboard managed':'Environment/default supplied'}</small></label>)}
+ {category==='SETTINGS'?businessSettingGroups.map(([heading,keys])=><section className="business-settings-group" key={heading}><h3>{heading}</h3>{keys.map(key=>renderField(key,definition.fields[key]))}</section>):Object.entries(definition.fields).map(([key,label])=>renderField(key,label))}
  {Object.entries(definition.secrets||{}).map(([key,label])=><section key={key}><p>{label}: {row.secretsConfigured[key]?'Configured':'Not configured'} · {row.sources[key]==='DASHBOARD'?'Dashboard managed':'Environment/default supplied'}</p>
  {row.secretsConfigured[key]&&!replace[key]?<button type="button" onClick={()=>setReplace({...replace,[key]:true})}>Replace {label.toLowerCase()}</button>:<label>{label}<input name={key} type="password" autoComplete="new-password" maxLength={4096} value={secrets[key]??''} onChange={e=>setSecrets({...secrets,[key]:e.target.value})}/></label>}
  <label><input type="checkbox" checked={clear.includes(key)} onChange={e=>setClear(e.target.checked?[...clear,key]:clear.filter(k=>k!==key))}/>Explicitly clear {label.toLowerCase()} (also suppresses environment fallback)</label></section>)}

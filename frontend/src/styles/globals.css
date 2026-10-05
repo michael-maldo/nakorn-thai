@@ -515,3 +515,11 @@ body.has-cart-dock { padding-bottom: calc(88px + env(safe-area-inset-bottom)); }
 .homepage-collection-order li > div { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
 .homepage-menu-collection { margin-block: 28px; }
 .homepage-menu-collection-title { text-align: center; font: 1.5rem var(--serif); color: var(--plum); }
+
+/* Operational configuration: one form, with lightweight topic headings. */
+.configuration-heading h2 { margin: 0; font-size: 1.25rem; }
+.business-settings-group { margin-block: 1.5rem; }
+.business-settings-group h3 { margin: 0 0 .65rem; font-size: 1rem; font-weight: 600; }
+.configuration-checkbox { display: flex; align-items: baseline; gap: .5rem; }
+.configuration-checkbox input[type="checkbox"] { flex: 0 0 auto; width: auto; margin: 0; }
+.configuration-checkbox + small { margin-inline-start: 1.5rem; }
