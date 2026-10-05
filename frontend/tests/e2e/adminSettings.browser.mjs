@@ -38,7 +38,7 @@ const click = async text => {
 function fixture(){
  window.role='ADMIN';window.writes=[];window.audit=[];window.stale=false;window.reads=0;window.holdWrite=false;window.rejectMessage='';window.auditFailure=false;window.confirm=()=>true;
  window.configuration={encryptionAvailable:true};
- const fields={SETTINGS:{orderingEnabled:'false',reservationsEnabled:'true',orderPhoneRequired:'true',reservationPhoneRequired:'true',orderSms:'true',orderEmail:'true',reservationSms:'true',reservationEmail:'true',paypalEnabled:'false',payidEnabled:'false',payAtRestaurantEnabled:'true'},PAYPAL:{environment:'sandbox',clientId:''},PAYID:{identifier:'',accountName:''},TWILIO:{accountSid:'',verifyServiceSid:'',smsFrom:'',verifySmsEnabled:'false',verifyEmailEnabled:'false'},SMTP:{host:'',port:'587',username:'',from:'',starttls:'true'}};
+ const fields={SETTINGS:{orderingEnabled:'false',reservationsEnabled:'true',orderPhoneRequired:'true',reservationPhoneRequired:'true',orderSms:'true',orderEmail:'false',reservationSms:'true',reservationEmail:'true',paypalEnabled:'false',payidEnabled:'false',payAtRestaurantEnabled:'true'},PAYPAL:{environment:'sandbox',clientId:''},PAYID:{identifier:'',accountName:''},TWILIO:{accountSid:'',verifyServiceSid:'',smsFrom:'',verifySmsEnabled:'false',verifyEmailEnabled:'false'},SMTP:{host:'',port:'587',username:'',from:'',starttls:'true'}};
  for(const [category,values] of Object.entries(fields))window.configuration[category]={fields:values,version:category==='SETTINGS'?6:0,sources:Object.fromEntries(Object.keys(values).map(k=>[k,'ENVIRONMENT_DEFAULT'])),secretsConfigured:category==='PAYPAL'?{clientSecret:false}:category==='TWILIO'?{authToken:false}:category==='SMTP'?{password:false}:{},state:'NOT_CONFIGURED',configured:false,enabled:false,validationStatus:'NOT_TESTED',returnUrl:'https://restaurant.example.test/#/order-confirmation',pendingPayments:2,smsVerificationConfigured:false,smsSendingConfigured:false};
  const realFetch=window.fetch;
  window.fetch=async(url,options={})=>{
@@ -101,20 +101,32 @@ try{
  await waitFor("document.body.innerText.includes('audit history is unavailable')&&!document.querySelector('fieldset').disabled");
  assert.equal(await evaluate('window.writes.at(-1).body.version'),7);
  assert.equal(await evaluate("document.body.innerText.includes('Business settings saved.')"),true);
- await evaluate("window.auditFailure=false;window.rejectMessage='Configure SMTP before enabling email notifications';document.querySelector('[name=orderingEnabled]').click()");
+ const readsBeforeFailure=await evaluate('window.reads');
+ const sourceBeforeFailure=await evaluate("document.querySelector('[name=orderEmail]').closest('label').querySelector('small').textContent");
+ await evaluate("window.auditFailure=false;window.rejectMessage='Configure SMTP before enabling email notifications';document.querySelector('[name=orderEmail]').click()");
+ assert.equal(await evaluate("document.querySelector('[name=orderEmail]').checked"),true);
  await click('Save business settings');await waitFor("document.body.innerText.includes('Configure SMTP before enabling email notifications')&&!document.querySelector('fieldset').disabled");
  assert.equal(await evaluate("document.querySelector('[role=alert]').textContent"),'Configure SMTP before enabling email notifications');
  assert.equal(await evaluate("document.querySelector('[role=status]')"),null);
+ assert.equal(await evaluate("document.querySelector('[name=orderEmail]').checked"),false);
+ assert.equal(await evaluate("window.configuration.SETTINGS.fields.orderEmail"),'false');
+ assert.equal(await evaluate("document.querySelector('[name=orderEmail]').closest('label').querySelector('small').textContent"),sourceBeforeFailure);
+ assert.equal(await evaluate('window.reads'),readsBeforeFailure);
+ // A subsequent valid save uses the unchanged authoritative version.
+ await evaluate("window.rejectMessage='';document.querySelector('[name=orderingEnabled]').click()");
+ await click('Save business settings');await waitFor("document.body.innerText.includes('Business settings saved.')&&!document.querySelector('fieldset').disabled");
+ assert.equal(await evaluate('window.writes.at(-1).body.version'),8);
  assert.equal(await evaluate("document.querySelector('[name=orderingEnabled]').checked"),false);
- assert.equal(await evaluate("window.configuration.SETTINGS.fields.orderingEnabled"),'true');
- assert.equal(await evaluate('window.configuration.SETTINGS.version'),8);
+ assert.equal(await evaluate("document.querySelector('.staff-error[role=alert]')===null"),true);
+ assert.equal(await evaluate("window.configuration.SETTINGS.fields.orderingEnabled"),'false');
+ assert.equal(await evaluate('window.configuration.SETTINGS.version'),9);
  // Explicit refresh discards edits in favor of a fresh authoritative GET.
- await evaluate("window.rejectMessage='';window.configuration.SETTINGS.version=9;window.configuration.SETTINGS.sources.orderingEnabled='ENVIRONMENT_DEFAULT'");
+ await evaluate("window.rejectMessage='';window.configuration.SETTINGS.version=10;window.configuration.SETTINGS.fields.orderingEnabled='true';window.configuration.SETTINGS.sources.orderingEnabled='ENVIRONMENT_DEFAULT'");
  await click('Refresh configuration');await waitFor("!document.querySelector('fieldset').disabled");
  assert.equal(await evaluate("document.querySelector('[name=orderingEnabled]').checked"),true);
  assert.equal(await evaluate("document.querySelector('[name=orderingEnabled]').closest('label').textContent.includes('Environment/default supplied')"),true);
  await click('Save business settings');await waitFor("document.body.innerText.includes('Business settings saved.')&&!document.querySelector('fieldset').disabled");
- assert.equal(await evaluate('window.writes.at(-1).body.version'),9);
+ assert.equal(await evaluate('window.writes.at(-1).body.version'),10);
  await category('PayPal');await input('clientId','sandbox-test-merchant');await input('clientSecret','browser-test-secret');await click('Save paypal');await waitFor("document.body.innerText.includes('configuration saved')");
  assert.equal(await evaluate("document.querySelector('[name=clientSecret]')===null"),true);
  assert.equal(await evaluate("document.body.innerText.includes('browser-test-secret')"),false);
@@ -122,7 +134,8 @@ try{
  await click('Replace client secret');assert.equal(await evaluate("document.querySelector('[name=clientSecret]').value"),'');
  await input('clientSecret','replacement-test-secret');await click('Save paypal');await waitFor("!document.querySelector('[name=clientSecret]')");
  await click('Test connection');await waitFor("document.body.innerText.includes('VALID: Connection validation succeeded')");
- await click('Replace client secret');await input('clientSecret','unsaved-secret');await evaluate('window.stale=true');await click('Save paypal');await waitFor("document.body.innerText.includes('Configuration changed')");assert.equal(await evaluate("document.querySelector('[name=clientSecret]').value"),'');
+ await click('Replace client secret');await input('clientSecret','unsaved-secret');await input('clientId','correctable-merchant');await evaluate('window.stale=true');await click('Save paypal');await waitFor("document.body.innerText.includes('Configuration changed')");assert.equal(await evaluate("document.querySelector('[name=clientSecret]').value"),'');
+ assert.equal(await evaluate("document.querySelector('[name=clientId]').value"),'correctable-merchant');
  await click('Refresh configuration');await waitFor("!document.querySelector('[name=clientSecret]')");
  await category('PayID');await input('identifier','restaurant@example.test');await input('accountName','Restaurant Test');await click('Save payid');await waitFor("document.body.innerText.includes('configuration saved')");
  assert.equal(await evaluate("window.writes.at(-1).body.acknowledgePendingPayments"),true);
@@ -135,5 +148,5 @@ try{
  // Auth context refresh requires a new document; overriding fixture defaults after installation.
  await send('Page.addScriptToEvaluateOnNewDocument',{source:"window.role='FOH'"});await send('Page.reload');await waitFor("document.body.innerText.includes('Access restricted')");
  assert.equal(await evaluate("document.querySelector('a[href=\"#/staff/settings\"]')===null"),true);
- assert.deepEqual(errors,[]);console.log('Admin settings browser: metadata, dependency warnings, write-only replacement, stale conflict, tests, PayID warning, authoritative save/source/version, validation errors, duplicate protection, stale response protection, refresh, audit failure isolation and ADMIN access passed.');
+ assert.deepEqual(errors,[]);console.log('Admin settings browser: metadata, dependency warnings, write-only replacement, stale conflict, tests, PayID warning, authoritative save/source/version, failed SETTINGS rollback without GET, integration text preservation, validation errors, duplicate protection, stale response protection, refresh, audit failure isolation and ADMIN access passed.');
 }finally{await send('Page.close');ws.close();}

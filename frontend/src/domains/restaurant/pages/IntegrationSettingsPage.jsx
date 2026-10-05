@@ -25,7 +25,12 @@ export default function IntegrationSettingsPage(){
    if(!current(ticket))return;
    loaded(data,key);setNotice(key==='SETTINGS'?'Business settings saved.':definitions[key].label+' configuration saved. Configured does not mean tested or enabled.');
    await loadAudit(ticket);
-  }catch(e){if(current(ticket)){setNotice('');setError(e.message);}}
+  }catch(e){if(current(ticket)){
+   // Operational toggles must show the last persisted state after a rejected save.
+   // Integration text inputs remain available for correction; secrets are cleared below.
+   if(key==='SETTINGS')setFields({...configuration.SETTINGS.fields});
+   setNotice('');setError(e.message);
+  }}
   finally{if(current(ticket))setSecrets({});finish(ticket);}
  }
  async function test(sendEmail=false){
