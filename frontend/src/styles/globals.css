@@ -523,3 +523,5 @@ body.has-cart-dock { padding-bottom: calc(88px + env(safe-area-inset-bottom)); }
 .configuration-checkbox { display: flex; align-items: baseline; gap: .5rem; }
 .configuration-checkbox input[type="checkbox"] { flex: 0 0 auto; width: auto; margin: 0; }
 .configuration-checkbox + small { margin-inline-start: 1.5rem; }
+
+.configuration-secret-clear small { color: #596675; font-size: .8rem; }

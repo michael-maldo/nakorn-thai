@@ -148,6 +148,22 @@ try{
  await click('Replace client secret');await input('clientSecret','unsaved-secret');await input('clientId','correctable-merchant');await evaluate('window.stale=true');await click('Save paypal');await waitFor("document.body.innerText.includes('Configuration changed')");assert.equal(await evaluate("document.querySelector('[name=clientSecret]').value"),'');
  assert.equal(await evaluate("document.querySelector('[name=clientId]').value"),'correctable-merchant');
  await click('Refresh configuration');await waitFor("!document.querySelector('[name=clientSecret]')");
+ // Shared secret-clear markup keeps the checkbox associated with its label at both widths.
+ for(const [name,label] of [['PayPal','Explicitly clear client secret'],['Twilio','Explicitly clear auth token'],['Email / SMTP','Explicitly clear SMTP password']]){
+  await category(name);
+  assert.equal(await evaluate("document.querySelector('.configuration-secret-clear .configuration-checkbox span').textContent"),label);
+  assert.equal(await evaluate("document.querySelector('.configuration-secret-clear small').textContent"),'Also suppresses environment fallback.');
+  assert.equal(await evaluate("document.querySelector('.configuration-secret-clear input').labels[0]===document.querySelector('.configuration-secret-clear')"),true);
+  for(const mobile of [false,true]){
+   if(mobile)await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
+   assert.equal(await evaluate("(()=>{const label=document.querySelector('.configuration-secret-clear'),box=label.querySelector('input').getBoundingClientRect(),text=label.querySelector('.configuration-checkbox span').getBoundingClientRect(),helper=label.querySelector('small');return box.right<=text.left&&text.right<=innerWidth&&helper.getBoundingClientRect().top>=text.bottom&&parseFloat(getComputedStyle(helper).fontSize)<parseFloat(getComputedStyle(label).fontSize);})()"),true);
+   if(mobile)await send('Emulation.clearDeviceMetricsOverride');
+  }
+  await evaluate("document.querySelector('.configuration-secret-clear .configuration-checkbox span').click()");
+  assert.equal(await evaluate("document.querySelector('.configuration-secret-clear input').checked"),true);
+  await evaluate("document.querySelector('.configuration-secret-clear .configuration-checkbox span').click()");
+  assert.equal(await evaluate("document.querySelector('.configuration-secret-clear input').checked"),false);
+ }
  await category('PayID');await input('identifier','restaurant@example.test');await input('accountName','Restaurant Test');await click('Save payid');await waitFor("document.body.innerText.includes('configuration saved')");
  assert.equal(await evaluate("window.writes.at(-1).body.acknowledgePendingPayments"),true);
  assert.equal(await evaluate("window.configuration.PAYID.fields.accountName"),'Restaurant Test');
