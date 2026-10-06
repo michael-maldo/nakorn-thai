@@ -1,5 +1,5 @@
 package au.com.nakornthai.notification.orderconfirmation;
-import au.com.nakornthai.notification.infrastructure.TwilioVerifyClient;
+import au.com.nakornthai.notification.domain.ContactVerificationProvider;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import lombok.RequiredArgsConstructor;
@@ -8,7 +8,7 @@ import org.springframework.http.*;
 import java.util.*;
 @RestController @RequiredArgsConstructor @RequestMapping("/api/order-verification")
 public class OrderVerificationController {
- private final OrderVerificationHandler handler;private final TwilioVerifyClient provider;
+ private final OrderVerificationHandler handler;private final ContactVerificationProvider provider;
  public record Start(@NotNull UUID orderId,@NotNull @Pattern(regexp="sms|email") String channel){}
  public record Check(@NotNull UUID challengeId,@NotNull @Pattern(regexp="[0-9]{4,10}") String code){}
  @GetMapping("/options") ResponseEntity<?> options(){return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(Map.of("sms",provider.enabled("sms"),"email",provider.enabled("email")));}

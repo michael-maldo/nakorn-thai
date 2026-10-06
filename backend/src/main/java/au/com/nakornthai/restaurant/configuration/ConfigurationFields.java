@@ -10,12 +10,13 @@ public final class ConfigurationFields {
  Map.entry("environment","PAYPAL_ENV"),Map.entry("clientId","PAYPAL_CLIENT_ID"),Map.entry("clientSecret","PAYPAL_CLIENT_SECRET"),
  Map.entry("identifier","PAYID_IDENTIFIER"),Map.entry("accountName","PAYID_ACCOUNT_NAME"),
  Map.entry("accountSid","TWILIO_ACCOUNT_SID"),Map.entry("authToken","TWILIO_AUTH_TOKEN"),Map.entry("verifyServiceSid","TWILIO_VERIFY_SERVICE_SID"),Map.entry("smsFrom","TWILIO_SMS_FROM"),Map.entry("verifySmsEnabled","VERIFY_SMS_ENABLED"),Map.entry("verifyEmailEnabled","VERIFY_EMAIL_ENABLED"),
+ Map.entry("vonageApiKey","VONAGE_API_KEY"),Map.entry("vonageApiSecret","VONAGE_API_SECRET"),Map.entry("vonageSmsFrom","VONAGE_SMS_FROM"),Map.entry("vonageVerifyBrand","VONAGE_VERIFY_BRAND"),Map.entry("vonageVerifySmsEnabled","VONAGE_VERIFY_SMS_ENABLED"),
  Map.entry("host","SMTP_HOST"),Map.entry("port","SMTP_PORT"),Map.entry("username","SMTP_USERNAME"),Map.entry("password","SMTP_PASSWORD"),Map.entry("from","SMTP_FROM"),Map.entry("starttls","SMTP_STARTTLS"));
  public static final Map<String,Set<String>> FIELDS=Map.of(
  "SETTINGS",Set.of("orderingEnabled","reservationsEnabled","orderPhoneRequired","reservationPhoneRequired","orderSms","orderEmail","reservationSms","reservationEmail","paypalEnabled","payidEnabled","payAtRestaurantEnabled"),
  "PAYPAL",Set.of("environment","clientId","clientSecret"),"PAYID",Set.of("identifier","accountName"),
  "TWILIO",Set.of("accountSid","authToken","verifyServiceSid","smsFrom","verifySmsEnabled","verifyEmailEnabled"),"SMTP",Set.of("host","port","username","password","from","starttls"));
- public static final Set<String> SECRETS=Set.of("clientSecret","authToken","password");
+ public static final Set<String> SECRETS=Set.of("clientSecret","authToken","password","vonageApiSecret");
  public static final Set<String> BOOLEAN=new HashSet<>(FIELDS.get("SETTINGS"));
  static {BOOLEAN.addAll(Set.of("verifySmsEnabled","verifyEmailEnabled","starttls"));}
  public static String defaultValue(String key){return switch(key){case "environment"->"sandbox";case "port"->"587";case "orderingEnabled","paypalEnabled","payidEnabled","verifySmsEnabled","verifyEmailEnabled"->"false";default->BOOLEAN.contains(key)?"true":"";};}
@@ -25,8 +26,15 @@ public final class ConfigurationFields {
  case "TWILIO" -> c.text("accountSid").matches("AC[0-9a-fA-F]{32}")&&!c.text("authToken").isBlank();
  case "SMTP" -> c.text("host").matches("[A-Za-z0-9.-]{1,253}")&&c.text("from").matches("[^\\s@]+@[^\\s@]+\\.[^\\s@]+")&&validPort(c.text("port"))&&(c.text("username").isBlank()||!c.text("password").isBlank());
  default -> true;};}
- public static boolean verifyConfigured(RuntimeConfiguration.Snapshot c){return c.configured("TWILIO")&&c.text("verifyServiceSid").matches("VA[0-9a-fA-F]{32}")&&c.flag("verifySmsEnabled");}
- public static boolean smsConfigured(RuntimeConfiguration.Snapshot c){return c.configured("TWILIO")&&c.text("smsFrom").matches("\\+[1-9][0-9]{7,14}");}
+ public static boolean vonageVerifyConfigured(RuntimeConfiguration.Snapshot c){return vonageConfigured(c)&&c.flag("vonageVerifySmsEnabled")&&c.text("vonageVerifyBrand").matches("[A-Za-z0-9 ]{1,18}");}
+ public static boolean usesSmsProvider(RuntimeConfiguration.Snapshot c,String provider){return provider.equals(c.text("smsProvider").isBlank()?"twilio":c.text("smsProvider"));}
+ public static boolean usesVerificationProvider(RuntimeConfiguration.Snapshot c,String provider){return provider.equals(c.text("verificationProvider").isBlank()?"twilio":c.text("verificationProvider"));}
+ public static boolean verifyConfigured(RuntimeConfiguration.Snapshot c){return switch(c.text("verificationProvider")){case "vonage"->vonageVerifyConfigured(c);case "","twilio"->twilioVerifyConfigured(c);default->false;};}
+ public static boolean twilioVerifyConfigured(RuntimeConfiguration.Snapshot c){return c.configured("TWILIO")&&c.text("verifyServiceSid").matches("VA[0-9a-fA-F]{32}")&&c.flag("verifySmsEnabled");}
+ public static boolean vonageConfigured(RuntimeConfiguration.Snapshot c){return !c.text("vonageApiKey").isBlank()&&!c.text("vonageApiSecret").isBlank();}
+ public static boolean smsConfigured(RuntimeConfiguration.Snapshot c){return switch(c.text("smsProvider")){case "vonage"->vonageSmsConfigured(c);case "","twilio"->twilioSmsConfigured(c);default->false;};}
+ public static boolean vonageSmsConfigured(RuntimeConfiguration.Snapshot c){return vonageConfigured(c)&&c.text("vonageSmsFrom").matches("[A-Za-z0-9]{1,11}|\\+?[1-9][0-9]{7,14}");}
+ public static boolean twilioSmsConfigured(RuntimeConfiguration.Snapshot c){return c.configured("TWILIO")&&c.text("smsFrom").matches("\\+[1-9][0-9]{7,14}");}
  private static boolean validPort(String p){try{int n=Integer.parseInt(p);return n>0&&n<=65535;}catch(Exception e){return false;}}
  public static boolean validCallback(String value,String environment){try{var u=java.net.URI.create(value);return u.getHost()!=null&&u.getUserInfo()==null&&"/order-confirmation".equals(u.getFragment())&&(environment.equals("live")?"https".equals(u.getScheme()):Set.of("http","https").contains(u.getScheme()));}catch(Exception e){return false;}}
 }

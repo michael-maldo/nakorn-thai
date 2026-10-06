@@ -10,6 +10,7 @@ import tools.jackson.databind.JsonNode;
 import java.net.http.HttpClient;
 import java.time.Duration;
 @Component
+@org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(name="notification.verification-provider", havingValue="twilio", matchIfMissing=true)
 public class TwilioVerifyClient implements au.com.nakornthai.notification.domain.ContactVerificationProvider {
  private au.com.nakornthai.restaurant.configuration.RuntimeConfiguration configuration;
  @org.springframework.beans.factory.annotation.Autowired
@@ -20,12 +21,6 @@ public class TwilioVerifyClient implements au.com.nakornthai.notification.domain
   this.account=account;this.secret=secret;this.service=service;this.sms=sms;this.email=email;
   var factory=new JdkClientHttpRequestFactory(HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build());factory.setReadTimeout(Duration.ofSeconds(10));
   api=RestClient.builder().requestFactory(factory).baseUrl("https://verify.twilio.com/v2").build();
- }
- public void testConnection(){
-  if(configuration!=null){configured().testConnection();return;}
-  try {var factory=new JdkClientHttpRequestFactory(HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build());factory.setReadTimeout(Duration.ofSeconds(10));RestClient.builder().requestFactory(factory).baseUrl("https://api.twilio.com/2010-04-01").build().get().uri("/Accounts/{account}.json",account).headers(h->h.setBasicAuth(account,secret)).retrieve().toBodilessEntity();
-   if(!service.isBlank())api.get().uri("/Services/{service}",service).headers(h->h.setBasicAuth(account,secret)).retrieve().toBodilessEntity();
-  }catch(Exception e){throw new IllegalStateException("Twilio validation unavailable");}
  }
  public boolean enabled(String channel){if(configuration!=null)return configured().enabled(channel);return account.matches("AC[0-9a-fA-F]{32}") && !secret.isBlank() && service.matches("VA[0-9a-fA-F]{32}") && (channel.equals("sms")?sms:channel.equals("email")&&email);}
  public String start(String to,String channel){

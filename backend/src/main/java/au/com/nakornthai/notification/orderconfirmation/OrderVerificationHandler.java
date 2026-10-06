@@ -1,5 +1,6 @@
 package au.com.nakornthai.notification.orderconfirmation;
 import au.com.nakornthai.notification.infrastructure.*;
+import au.com.nakornthai.notification.domain.ContactVerificationProvider;
 import au.com.nakornthai.ordering.infrastructure.OrderJpaEntity;
 import au.com.nakornthai.ordering.createorder.CreateOrderHandler;
 import jakarta.persistence.*;
@@ -12,7 +13,7 @@ import java.time.Instant;
 import java.util.*;
 @Service @RequiredArgsConstructor
 public class OrderVerificationHandler {
- private final EntityManager em;private final TwilioVerifyClient provider;
+ private final EntityManager em;private final ContactVerificationProvider provider;
  @Transactional(noRollbackFor=ResponseStatusException.class)
  public UUID start(UUID orderId,String channel) {
   if(!provider.enabled(channel))throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,"Verification channel unavailable");

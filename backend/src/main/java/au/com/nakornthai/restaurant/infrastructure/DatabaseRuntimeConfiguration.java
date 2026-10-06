@@ -22,6 +22,8 @@ public class DatabaseRuntimeConfiguration implements RuntimeConfiguration,Applic
    values.putAll(row.getFields());row.getSecrets().forEach((k,v)->values.put(k,v.isEmpty()?"":cipher.decrypt(row.getCategory()+"."+k,v)));
    if(row.getCategory().equals("PAYPAL")){values.put("paypalDashboardManaged",String.valueOf(!row.getFields().isEmpty()||!row.getSecrets().isEmpty()));values.put("paypalValidated",String.valueOf(row.getValidationStatus().equals("VALID")));}
   }
+  values.put("smsProvider",environment.getProperty("notification.sms-provider","twilio"));
+  values.put("verificationProvider",environment.getProperty("notification.verification-provider","twilio"));
   return new Snapshot(values);
  }
  @Override @Transactional(readOnly=true) public void run(ApplicationArguments args){

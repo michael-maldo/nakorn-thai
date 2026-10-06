@@ -9,6 +9,7 @@ import org.springframework.util.LinkedMultiValueMap;
 import java.net.http.HttpClient;
 import java.time.Duration;
 @Component
+@org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(name="notification.sms-provider", havingValue="twilio", matchIfMissing=true)
 public class TwilioSmsSender implements SmsSender {
  private au.com.nakornthai.restaurant.configuration.RuntimeConfiguration configuration;
  @org.springframework.beans.factory.annotation.Autowired

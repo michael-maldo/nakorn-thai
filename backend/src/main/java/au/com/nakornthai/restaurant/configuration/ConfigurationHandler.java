@@ -88,18 +88,18 @@ public class ConfigurationHandler {
   for(var e:proposed.entrySet())if(e.getValue().equals("true"))switch(e.getKey()){
    case "paypalEnabled"->{if(!c.configured("PAYPAL"))throw bad("Configure PayPal before enabling checkout");if(c.text("environment").equals("live")&&c.flag("paypalDashboardManaged")&&!c.flag("paypalValidated"))throw bad("Test live PayPal credentials successfully before enabling checkout");}
    case "payidEnabled"->{if(!c.configured("PAYID"))throw bad("Configure PayID identifier and recipient name first");}
-   case "orderPhoneRequired","reservationPhoneRequired"->{if(!ConfigurationFields.verifyConfigured(c))throw bad("Configure Twilio SMS Verify before requiring verified mobiles");}
-   case "orderSms","reservationSms"->{if(!ConfigurationFields.smsConfigured(c))throw bad("Configure the Twilio SMS sender before enabling SMS notifications");}
+   case "orderPhoneRequired","reservationPhoneRequired"->{if(!ConfigurationFields.verifyConfigured(c))throw bad("Configure the selected SMS verification provider before requiring verified mobiles");}
+   case "orderSms","reservationSms"->{if(!ConfigurationFields.smsConfigured(c))throw bad("Configure the selected SMS sender before enabling SMS notifications");}
    case "orderEmail","reservationEmail"->{if(!c.configured("SMTP"))throw bad("Configure SMTP before enabling email notifications");}
    default->{}
   }
   if("true".equals(proposed.get("orderingEnabled"))){
-   if(c.flag("orderPhoneRequired")&&!ConfigurationFields.verifyConfigured(c))throw bad("Configure Twilio SMS Verify before accepting online orders");
+   if(c.flag("orderPhoneRequired")&&!ConfigurationFields.verifyConfigured(c))throw bad("Configure the selected SMS verification provider before accepting online orders");
    if(c.flag("orderSms")&&!ConfigurationFields.smsConfigured(c))throw bad("Configure SMS delivery or disable order SMS updates");
    if(c.flag("orderEmail")&&!c.configured("SMTP"))throw bad("Configure SMTP or disable order email updates");
   }
   if("true".equals(proposed.get("reservationsEnabled"))){
-   if(c.flag("reservationPhoneRequired")&&!ConfigurationFields.verifyConfigured(c))throw bad("Configure Twilio SMS Verify before accepting reservation requests");
+   if(c.flag("reservationPhoneRequired")&&!ConfigurationFields.verifyConfigured(c))throw bad("Configure the selected SMS verification provider before accepting reservation requests");
    if(c.flag("reservationSms")&&!ConfigurationFields.smsConfigured(c))throw bad("Configure SMS delivery or disable reservation SMS updates");
    if(c.flag("reservationEmail")&&!c.configured("SMTP"))throw bad("Configure SMTP or disable reservation email updates");
   }
@@ -116,15 +116,17 @@ public class ConfigurationHandler {
    if(ConfigurationFields.SECRETS.contains(key)){secretConfigured.put(key,!c.text(key).isBlank());sources.put(key,row.getSecrets().containsKey(key)?"DASHBOARD":"ENVIRONMENT_DEFAULT");}
    else {fields.put(key,c.text(key));sources.put(key,persisted.containsKey(key)?"DASHBOARD":"ENVIRONMENT_DEFAULT");}
   }
-  boolean configured=c.configured(category),enabled=switch(category){case "PAYPAL"->c.flag("paypalEnabled")&&(!c.text("environment").equals("live")||!c.flag("paypalDashboardManaged")||c.flag("paypalValidated"));case "PAYID"->c.flag("payidEnabled");case "TWILIO"->c.flag("verifySmsEnabled")||c.flag("orderSms")||c.flag("reservationSms");case "SMTP"->c.flag("orderEmail")||c.flag("reservationEmail");default->true;};
-  boolean ready=!category.equals("TWILIO")||((!c.flag("verifySmsEnabled")||ConfigurationFields.verifyConfigured(c))&&(!(c.flag("orderSms")||c.flag("reservationSms"))||ConfigurationFields.smsConfigured(c)));
+  boolean twilioVerification=ConfigurationFields.usesVerificationProvider(c,"twilio")&&c.flag("verifySmsEnabled");
+  boolean twilioSms=ConfigurationFields.usesSmsProvider(c,"twilio")&&(c.flag("orderSms")||c.flag("reservationSms"));
+  boolean configured=c.configured(category),enabled=switch(category){case "PAYPAL"->c.flag("paypalEnabled")&&(!c.text("environment").equals("live")||!c.flag("paypalDashboardManaged")||c.flag("paypalValidated"));case "PAYID"->c.flag("payidEnabled");case "TWILIO"->twilioVerification||twilioSms;case "SMTP"->c.flag("orderEmail")||c.flag("reservationEmail");default->true;};
+  boolean ready=!category.equals("TWILIO")||((!twilioVerification||ConfigurationFields.twilioVerifyConfigured(c))&&(!twilioSms||ConfigurationFields.twilioSmsConfigured(c)));
   enabled=enabled&&ready;
   result.put("fields",fields);result.put("sources",sources);result.put("secretsConfigured",secretConfigured);result.put("version",row==null?settings.getVersion():row.getVersion());result.put("configured",configured);result.put("enabled",enabled&&configured);
   result.put("state",row!=null&&(row.getValidationStatus().equals("INVALID")||(configured&&!ready))?"PROBLEM":!configured?"NOT_CONFIGURED":enabled?"ENABLED":"CONFIGURED");
   result.put("validationStatus",row==null?"NOT_TESTED":row.getValidationStatus());
   if(row!=null){result.put("updatedAt",row.getUpdatedAt());result.put("updatedBy",row.getUpdatedBy());result.put("testedAt",row.getTestedAt());}
   if(category.equals("PAYID"))result.put("pendingPayments",pending("PAYID"));
-  if(category.equals("TWILIO")){result.put("smsVerificationConfigured",ConfigurationFields.verifyConfigured(c));result.put("smsSendingConfigured",ConfigurationFields.smsConfigured(c));result.put("smsSendingValidation","NOT_TESTED");}
+  if(category.equals("TWILIO")){result.put("smsVerificationConfigured",ConfigurationFields.twilioVerifyConfigured(c));result.put("smsSendingConfigured",ConfigurationFields.twilioSmsConfigured(c));result.put("smsSendingValidation","NOT_TESTED");}
   if(category.equals("PAYPAL"))result.put("returnUrl",c.text("returnUrl"));
   return result;
  }

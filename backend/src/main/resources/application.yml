@@ -86,3 +86,7 @@ management:
 nakorn:
   restaurant-time-zone: Australia/Melbourne
   media-base-url: ${MEDIA_BASE_URL:/media/}
+
+notification:
+  sms-provider: ${NOTIFICATION_SMS_PROVIDER:twilio}
+  verification-provider: ${NOTIFICATION_VERIFICATION_PROVIDER:twilio}
