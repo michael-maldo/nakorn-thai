@@ -84,4 +84,15 @@ class CreateReservationHandlerTest {
                 List.of(new OpeningHours(1,LocalTime.of(18,0),LocalTime.of(19,0),true)),Set.of()));
         assertEquals(request.requestId(), handler.handle(request).get("reference"));
     }
+    @Test void daylightSavingGapAndOverlapRejectBeforePersistence() {
+        for (var date : List.of(LocalDateTime.parse("2026-10-04T02:30:00"),LocalDateTime.parse("2026-04-05T02:30:00"))) {
+            when(clock.instant()).thenReturn(date.minusDays(10).toInstant(ZoneOffset.UTC));
+            when(availability.schedule()).thenReturn(new RestaurantSchedule(ZoneId.of("Australia/Melbourne"),
+                    List.of(new OpeningHours(7,LocalTime.of(1,0),LocalTime.of(4,0),true)),Set.of()));
+            var invalid=new CreateReservationRequest(UUID.randomUUID(),"Guest","0400000000",4,date,"",null,null,null);
+            assertEquals(400,assertThrows(ResponseStatusException.class,()->handler.handle(invalid)).getStatusCode().value());
+        }
+        verify(reservations,never()).saveAndFlush(any());
+    }
+
 }

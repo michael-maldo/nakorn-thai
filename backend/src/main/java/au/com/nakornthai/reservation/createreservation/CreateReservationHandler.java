@@ -48,7 +48,7 @@ public class CreateReservationHandler {
   r.setPhoneVerified(verification.consume(request.phoneVerificationId(),"SMS",phone,r.getId()));
   if((config==null||config.flag("reservationPhoneRequired"))&&!r.isPhoneVerified())throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Verify your mobile by SMS before requesting a booking");
   reservations.saveAndFlush(r);
-  notifications.handle(new au.com.nakornthai.notification.reservationconfirmation.SendReservationConfirmationCommand(r.getId(),r.getCustomerName(),r.getRequestedAt(),r.getPartySize(),r.isPhoneVerified()?r.getPhone():null,r.getEmail(),au.com.nakornthai.notification.domain.NotificationType.RESERVATION_RECEIVED));
+  notifications.handle(new au.com.nakornthai.notification.reservationconfirmation.SendReservationConfirmationCommand(r.getId(),r.getCustomerName(),r.getRequestedAt(),r.getPartySize(),r.isPhoneVerified()?r.getPhone():null,r.getEmail(),au.com.nakornthai.notification.domain.NotificationType.RESERVATION_RECEIVED,schedule.timezone()));
   return receipt(r);
  }
  private Map<String,Object> receipt(ReservationJpaEntity r) { return Map.of("reference",r.getId(),"message","Booking request received. Your table is not confirmed until staff contact you."); }

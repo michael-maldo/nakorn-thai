@@ -87,6 +87,20 @@ class ConfigurationIntegrationTest {
   mvc.perform(put(PATH+"/SETTINGS").with(user("owner").roles("ADMIN")).with(csrf()).contentType("application/json").content(body("SETTINGS","{\"staffOrderEmailAddress\":\"staff@example.test\",\"staffOrderEmail\":\"true\"}","{}")))
    .andExpect(status().isBadRequest());
  }
+ @Test void staffReservationSettingsAreIndependentValidatedAndAdminOnly()throws Exception{
+  assertFalse(runtime.snapshot().flag("staffReservationEmail"));
+  assertEquals("hello@nakorn.com.au",runtime.snapshot().text("staffReservationEmailAddress"));
+  mvc.perform(put(PATH+"/SETTINGS").with(user("owner").roles("ADMIN")).with(csrf()).contentType("application/json").content(body("SETTINGS","{\"staffReservationEmailAddress\":\"invalid\",\"staffReservationEmail\":\"false\"}","{}"))).andExpect(status().isBadRequest());
+  assertThrows(org.springframework.web.server.ResponseStatusException.class,()->save("SETTINGS",Map.of("staffReservationEmail","true"),Map.of()));
+  save("SMTP",Map.of("host","smtp.example.test","port","587","from","restaurant@example.test"),Map.of());
+  save("SETTINGS",Map.of("staffReservationEmailAddress","reservations@example.test","staffReservationEmail","true","reservationEmail","false"),Map.of());
+  assertTrue(runtime.snapshot().flag("staffReservationEmail"));assertFalse(runtime.snapshot().flag("reservationEmail"));assertFalse(runtime.snapshot().flag("staffOrderEmail"));
+  assertEquals("reservations@example.test",runtime.snapshot().text("staffReservationEmailAddress"));
+  mvc.perform(get(PATH).with(user("owner").roles("ADMIN"))).andExpect(jsonPath("$.SMTP.enabled").value(true));
+  mvc.perform(put(PATH+"/SETTINGS").with(user("front").roles("FOH")).with(csrf()).contentType("application/json").content(body("SETTINGS","{\"staffReservationEmail\":\"false\"}","{}"))).andExpect(status().isForbidden());
+  mvc.perform(put(PATH+"/SETTINGS").with(user("owner").roles("ADMIN")).contentType("application/json").content(body("SETTINGS","{}","{}"))).andExpect(status().isForbidden());
+  assertThrows(org.springframework.web.server.ResponseStatusException.class,()->save("SETTINGS",Map.of("staffReservationEmailAddress",""),Map.of()));
+ }
  long version(String c){return ((Number)((Map<?,?>)handler.read().get(c)).get("version")).longValue();}
  void save(String category,Map<String,String> fields,Map<String,String> secrets){handler.save(category,new ConfigurationHandler.Update(version(category),fields,secrets,Set.of(),false),"owner");}
  String body(String c,String fields,String secrets){return "{\"version\":"+version(c)+",\"fields\":"+fields+",\"secrets\":"+secrets+"}";}

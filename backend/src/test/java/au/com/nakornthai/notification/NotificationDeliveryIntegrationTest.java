@@ -148,13 +148,13 @@ class NotificationDeliveryIntegrationTest {
  }
  @Test void reservationEmailRetriesWithoutResendingSuccessfulSms() {
   UUID id=committedNotifications();
-  doThrow(new IllegalStateException("Fake provider unavailable")).when(email).send(any(),any(),any());
+  doThrow(new IllegalStateException("Fake provider unavailable")).when(email).send(any(),any(),any(),any());
   worker.deliver();assertStatus(id,"SMS","SENT");assertStatus(id,"EMAIL","FAILED");
-  worker.deliver();verify(sms,times(1)).send(any(),any());verify(email,times(1)).send(any(),any(),any());
+  worker.deliver();verify(sms,times(1)).send(any(),any());verify(email,times(1)).send(any(),any(),any(),any());
   jdbc.update("UPDATE notification_delivery SET next_attempt_at=? WHERE reservation_id=? AND channel='EMAIL'",java.sql.Timestamp.from(now.minusSeconds(1)),id);
-  doNothing().when(email).send(any(),any(),any());worker.deliver();
+  doNothing().when(email).send(any(),any(),any(),any());worker.deliver();
   assertStatus(id,"SMS","SENT");assertStatus(id,"EMAIL","SENT");
-  verify(sms,times(1)).send(eq("+61412345678"),any());verify(email,times(2)).send(eq("Guest@example.com"),any(),any());
+  verify(sms,times(1)).send(eq("+61412345678"),any());verify(email,times(2)).send(eq("Guest@example.com"),any(),any(),any());
  }
  @Test void databaseWorkerRetriesFailedChannelWithoutResendingSuccessfulChannel() {
   UUID id=committedNotifications();
@@ -163,12 +163,12 @@ class NotificationDeliveryIntegrationTest {
   assertStatus(id,"EMAIL","SENT");assertStatus(id,"SMS","FAILED");
   assertEquals(java.sql.Timestamp.from(now.plusSeconds(60)),jdbc.queryForObject("SELECT next_attempt_at FROM notification_delivery WHERE reservation_id=? AND channel='SMS'",java.sql.Timestamp.class,id));
   worker.deliver(); // Failed SMS is not due yet; neither channel may resend.
-  verify(sms,times(1)).send(any(),any());verify(email,times(1)).send(any(),any(),any());
+  verify(sms,times(1)).send(any(),any());verify(email,times(1)).send(any(),any(),any(),any());
   jdbc.update("UPDATE notification_delivery SET next_attempt_at=? WHERE reservation_id=? AND channel='SMS'",java.sql.Timestamp.from(now.minusSeconds(1)),id);
   doNothing().when(sms).send(any(),any());worker.deliver();
   assertStatus(id,"SMS","SENT");assertStatus(id,"EMAIL","SENT");
   assertEquals(2,jdbc.queryForObject("SELECT attempts FROM notification_delivery WHERE reservation_id=? AND channel='SMS'",Integer.class,id));
-  verify(email,times(1)).send(eq("Guest@example.com"),any(),any());verify(sms,times(2)).send(eq("+61412345678"),any());
+  verify(email,times(1)).send(eq("Guest@example.com"),any(),any(),any());verify(sms,times(2)).send(eq("+61412345678"),any());
  }
  @Test void concurrentWorkerSkipsInFlightSmsAndCommitsEmailWithoutDuplicateDelivery() throws Exception {
   UUID id=committedNotifications();
@@ -186,11 +186,11 @@ class NotificationDeliveryIntegrationTest {
    second.get(5,TimeUnit.SECONDS);
    assertStatus(id,"EMAIL","SENT");
    assertStatus(id,"SMS","PENDING"); // SMS outcome is still uncommitted.
-   verify(sms,times(1)).send(any(),any());verify(email,times(1)).send(any(),any(),any());
+   verify(sms,times(1)).send(any(),any());verify(email,times(1)).send(any(),any(),any(),any());
    release.countDown();first.get(5,TimeUnit.SECONDS);
    assertStatus(id,"SMS","SENT");assertStatus(id,"EMAIL","SENT");
    assertEquals(1,jdbc.queryForObject("SELECT attempts FROM notification_delivery WHERE reservation_id=? AND channel='SMS'",Integer.class,id));
-   verify(sms,times(1)).send(any(),any());verify(email,times(1)).send(any(),any(),any());
+   verify(sms,times(1)).send(any(),any());verify(email,times(1)).send(any(),any(),any(),any());
   }finally {
    release.countDown();executor.shutdownNow();assertTrue(executor.awaitTermination(5,TimeUnit.SECONDS));
   }
@@ -202,6 +202,6 @@ class NotificationDeliveryIntegrationTest {
    status.setRollbackOnly();
   });
   assertStatus(id,"SMS","SENT");assertStatus(id,"EMAIL","SENT");
-  verify(sms,times(1)).send(any(),any());verify(email,times(1)).send(any(),any(),any());
+  verify(sms,times(1)).send(any(),any());verify(email,times(1)).send(any(),any(),any(),any());
  }
 }

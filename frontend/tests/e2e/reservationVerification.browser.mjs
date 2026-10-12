@@ -41,7 +41,8 @@ function fixture() {
  window.fetch=async(url,options={})=>{
   if(!String(url).startsWith('/api'))return realFetch(url,options);
   if(url.endsWith('/csrf'))return Response.json({headerName:'X-CSRF-TOKEN',token:'test'});
-  if(url==='/api/identity/refresh')return new Response(null,{status:401});
+  if(url==='/api/identity/refresh')return sessionStorage.getItem('reservationStaffRole')?Response.json({accessToken:'test',expiresAt:new Date(Date.now()+3600000).toISOString(),user:{username:'Front',role:sessionStorage.getItem('reservationStaffRole')}}):new Response(null,{status:401});
+  if(String(url).startsWith('/api/staff/reservations?')){window.staffAuthorization=options.headers.Authorization;return Response.json([]);}
   if(url==='/api/orders/contact-verifications/options')return Response.json({sms:true,email:false});
   if(url==='/api/reservations/options')return Response.json({enabled:true,phoneRequired:true});
   if(url==='/api/restaurant/availability')return Response.json({timezone:'Australia/Melbourne'});
@@ -96,5 +97,10 @@ try {
  assert.equal(await evaluate('window.bookingIds.size'),1);
  const body=await evaluate('window.requests[0]');assert.equal(body.phoneVerificationId,'challenge');assert.equal(body.emailVerificationId,undefined);assert.equal(body.email,'Guest@example.test');assert.equal(body.phone,'+61412345678');
  assert.equal(await evaluate("window.verificationRequests.every(r=>r.channel==='SMS')"),true);
- assert.deepEqual(errors,[]);console.log('Reservation browser: verification, errors, expiry, destination change, optional email and lost-response retry with renewed SMS passed.');
+ await evaluate("location.hash='#/staff/reservations'");await waitFor("document.body.innerText.includes('Sign in to your restaurant workspace')");
+ await evaluate("sessionStorage.setItem('reservationStaffRole','FOH')");await send('Page.reload');await waitFor("document.body.innerText.includes('No booking requests for this date.')");
+ assert.equal(await evaluate("window.staffAuthorization"),'Bearer test');
+ await evaluate("sessionStorage.setItem('reservationStaffRole','BOH')");await send('Page.reload');await waitFor("document.body.innerText.includes('Access restricted')");
+ await evaluate("sessionStorage.removeItem('reservationStaffRole')");
+ assert.deepEqual(errors,[]);console.log('Reservation browser: verification, errors, expiry, destination change, optional email lost-response retry with renewed SMS, and authenticated FOH / restricted BOH staff navigation passed.');
 }finally{await send('Page.close');ws.close();}

@@ -34,3 +34,12 @@ test('staff notification recipient is text and requires independent SMTP readine
  assert.match(dependencyWarnings({staffOrderEmail:'true',staffOrderEmailAddress:''},config).join(' '),/usable staff/);
  assert.deepEqual(dependencyWarnings({staffOrderEmail:'true',staffOrderEmailAddress:'staff@example.test',orderEmail:'false'},{...config,SMTP:{configured:true}}),[]);
 });
+
+test('staff reservation controls are independent and share SMTP readiness',()=>{
+ assert.ok(booleanFields.has('staffReservationEmail'));
+ assert.ok(!booleanFields.has('staffReservationEmailAddress'));
+ assert.ok(definitions.SETTINGS.fields.staffReservationEmailAddress);
+ assert.match(dependencyWarnings({staffReservationEmail:'true',staffReservationEmailAddress:'bad'},config).join(' '),/staff reservation/);
+ assert.match(dependencyWarnings({staffReservationEmail:'true',staffReservationEmailAddress:'staff@example.test'},config).join(' '),/SMTP/);
+ assert.deepEqual(dependencyWarnings({staffReservationEmail:'true',staffReservationEmailAddress:'staff@example.test',reservationEmail:'false',staffOrderEmail:'false'},{...config,SMTP:{configured:true}}),[]);
+});

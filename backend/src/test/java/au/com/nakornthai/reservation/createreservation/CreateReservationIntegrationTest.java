@@ -188,12 +188,20 @@ class CreateReservationIntegrationTest {
    assertTrue(message.contains(terminal.toLowerCase(java.util.Locale.ROOT)));assertFalse(message.contains("is confirmed"));
   }
  }
- @Test void historicalEmailOnlyReservationRemainsReadableAndManageable() throws Exception {
+ @Test void historicalEmailOnlyReservationReceivesEmailWithoutVerifiedPhone() throws Exception {
   UUID id=UUID.randomUUID();jdbc.update("INSERT INTO reservation(id,customer_name,email,email_verified,party_size,requested_at,created_at,updated_at) VALUES (?,'Historical','old@example.com',true,4,?::timestamp,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)",id,time);
   mvc.perform(get("/api/staff/reservations?date="+time.substring(0,10)).with(user("front").roles("FOH"))).andExpect(status().isOk());
-  change(id,"CONFIRMED",204);change(id,"CANCELLED",204);
-  assertEquals(0,jdbc.queryForObject("SELECT count(*) FROM notification_delivery WHERE reservation_id=?",Integer.class,id));
+  change(id,"CONFIRMED",204);change(id,"CANCELLED",204);em.flush();
+  assertEquals(2,jdbc.queryForObject("SELECT count(*) FROM notification_delivery WHERE reservation_id=? AND channel='EMAIL'",Integer.class,id));
+  assertEquals(0,jdbc.queryForObject("SELECT count(*) FROM notification_delivery WHERE reservation_id=? AND channel='SMS'",Integer.class,id));
   assertFalse(jdbc.queryForObject("SELECT phone_verified FROM reservation WHERE id=?",Boolean.class,id));assertTrue(jdbc.queryForObject("SELECT email_verified FROM reservation WHERE id=?",Boolean.class,id));
+ }
+ @Test void historicalEmailCanBeDisabledWithoutBlockingStaffActions()throws Exception{
+  var settings=em.find(au.com.nakornthai.restaurant.infrastructure.RestaurantSettingsJpaEntity.class,(short)1);
+  var fields=new java.util.HashMap<>(settings.getOperationalConfiguration());fields.put("reservationEmail","false");settings.setOperationalConfiguration(fields);em.flush();
+  UUID id=UUID.randomUUID();jdbc.update("INSERT INTO reservation(id,customer_name,email,party_size,requested_at,created_at,updated_at) VALUES (?,'Historical','old@example.com',4,?::timestamp,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)",id,time);
+  change(id,"CONFIRMED",204);change(id,"CANCELLED",204);em.flush();
+  assertEquals(0,jdbc.queryForObject("SELECT count(*) FROM notification_delivery WHERE reservation_id=?",Integer.class,id));
  }
  @Autowired org.springframework.transaction.PlatformTransactionManager transactionManager;
  @Test void rollbackRestoresProofAndRemovesReservationAndAllEventJobs() throws Exception {
