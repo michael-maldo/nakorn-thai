@@ -110,10 +110,10 @@ try{
  await evaluate('window.optionsFailure=false;window.sms=true');await focus();await waitFor("!document.body.innerText.includes('Options offline')&&!document.body.innerText.includes('Online table requests are currently unavailable')");
  // An in-flight contact request must not leave parent state stuck after unmount.
  await input('[name=phone]','0412345678');await evaluate('window.delayStart=true;window.resolveStart=null');await click('Send verification code');await waitFor('window.resolveStart');
- await evaluate("window.location.hash='/track-order'");await waitFor("document.querySelector('select option[value=sms]')");await evaluate('window.resolveStart()');await settle();
+ await evaluate("window.location.hash='/recover-order'");await waitFor("document.querySelector('select option[value=sms]')");await evaluate('window.resolveStart()');await settle();
  await evaluate("window.location.hash='/reservations';window.delayStart=false");await waitFor("document.querySelector('[name=phone]')&&!document.querySelector('[name=phone]').disabled");
  // Tracking must not resurrect an SMS challenge after falling back to email.
- await evaluate("window.location.hash='/track-order'");await waitFor("document.querySelector('select option[value=sms]')");
+ await evaluate("window.location.hash='/recover-order'");await waitFor("document.querySelector('select option[value=sms]')");
  await input('input[pattern="[0-9a-fA-F-]{36}"]','11111111-1111-4111-8111-111111111111');await evaluate('window.delayStart=true;window.resolveStart=null');await click('Send verification code');await waitFor('window.resolveStart');
  await evaluate('window.sms=false');await focus();await waitFor("document.querySelector('select').value==='email'");await evaluate('window.resolveStart()');await settle();assert.equal(await evaluate("!!document.querySelector('[autocomplete=one-time-code]')"),false);
  // Disabled PayPal still permits checking an existing payment, without setup calls.
@@ -126,7 +126,7 @@ try{
  await evaluate('window.resolvePayment()');await settle();assert.equal(await evaluate("!!document.querySelector('a[href*=checkoutnow]')"),false);
  await evaluate('window.paypal=true;window.delayPayment=false');await focus();await waitFor("document.querySelector('a[href*=checkoutnow]')");
  // Cash receipts do not subscribe to provider options.
- await evaluate("window.location.hash='/track-order'");await waitFor("document.querySelector('select option[value=email]')");
+ await evaluate("window.location.hash='/recover-order'");await waitFor("document.querySelector('select option[value=email]')");
  await evaluate("window.created.paymentMethod='PAY_AT_RESTAURANT';window.location.hash='/order-confirmation'");await waitFor("document.body.innerText.includes('Pay at the restaurant when collecting.')");
  const optionsCount=await evaluate("window.requests.filter(r=>r.url==='/api/payments/options').length");await focus();await settle();assert.equal(await evaluate("window.requests.filter(r=>r.url==='/api/payments/options').length"),optionsCount);
  assert.deepEqual(errors,[]);console.log('Feature availability browser: StrictMode requests, fallback, challenge races, error recovery, reservation feedback and existing PayPal recovery passed.');

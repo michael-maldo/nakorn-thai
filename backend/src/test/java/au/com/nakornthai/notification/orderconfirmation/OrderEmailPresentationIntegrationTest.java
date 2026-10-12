@@ -19,12 +19,17 @@ import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
-@SpringBootTest(properties="PUBLIC_APP_URL=https://restaurant.example.test/") @Transactional
+@SpringBootTest(properties={"PUBLIC_APP_URL=https://restaurant.example.test/","NAKORN_CREDENTIAL_MASTER_KEY=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="}) @org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc @Transactional
 @EnabledIfEnvironmentVariable(named="DB_TEST_URL",matches=".+")
 class OrderEmailPresentationIntegrationTest {
  @DynamicPropertySource static void db(DynamicPropertyRegistry p){
   p.add("spring.datasource.url",()->System.getenv("DB_TEST_URL"));p.add("spring.datasource.username",()->System.getenv("DB_TEST_USERNAME"));p.add("spring.datasource.password",()->System.getenv().getOrDefault("DB_TEST_PASSWORD",""));
  }
+ @Autowired au.com.nakornthai.notification.infrastructure.NotificationDeliveryWorker worker;
+ @Autowired au.com.nakornthai.ordering.trackorder.OrderViewTokens tokens;
+ @Autowired au.com.nakornthai.ordering.trackorder.TrackOrderHandler tracking;
+ @Autowired org.springframework.test.web.servlet.MockMvc mvc;
+ @Autowired au.com.nakornthai.ordering.infrastructure.OrderAccessService receiptAccess;
  @Autowired EntityManager em;@Autowired JdbcTemplate jdbc;@Autowired SendOrderConfirmationHandler handler;
  @MockitoBean EmailSender email;@MockitoBean SmsSender sms;
  @MockitoBean au.com.nakornthai.restaurant.configuration.IntegrationDiagnostics diagnostics;
@@ -93,7 +98,7 @@ class OrderEmailPresentationIntegrationTest {
     default->fail("Unexpected sample type");
    }
    String action=job.getType()==NotificationType.STAFF_ORDER_RECEIVED?"View order":"Track your order";
-   String link="https://restaurant.example.test/#/"+(job.getType()==NotificationType.STAFF_ORDER_RECEIVED?"staff/orders":"track-order")+"?order="+ID;
+   String link=job.getType()==NotificationType.STAFF_ORDER_RECEIVED?"https://restaurant.example.test/#/staff/orders?order="+ID:"https://restaurant.example.test/#/track-order?t="+tokens.forEmail(ID);
    assertTrue(body.endsWith(action+"\n"+link+"\n"));assertTrue(job.getSubject().contains("#ABCD1234"));
    assertEquals(OrderEmailHtml.render(job.getSubject(),body,action,link),job.getHtmlBody());
    assertTrue(job.getHtmlBody().contains("href=\""+link+"\""));
@@ -113,4 +118,59 @@ class OrderEmailPresentationIntegrationTest {
   order.setStatus("NEW");notify(NotificationType.ORDER_RECEIVED);assertEquals(1,jobs().size());var body=jobs().getFirst().getBody();
   assertFalse(body.contains("null"));assertFalse(body.contains("Email:"));assertFalse(body.contains("Customer notes:"));assertFalse(body.contains("Estimated pickup:"));verifyNoInteractions(email,sms,diagnostics);
  }
+ @Test void stableHashedEncryptedCapabilityIsReusableButCannotAuthorizeReceiptOrPayments()throws Exception{
+  notify(NotificationType.ORDER_RECEIVED);String token=tokens.forEmail(ID);
+  assertTrue(token.matches("[0-9a-f]{64}"));assertEquals(ID,tokens.require(token));
+  var row=jdbc.queryForMap("SELECT * FROM order_view_token WHERE order_id=?",ID);
+  assertEquals(au.com.nakornthai.ordering.createorder.CreateOrderHandler.hash(token),row.get("token_hash"));
+  assertFalse(((String)row.get("encrypted_token")).contains(token));
+  assertEquals(PLACED.plus(Duration.ofDays(7)),((java.sql.Timestamp)row.get("expires_at")).toInstant());
+  when(clock.instant()).thenReturn(PLACED.plus(Duration.ofDays(6)));
+  assertEquals(token,tokens.forEmail(ID));assertEquals(ID,tokens.require(token));assertEquals(ID,tokens.require(token));
+  notify(NotificationType.ORDER_ACCEPTED);notify(NotificationType.ORDER_ACCEPTED);
+  assertEquals(3,jobs().size());assertEquals(1,jdbc.queryForObject("SELECT count(*) FROM order_view_token WHERE order_id=?",Integer.class,ID));
+  assertEquals(row,jdbc.queryForMap("SELECT * FROM order_view_token WHERE order_id=?",ID));
+  assertThrows(org.springframework.web.server.ResponseStatusException.class,()->receiptAccess.require(em.find(OrderJpaEntity.class,ID),token));
+  mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/api/orders/"+ID).header("X-Order-Token",token)).andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isNotFound());
+  mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/payments/"+ID+"/check").header("X-Order-Token",token).with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf())).andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isNotFound());
+  mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/api/staff/orders/"+ID).header("X-Order-View-Token",token)).andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isUnauthorized());
+ }
+ @Test void invalidMissingExpiredRevokedTokensNeverGrantOrRotateAccess(){
+  String token=tokens.forEmail(ID);
+  for(String invalid:Arrays.asList(null,"","bad","f".repeat(64)))assertThrows(org.springframework.web.server.ResponseStatusException.class,()->tokens.require(invalid));
+  when(clock.instant()).thenReturn(PLACED.plus(Duration.ofDays(7)).minusMillis(1));assertEquals(ID,tokens.require(token));
+  when(clock.instant()).thenReturn(PLACED.plus(Duration.ofDays(7)));assertThrows(org.springframework.web.server.ResponseStatusException.class,()->tokens.require(token));assertNull(tokens.forEmail(ID));
+  when(clock.instant()).thenReturn(PLACED.plusSeconds(1));tokens.revoke(ID);assertThrows(org.springframework.web.server.ResponseStatusException.class,()->tokens.require(token));assertNull(tokens.forEmail(ID));
+ }
+ @Test void currentStatusAndHistoricalSummaryExposeNoContactPaymentOrInternalIdentifiers()throws Exception{
+  String token=tokens.forEmail(ID);var view=tracking.handle(token);assertEquals("NEW",view.status());assertEquals("ABCD1234",view.reference());assertEquals(9920,view.totalMinor());assertEquals(3,view.items().size());
+  var curry=view.items().stream().filter(i->i.name().equals("Green Curry")).findFirst().orElseThrow();assertEquals(2,curry.quantity());assertEquals(2640,curry.unitPriceMinor());assertEquals(5280,curry.lineTotalMinor());assertEquals(2,curry.options().size());assertTrue(view.customerInstructions().contains("No cutlery"));
+  var order=em.find(OrderJpaEntity.class,ID);order.setStatus("READY");order.setEstimatedReadyAt(PICKUP);order.setUpdatedAt(PLACED.plusSeconds(300));em.flush();assertEquals("READY",tracking.handle(token).status());assertEquals(PICKUP,tracking.handle(token).estimatedReadyAt());
+  var response=mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/api/order-tracking").header("X-Order-View-Token",token)).andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isOk()).andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().string("Cache-Control","no-store")).andReturn().getResponse().getContentAsString();
+  for(String forbidden:List.of("Alex Sample","+61400000000","alex.sample@example.test",ID.toString(),"trackingHash","requestHash","paymentMethod","paidAt","variationId","optionId","Current dish","Current option",token))assertFalse(response.contains(forbidden),forbidden.equals(token)?"Tracking credential leaked":forbidden);
+  mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/api/order-tracking")).andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isNotFound());
+ }
+ @Test void independentOrderTokensCannotSelectAnotherOrder(){
+  UUID other=UUID.randomUUID();jdbc.update("INSERT INTO restaurant_order(id,tracking_hash,request_hash,customer_name,phone,notes,status,total_minor,currency,fulfilment,payment_method,created_at,updated_at,version) VALUES (?,? ,?,'Other','+61400000001','','NEW',100,'AUD','PICKUP','PAY_AT_RESTAURANT',?, ?,0)",other,"c".repeat(64),"d".repeat(64),java.sql.Timestamp.from(PLACED),java.sql.Timestamp.from(PLACED));
+  String first=tokens.forEmail(ID),second=tokens.forEmail(other);assertNotEquals(first,second);assertEquals(ID,tokens.require(first));assertEquals(other,tokens.require(second));
+  tokens.revoke(ID);assertEquals(other,tokens.require(second));
+ }
+ @Test void revocationIsStaffOnlyAndCsrfProtected()throws Exception{
+  String token=tokens.forEmail(ID);String path="/api/staff/orders/"+ID+"/tracking/revoke";
+  mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post(path).with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user("kitchen").roles("BOH")).with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf())).andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isForbidden());
+  mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post(path).with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user("front").roles("FOH"))).andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isForbidden());
+  mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post(path).with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user("front").roles("FOH")).with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf())).andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isNoContent());assertThrows(org.springframework.web.server.ResponseStatusException.class,()->tokens.require(token));
+ }
+
+ @Test void queuedLinksAndRecipientsStayCapturedAndWorkerRetriesDoNotRotateTokens(){
+  notify(NotificationType.ORDER_RECEIVED);String token=tokens.forEmail(ID);var before=jdbc.queryForMap("SELECT * FROM order_view_token WHERE order_id=?",ID);
+  var original=jobs().stream().filter(j->j.getType()==NotificationType.ORDER_RECEIVED).findFirst().orElseThrow();String body=original.getBody(),html=original.getHtmlBody();
+  var settings=em.find(RestaurantSettingsJpaEntity.class,(short)1);var values=new HashMap<>(settings.getOperationalConfiguration());values.put("businessWebsiteUrl","https://changed.example.test/app/");values.put("staffOrderEmailAddress","changed@example.test");values.put("staffOrderEmail","false");settings.setOperationalConfiguration(values);
+  notify(NotificationType.ORDER_ACCEPTED);var accepted=jobs().stream().filter(j->j.getType()==NotificationType.ORDER_ACCEPTED).findFirst().orElseThrow();assertTrue(accepted.getBody().endsWith("https://changed.example.test/app/#/track-order?t="+token+"\n"));
+  doThrow(new IllegalStateException("mock temporary delivery failure")).doNothing().when(email).send(eq(original.getRecipient()),eq(original.getSubject()),eq(body),eq(html));
+  worker.deliverOne(original);assertEquals(DeliveryStatus.FAILED,original.getStatus());assertNotNull(original.getNextAttemptAt());worker.deliverOne(original);assertEquals(DeliveryStatus.SENT,original.getStatus());assertEquals(2,original.getAttempts());
+  assertEquals(before,jdbc.queryForMap("SELECT * FROM order_view_token WHERE order_id=?",ID));assertEquals(body,original.getBody());assertEquals(html,original.getHtmlBody());
+  var staff=jobs().stream().filter(j->j.getType()==NotificationType.STAFF_ORDER_RECEIVED).findFirst().orElseThrow();assertEquals("staff@example.test",staff.getRecipient());assertTrue(staff.getBody().endsWith("https://restaurant.example.test/#/staff/orders?order="+ID+"\n"));worker.deliverOne(staff);assertEquals(DeliveryStatus.SENT,staff.getStatus());
+ }
+
 }

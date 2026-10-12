@@ -22,12 +22,12 @@ Unit prices include selected options.
 2 x Green Curry
   Variation: Chicken
   Unit price: AUD 26.40
-  Heat: Mild
-    Qty per item: 1
-    Adjustment each: AUD 0.00
   Extras: Extra vegetables
     Qty per item: 1
     Adjustment each: AUD 2.50
+  Heat: Mild
+    Qty per item: 1
+    Adjustment each: AUD 0.00
   Line total: AUD 52.80
 
 1 x Pad Thai

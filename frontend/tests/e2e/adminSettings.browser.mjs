@@ -38,7 +38,7 @@ const click = async text => {
 function fixture(){
  window.role='ADMIN';window.writes=[];window.audit=[];window.stale=false;window.reads=0;window.holdWrite=false;window.rejectMessage='';window.auditFailure=false;window.confirm=()=>true;
  window.configuration={encryptionAvailable:true};
- const fields={SETTINGS:{orderingEnabled:'false',reservationsEnabled:'true',orderPhoneRequired:'true',reservationPhoneRequired:'true',orderSms:'true',orderEmail:'false',staffOrderEmail:'false',staffOrderEmailAddress:'hello@nakorn.com.au',reservationSms:'true',reservationEmail:'true',paypalEnabled:'false',payidEnabled:'false',payAtRestaurantEnabled:'true'},PAYPAL:{environment:'sandbox',clientId:''},PAYID:{identifier:'',accountName:''},TWILIO:{accountSid:'',verifyServiceSid:'',smsFrom:'',verifySmsEnabled:'false',verifyEmailEnabled:'false'},SMTP:{host:'',port:'587',username:'',from:'',starttls:'true'}};
+ const fields={SETTINGS:{businessWebsiteUrl:'',orderingEnabled:'false',reservationsEnabled:'true',orderPhoneRequired:'true',reservationPhoneRequired:'true',orderSms:'true',orderEmail:'false',staffOrderEmail:'false',staffOrderEmailAddress:'hello@nakorn.com.au',reservationSms:'true',reservationEmail:'true',paypalEnabled:'false',payidEnabled:'false',payAtRestaurantEnabled:'true'},PAYPAL:{environment:'sandbox',clientId:''},PAYID:{identifier:'',accountName:''},TWILIO:{accountSid:'',verifyServiceSid:'',smsFrom:'',verifySmsEnabled:'false',verifyEmailEnabled:'false'},SMTP:{host:'',port:'587',username:'',from:'',starttls:'true'}};
  for(const [category,values] of Object.entries(fields))window.configuration[category]={fields:values,version:category==='SETTINGS'?6:0,sources:Object.fromEntries(Object.keys(values).map(k=>[k,'ENVIRONMENT_DEFAULT'])),secretsConfigured:category==='PAYPAL'?{clientSecret:false}:category==='TWILIO'?{authToken:false}:category==='SMTP'?{password:false}:{},state:'NOT_CONFIGURED',configured:false,enabled:false,validationStatus:'NOT_TESTED',returnUrl:'https://restaurant.example.test/#/order-confirmation',pendingPayments:2,smsVerificationConfigured:false,smsSendingConfigured:false};
  const realFetch=window.fetch;
  window.fetch=async(url,options={})=>{
@@ -79,10 +79,12 @@ try{
  await send('Page.navigate',{url:`${base}#/staff/settings`});await waitFor("document.body.innerText.includes('Integrations overview')");
  assert.equal(await evaluate("document.querySelector('a[href=\"#/staff/settings\"]')!==null"),true);
  assert.equal(await evaluate("document.body.innerText.includes('Configure Twilio SMS Verify')"),true);
+ assert.equal(await evaluate("document.querySelector('[name=businessWebsiteUrl]').type"),'url');
+ await input('businessWebsiteUrl','https://restaurant.example.test');
  // Save applies returned metadata/version without a GET; pending submits cannot overlap.
  await waitFor("!document.querySelector('fieldset').disabled");
  assert.deepEqual(await evaluate("Array.from(document.querySelectorAll('.business-settings-group')).map(group=>[group.querySelector('h3').textContent,Array.from(group.querySelectorAll('input')).map(input=>input.name)])"),[
-  ['Online ordering',['orderingEnabled']],['Reservations',['reservationsEnabled']],
+  ['Business identity',['businessWebsiteUrl']],['Online ordering',['orderingEnabled']],['Reservations',['reservationsEnabled']],
   ['Customer verification',['orderPhoneRequired','reservationPhoneRequired']],
   ['Order notifications',['orderSms','orderEmail','staffOrderEmail','staffOrderEmailAddress']],['Reservation notifications',['reservationSms','reservationEmail']],
   ['Payment methods',['paypalEnabled','payidEnabled','payAtRestaurantEnabled']]

@@ -13,6 +13,7 @@
     "test:menu-navigation-browser": "node tests/e2e/menuNavigation.browser.mjs",
     "test:reservation-browser": "node tests/e2e/reservationVerification.browser.mjs",
     "test:payment-browser": "node tests/e2e/payments.browser.mjs",
+    "test:email-samples-browser": "node tests/e2e/orderEmailSamples.browser.mjs",
     "test:order-links-browser": "node tests/e2e/orderEmailLinks.browser.mjs",
     "test:phone-browser": "node tests/e2e/australianPhone.browser.mjs",
     "test:settings-browser": "node tests/e2e/adminSettings.browser.mjs",

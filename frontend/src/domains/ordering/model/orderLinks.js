@@ -6,3 +6,10 @@ export function orderLink(hash){
  const ids=params.getAll('order');
  return ids.length===1&&uuid.test(ids[0])?{orderId:ids[0].toLowerCase(),invalid:false}:{orderId:null,invalid:true};
 }
+
+// Tokens stay in the hash and are sent only in a dedicated read-only header.
+export function trackingToken(hash){
+ const params=new URLSearchParams(hash.split('?')[1]||'');
+ const values=params.getAll('t');
+ return values.length===1&&/^[0-9a-f]{64}$/.test(values[0])?values[0]:null;
+}

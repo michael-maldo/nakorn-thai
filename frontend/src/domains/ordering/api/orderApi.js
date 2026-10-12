@@ -44,3 +44,9 @@ export const verifyStaffPayment = (id, command, authorization) => serial(async (
     method: 'POST', body: JSON.stringify(command || {}), authorization, csrf,
   });
 });
+
+export async function getReadOnlyOrder(token,signal){
+ const response=await fetch('/api/order-tracking',{headers:{'X-Order-View-Token':token},credentials:'omit',cache:'no-store',referrerPolicy:'no-referrer',signal});
+ if(!response.ok){const error=new Error(response.status===404?'This order tracking link has expired or is invalid. Please contact Nakorn Thai and provide your order reference if you need assistance.':'Order tracking is temporarily unavailable. Please try again.');error.status=response.status;throw error;}
+ return response.json();
+}

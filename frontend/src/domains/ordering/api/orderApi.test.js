@@ -93,3 +93,14 @@ test('availability reads forward the observer abort signal to fetch',async()=>{
  globalThis.fetch=async(_url,options)=>{received=options.signal;return Response.json({enabled:true});};
  try{await (await import('./orderApi.js')).getOrderingOptions(signal);assert.equal(received,signal);}finally{globalThis.fetch=original;}
 });
+
+import {getReadOnlyOrder} from './orderApi.js';
+test('read-only tracking transports its credential in a separate header with no cookies, cache or URL secrets',async()=>{
+ const original=globalThis.fetch;let seen;const controller=new AbortController();
+ globalThis.fetch=async(url,options)=>{seen={url,options};return Response.json({reference:'ABCD1234',status:'READY'});};
+ try{assert.equal((await getReadOnlyOrder('e'.repeat(64),controller.signal)).status,'READY');assert.equal(seen.url,'/api/order-tracking');assert.deepEqual(seen.options.headers,{'X-Order-View-Token':'e'.repeat(64)});assert.equal(seen.options.credentials,'omit');assert.equal(seen.options.cache,'no-store');assert.equal(seen.options.referrerPolicy,'no-referrer');assert.equal(seen.options.signal,controller.signal);}finally{globalThis.fetch=original;}
+});
+test('read-only tracking has friendly expiry and unavailable errors without reflecting server details',async()=>{
+ const original=globalThis.fetch;
+ try{for(const status of [404,503]){globalThis.fetch=async()=>Response.json({message:'secret-server-detail'},{status});await assert.rejects(getReadOnlyOrder('e'.repeat(64)),error=>error.status===status&&!error.message.includes('secret-server-detail')&&error.message.includes(status===404?'expired':'temporarily unavailable'));}}finally{globalThis.fetch=original;}
+});

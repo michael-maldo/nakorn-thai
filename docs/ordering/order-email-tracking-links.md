@@ -1,5 +1,7 @@
 # Order reference subjects and tracking links implementation report
 
+This report describes the earlier verification-first implementation. See [seven-day read-only order tracking](seven-day-order-tracking.md) for the current customer links and configuration.
+
 Implemented together with the current uncommitted email-presentation refinements. No commit, push, deployment, production database access, production configuration change or live notification occurred.
 
 ## 1. Existing customer tracking architecture

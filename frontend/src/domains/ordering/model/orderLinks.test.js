@@ -11,3 +11,9 @@ test('invalid, duplicated and redirect input never grants access',()=>{
  assert.equal(orderLink(`#/track-order?order=${id}&order=${id}`).invalid,true);
  assert.deepEqual(orderLink(`#/track-order?order=${id}&token=secret&returnUrl=https://evil.test`),{orderId:id,invalid:false});
 });
+
+import {trackingToken} from './orderLinks.js';
+test('read-only links accept exactly one opaque token without an order selector',()=>{
+ const token='a'.repeat(64);assert.equal(trackingToken('#/track-order?t='+token),token);
+ for(const hash of ['#/track-order','#/track-order?t=bad','#/track-order?t='+token+'&t='+token,'#/track-order?t='+token.toUpperCase()])assert.equal(trackingToken(hash),null);
+});

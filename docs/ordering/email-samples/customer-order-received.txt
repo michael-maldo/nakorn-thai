@@ -19,12 +19,12 @@ Unit prices include selected options.
 2 x Green Curry
   Variation: Chicken
   Unit price: AUD 26.40
-  Heat: Mild
-    Qty per item: 1
-    Adjustment each: AUD 0.00
   Extras: Extra vegetables
     Qty per item: 1
     Adjustment each: AUD 2.50
+  Heat: Mild
+    Qty per item: 1
+    Adjustment each: AUD 0.00
   Line total: AUD 52.80
 
 1 x Pad Thai
@@ -47,6 +47,6 @@ Please pack sauces separately. No cutlery, thank you.
 
 Nakorn Thai
 
-Verify by SMS or email to view the current status.
+This private read-only tracking link expires seven days after it was first issued.
 Track your order
-https://restaurant.example.test/#/track-order?order=abcd1234-0000-4000-8000-000000000001
+https://restaurant.example.test/#/track-order?t=a9d092dfacd3c84945f75861d8b9763bd5f3a322aa520e03affdddbb1cce31dd

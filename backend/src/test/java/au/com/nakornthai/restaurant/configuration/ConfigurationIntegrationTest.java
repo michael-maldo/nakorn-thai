@@ -223,4 +223,16 @@ class ConfigurationIntegrationTest {
   assertEquals(0,jdbc.queryForObject("SELECT count(*) FROM configuration_audit WHERE category='SETTINGS'",Integer.class));
  }
 
+ @Test void businessWebsitePersistsNormalizedAndIsAdminOnly()throws Exception{
+  var settings=em.find(RestaurantSettingsJpaEntity.class,(short)1);
+  handler.save("SETTINGS",new ConfigurationHandler.Update(settings.getVersion(),Map.of("businessWebsiteUrl"," https://Restaurant.Example.test/app "),null,null,false),"owner");
+  assertEquals("https://restaurant.example.test/app/",runtime.snapshot().text("businessWebsiteUrl"));
+  mvc.perform(get(PATH).with(user("front").roles("FOH"))).andExpect(status().isForbidden());
+  mvc.perform(get(PATH).with(user("owner").roles("ADMIN"))).andExpect(status().isOk()).andExpect(jsonPath("$.SETTINGS.fields.businessWebsiteUrl").value("https://restaurant.example.test/app/"));
+ }
+ @Test void malformedWebsiteIsRejected(){
+  var settings=em.find(RestaurantSettingsJpaEntity.class,(short)1);
+  assertThrows(org.springframework.web.server.ResponseStatusException.class,()->handler.save("SETTINGS",new ConfigurationHandler.Update(settings.getVersion(),Map.of("businessWebsiteUrl","https://example.test/#/evil"),null,null,false),"owner"));
+ }
+
 }

@@ -41,6 +41,7 @@ public class ConfigurationHandler {
    String key=entry.getKey(),value=entry.getValue();
    if(!ConfigurationFields.FIELDS.get(category).contains(key)||ConfigurationFields.SECRETS.contains(key)||value==null||value.length()>500||value.chars().anyMatch(n->n<32))throw bad("Check configuration fields");
    if(ConfigurationFields.BOOLEAN.contains(key)&&!Set.of("true","false").contains(value))throw bad("Check enabled settings");
+   if(key.equals("businessWebsiteUrl")&&!value.isBlank()){try{value=BusinessWebsiteUrl.normalize(value,previous.flag("localUrlsAllowed"));}catch(IllegalArgumentException e){throw bad(e.getMessage());}}
    if(key.equals("staffOrderEmailAddress")&&!value.isBlank()&&!validStaffEmail(value.trim()))throw bad("Check staff notification email address");
    if(key.equals("environment")&&!Set.of("sandbox","live").contains(value))throw bad("Choose sandbox or live");
    if(key.equals("port")){try{int port=Integer.parseInt(value);if(port<1||port>65535)throw new NumberFormatException();}catch(NumberFormatException e){throw bad("Check SMTP port");}}

@@ -1,23 +1,23 @@
 package au.com.nakornthai.notification.orderconfirmation;
-
-import org.springframework.beans.factory.annotation.Value;
+import au.com.nakornthai.restaurant.configuration.*;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
-import java.net.URI;
-import java.util.Set;
 import java.util.UUID;
-
-/** Uses trusted deployment configuration, never request Host headers. */
+/** Captured at queue time from trusted configuration, never a request Host header. */
 @Component
 public class OrderEmailLinks {
- private final String base;
- public OrderEmailLinks(@Value("${nakorn.public-app-url}") String configured){
-  var uri=URI.create(configured);
-  boolean local=Set.of("localhost","127.0.0.1","[::1]").contains(uri.getHost()==null?"":uri.getHost());
-  if(uri.getHost()==null||uri.getUserInfo()!=null||uri.getRawQuery()!=null||!("https".equals(uri.getScheme())||local&&"http".equals(uri.getScheme()))||uri.getPort()==0||uri.getPort()>65535)
-   throw new IllegalArgumentException("Configure an HTTPS public application URL (HTTP is allowed only for loopback development)");
-  // The existing PayPal URL may include #/order-confirmation; keep its app base path.
-  String raw=configured.split("#",2)[0];base=raw.endsWith("/")?raw:raw+"/";
+ private final RuntimeConfiguration configuration;private final String fallback;private final boolean localAllowed;
+ @Autowired public OrderEmailLinks(RuntimeConfiguration configuration,Environment environment){
+  this.configuration=configuration;this.fallback=environment.getProperty("nakorn.public-app-url","http://localhost:5173");
+  localAllowed=!environment.matchesProfiles("prod")&&java.util.Set.of("dev","test").contains(environment.getProperty("APP_ENV","dev").toLowerCase(java.util.Locale.ROOT));
  }
- public String customer(UUID id){return base+"#/track-order?order="+id;}
- public String staff(UUID id){return base+"#/staff/orders?order="+id;}
+ /** Fixed development/test fixture constructor. */
+ public OrderEmailLinks(String configured){configuration=null;localAllowed=true;fallback=configured;}
+ private String base(){String website=configuration==null?"":configuration.snapshot().text("businessWebsiteUrl");
+  return BusinessWebsiteUrl.normalize(website.isBlank()?fallback:website,localAllowed);
+ }
+ public String customer(UUID id){return base()+"#/track-order?order="+id;}
+ public String customerToken(String token){if(!token.matches("[0-9a-f]{64}"))throw new IllegalArgumentException("Invalid tracking credential");return base()+"#/track-order?t="+token;}
+ public String staff(UUID id){return base()+"#/staff/orders?order="+id;}
 }

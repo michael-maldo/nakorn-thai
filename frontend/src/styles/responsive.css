@@ -144,3 +144,10 @@
   .staff-shell-welcome { padding: 24px; }
   .staff-login-card { padding: 28px 24px; }
 }
+
+.read-only-tracking { overflow-wrap: anywhere; }
+.tracking-progress { display: flex; flex-wrap: wrap; gap: 1rem 2rem; padding-left: 1.5rem; }
+.tracking-progress [aria-current="step"] { font-weight: bold; }
+.tracking-item { border-bottom: 1px solid #ddd; padding-block: .8rem; }
+.tracking-item h3 { margin-bottom: .5rem; }
+.tracking-instructions { white-space: pre-wrap; }

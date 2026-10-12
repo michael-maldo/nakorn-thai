@@ -1,4 +1,5 @@
-import {orderLink} from '../domains/ordering/model/orderLinks.js';
+import ReadOnlyOrderTrackingPage from '../domains/ordering/pages/ReadOnlyOrderTrackingPage';
+import {trackingToken,orderLink} from '../domains/ordering/model/orderLinks.js';
 import IntegrationSettingsPage from '../domains/restaurant/pages/IntegrationSettingsPage';
 import HomepageSettingsPage from '../domains/menu/pages/HomepageSettingsPage';
 import OrdersAdminPage from '../domains/ordering/pages/OrdersAdminPage';
@@ -69,7 +70,8 @@ export default function AppRouter() {
   if (hash === '#/reservations') return <ReservationPage />;
   if (hash === '#/staff/reservations') return staffPage(<ReservationAdminPage />, ['ADMIN','FOH']);
   if (hash === '#/menu') return <MenuPage />;
-  if (hash === '#/track-order') return <OrderTrackingPage key={location} linked={linked} />;
+  if (hash === '#/recover-order' || hash === '#/track-order' && new URLSearchParams(location.split('?')[1]||'').has('order') && !new URLSearchParams(location.split('?')[1]||'').has('t')) return <OrderTrackingPage key={location} linked={linked} />;
+  if (hash === '#/track-order') return <ReadOnlyOrderTrackingPage key={location} token={trackingToken(location)} />;
   if (hash === '#/checkout') return <CheckoutPage />;
   if (hash === '#/order-confirmation') return <OrderConfirmationPage />;
   if (hash === '#/staff/homepage') return staffPage(<HomepageSettingsPage />, ['ADMIN']);

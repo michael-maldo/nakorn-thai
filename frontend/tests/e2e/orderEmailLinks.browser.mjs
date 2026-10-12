@@ -36,7 +36,7 @@ const click = async text => {
   await evaluate('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
 };
 function fixture(){
- window.requests=[];window.staff=false;window.liveStatus='NEW';window.expired=false;window.verifyError=true;
+ window.requests=[];window.readOnlyExpired=false;window.staff=false;window.liveStatus='NEW';window.expired=false;window.verifyError=true;
  sessionStorage.clear();
  const id='abcd1234-0000-4000-8000-000000000001';
  const order=()=>({id,reference:'ABCD1234',status:window.liveStatus,version:0,totalMinor:9920,currency:'AUD',customerName:'Alex Sample',phone:'+61400000000',notes:'Sample notes',paymentMethod:'PAY_AT_RESTAURANT',paidAt:null,createdAt:'2030-10-07T07:05:00Z',items:[]});
@@ -45,6 +45,7 @@ function fixture(){
  window.fetch=async(url,options={})=>{
   if(!String(url).startsWith('/api'))return realFetch(url,options);
   window.requests.push({url,headers:options.headers,body:options.body?JSON.parse(options.body):null});
+  if(url==='/api/order-tracking')return window.readOnlyExpired?new Response(null,{status:404}):Response.json({reference:'ABCD1234',status:window.liveStatus,totalMinor:9920,currency:'AUD',fulfilment:'PICKUP',timezone:'Australia/Melbourne',estimatedReadyAt:'2030-10-07T07:45:00Z',updatedAt:'2030-10-07T07:05:00Z',customerInstructions:'Please pack sauces separately.',items:[{name:'Green Curry',variation:'Chicken',quantity:2,unitPriceMinor:2640,lineTotalMinor:5280,options:[{groupName:'Extras',name:'Extra vegetables',quantity:1,priceDeltaMinor:250}]},{name:'Pad Thai',variation:'Prawns',quantity:1,unitPriceMinor:3290,lineTotalMinor:3290,options:[{groupName:'Extras',name:'Extra prawns',quantity:2,priceDeltaMinor:300}]},{name:'Jasmine Rice',variation:'Large',quantity:3,unitPriceMinor:450,lineTotalMinor:1350,options:[]}]});
   if(url.endsWith('/csrf'))return Response.json({headerName:'X-CSRF-TOKEN',token:'test'});
   if(url==='/api/identity/refresh')return window.staff?Response.json(identity()):new Response(null,{status:401});
   if(url==='/api/identity/login'){window.staff=true;return Response.json(identity());}
@@ -62,6 +63,20 @@ const input=async(selector,value)=>evaluate(`(()=>{const el=document.querySelect
 try{
  await send('Page.enable');await send('Runtime.enable');await send('Page.addScriptToEvaluateOnNewDocument',{source:`(${fixture.toString()})()`});
  const id='abcd1234-0000-4000-8000-000000000001';
+ const token='e'.repeat(64);
+ await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
+ await send('Page.navigate',{url:`${base}#/track-order?t=${token}`});
+ await waitFor("document.body.innerText.includes('Order total: AUD 99.20')");
+ assert.equal(await evaluate("window.requests.filter(r=>r.url.startsWith('/api/order-verification/')).length"),0);
+ assert.equal(await evaluate("window.requests.filter(r=>r.url==='/api/order-tracking').every(r=>r.headers['X-Order-View-Token']==='e'.repeat(64)&&!r.headers['X-Order-Token']&&!r.headers.Authorization)"),true);
+ assert.equal(await evaluate('document.documentElement.scrollWidth<=innerWidth'),true);
+ assert.equal(await evaluate("document.body.innerText.includes('Extra prawns × 2') && document.body.innerText.includes('AUD 6.00') && document.body.innerText.includes('Please pack sauces separately.')"),true);
+ await evaluate("window.liveStatus='READY'");await waitFor("document.body.innerText.includes('ready for pickup at Nakorn Thai')");
+ await evaluate("window.readOnlyExpired=true");await waitFor("document.body.innerText.includes('has expired or is invalid')");assert.equal(await evaluate("document.body.innerText.includes('Your order')"),false);
+ await evaluate("window.readOnlyExpired=false");await send('Page.reload');await waitFor("document.body.innerText.includes('Order total: AUD 99.20')");
+ assert.equal(await evaluate("Object.values(sessionStorage).some(v=>v.includes('e'.repeat(64)))"),false);
+ assert.equal(await evaluate("Object.values(localStorage).some(v=>v.includes('e'.repeat(64)))"),false);
+ await evaluate("location.hash='/track-order?t=bad'");await waitFor("document.body.innerText.includes('missing or invalid')");
  await send('Page.navigate',{url:`${base}#/track-order?order=${id}`});
  await waitFor("document.querySelector('input')?.value==='"+id+"'");
  assert.equal(await evaluate("window.requests.filter(r=>r.url==='/api/orders/abcd1234-0000-4000-8000-000000000001').length"),0);
@@ -83,5 +98,5 @@ try{
  assert.equal(await evaluate("window.requests.filter(r=>r.url.startsWith('/api/staff/orders/')).every(r=>r.headers.Authorization==='Bearer staff-token'&&!r.headers['X-Order-Token'])"),true);
  await evaluate("location.hash='/staff/orders?order=abcd1234-0000-4000-8000-000000000002'");await waitFor("document.body.innerText.includes('#SECOND01')");
  assert.deepEqual(errors,[]);
- console.log('Order email links browser: UUID locator prefill, verification required, current READY status, invalid/expired recovery, staff sign-in, retained deep link, bearer-only staff access and same-route order changes passed.');
+ console.log('Order email links browser: one-click read-only tracking, live polling, itemization, mobile overflow, expiry, reusable link without storage, malformed tokens;  UUID locator prefill, verification required, current READY status, invalid/expired recovery, staff sign-in, retained deep link, bearer-only staff access and same-route order changes passed.');
 }finally{await send('Page.close');ws.close();}

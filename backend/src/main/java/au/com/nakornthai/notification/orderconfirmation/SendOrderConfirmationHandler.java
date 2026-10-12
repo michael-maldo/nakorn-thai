@@ -14,6 +14,8 @@ public class SendOrderConfirmationHandler {
  private final EntityManager em;
  private final Clock clock;
  private final OrderEmailLinks links;
+ private au.com.nakornthai.ordering.trackorder.OrderViewTokens viewTokens;
+ @org.springframework.beans.factory.annotation.Autowired public void configureTracking(au.com.nakornthai.ordering.trackorder.OrderViewTokens tokens){viewTokens=tokens;}
  private au.com.nakornthai.restaurant.configuration.RuntimeConfiguration configuration;
  @org.springframework.beans.factory.annotation.Autowired public void configure(au.com.nakornthai.restaurant.configuration.RuntimeConfiguration configuration){this.configuration=configuration;}
 
@@ -35,10 +37,14 @@ public class SendOrderConfirmationHandler {
   if(customerEmail||staffEmail){
    var order=em.find(au.com.nakornthai.ordering.infrastructure.OrderJpaEntity.class,c.orderId());
    if(order==null)throw new IllegalStateException("Order snapshot unavailable for notification");
-   if(customerEmail)queue(c,NotificationChannel.EMAIL,c.email(),"Hello "+order.getCustomerName()+",\n\n"+message+"\n\n"+OrderEmailDetails.format(order,c.timezone(),false)+"\nNakorn Thai\n\nVerify by SMS or email to view the current status.\nTrack your order\n"+links.customer(c.orderId())+"\n");
+   if(customerEmail){String token=viewTokens==null?null:viewTokens.forEmail(c.orderId());
+    String url=token==null?links.customer(c.orderId()):links.customerToken(token);
+    if(token==null)log.warn("order_tracking_verified_recovery_fallback");
+    queue(c,NotificationChannel.EMAIL,c.email(),"Hello "+order.getCustomerName()+",\n\n"+message+"\n\n"+OrderEmailDetails.format(order,c.timezone(),false)+"\nNakorn Thai\n\n"+(token==null?"Verify your saved contact to view the current status.\n":"This private read-only tracking link expires seven days after it was first issued.\n")+"Track your order\n"+url+"\n",url);}
    if(staffEmail){
+    String staffUrl=links.staff(c.orderId());
     var staff=new SendOrderConfirmationCommand(c.orderId(),NotificationType.STAFF_ORDER_RECEIVED,null,null,c.customerName(),c.totalMinor(),c.estimatedReadyAt(),c.timezone());
-    queue(staff,NotificationChannel.EMAIL,ContactDestination.normalize("EMAIL",config.text("staffOrderEmailAddress")),"New customer order\n\nA new customer order needs review.\nIt has not been accepted yet.\n\n"+OrderEmailDetails.format(order,c.timezone(),true)+"\nStaff sign-in required.\nView order\n"+links.staff(c.orderId())+"\n");
+    queue(staff,NotificationChannel.EMAIL,ContactDestination.normalize("EMAIL",config.text("staffOrderEmailAddress")),"New customer order\n\nA new customer order needs review.\nIt has not been accepted yet.\n\n"+OrderEmailDetails.format(order,c.timezone(),true)+"\nStaff sign-in required.\nView order\n"+staffUrl+"\n",staffUrl);
    }
   }
  }
@@ -48,12 +54,13 @@ public class SendOrderConfirmationHandler {
   String event=switch(c.type()){case ORDER_RECEIVED->"Received";case ORDER_ACCEPTED->"Accepted";case ORDER_READY->"Ready for pickup";case ORDER_CANCELLED->"Cancelled";default->throw new IllegalArgumentException("Unsupported order email");};
   return "Nakorn Thai — Order #"+ref+" — "+event;
  }
- private void queue(SendOrderConfirmationCommand c,NotificationChannel channel,String recipient,String body) {
+ private void queue(SendOrderConfirmationCommand c,NotificationChannel channel,String recipient,String body) {queue(c,channel,recipient,body,null);}
+ private void queue(SendOrderConfirmationCommand c,NotificationChannel channel,String recipient,String body,String actionUrl) {
   // Creation/status locks serialize this event; the unique database index is
   // the durable backstop. Existing work is retained, including exhausted jobs.
   Number existing=(Number)em.createNativeQuery("SELECT count(*) FROM notification_delivery WHERE order_id=:id AND type=:type AND channel=:channel",Long.class).setParameter("id",c.orderId()).setParameter("type",c.type().name()).setParameter("channel",channel.name()).getSingleResult();
   if(existing.longValue()>0)return;
-  var n=new NotificationDeliveryJpaEntity();n.setId(UUID.randomUUID());n.setOrderId(c.orderId());n.setType(c.type());n.setChannel(channel);n.setRecipient(recipient);n.setSubject(channel==NotificationChannel.EMAIL?subject(c):"Nakorn Thai order "+c.type().name().substring(6).toLowerCase(Locale.ROOT));n.setBody(body);if(channel==NotificationChannel.EMAIL){boolean staff=c.type()==NotificationType.STAFF_ORDER_RECEIVED;n.setHtmlBody(OrderEmailHtml.render(n.getSubject(),body,staff?"View order":"Track your order",staff?links.staff(c.orderId()):links.customer(c.orderId())));}n.setCreatedAt(clock.instant());n.setNextAttemptAt(clock.instant());em.persist(n);
+  var n=new NotificationDeliveryJpaEntity();n.setId(UUID.randomUUID());n.setOrderId(c.orderId());n.setType(c.type());n.setChannel(channel);n.setRecipient(recipient);n.setSubject(channel==NotificationChannel.EMAIL?subject(c):"Nakorn Thai order "+c.type().name().substring(6).toLowerCase(Locale.ROOT));n.setBody(body);if(channel==NotificationChannel.EMAIL){boolean staff=c.type()==NotificationType.STAFF_ORDER_RECEIVED;n.setHtmlBody(OrderEmailHtml.render(n.getSubject(),body,staff?"View order":"Track your order",actionUrl));}n.setCreatedAt(clock.instant());n.setNextAttemptAt(clock.instant());em.persist(n);
   log.info("notification_queued type={} channel={} id={}",n.getType(),channel,n.getId());
  }
 }
