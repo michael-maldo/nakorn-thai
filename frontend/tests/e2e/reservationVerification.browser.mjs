@@ -94,7 +94,7 @@ try {
  assert.equal(await evaluate('window.requests[0].requestId===window.requests[1].requestId'),true);
  assert.equal(await evaluate('window.requests[1].phoneVerificationId'),'renewed-challenge');
  assert.equal(await evaluate('window.bookingIds.size'),1);
- const body=await evaluate('window.requests[0]');assert.equal(body.phoneVerificationId,'challenge');assert.equal(body.emailVerificationId,undefined);assert.equal(body.email,'Guest@example.test');assert.equal(body.phone,'0412345678');
+ const body=await evaluate('window.requests[0]');assert.equal(body.phoneVerificationId,'challenge');assert.equal(body.emailVerificationId,undefined);assert.equal(body.email,'Guest@example.test');assert.equal(body.phone,'+61412345678');
  assert.equal(await evaluate("window.verificationRequests.every(r=>r.channel==='SMS')"),true);
  assert.deepEqual(errors,[]);console.log('Reservation browser: verification, errors, expiry, destination change, optional email and lost-response retry with renewed SMS passed.');
 }finally{await send('Page.close');ws.close();}

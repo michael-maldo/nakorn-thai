@@ -1,3 +1,4 @@
+import AustralianMobileInput from '../../../shared/components/AustralianMobileInput.jsx';
 import { observeOptions } from '../../restaurant/model/observeOptions.js';
 import { getRestaurantAvailability } from '../../restaurant/api/restaurantApi';
 import { useEffect, useRef, useState } from 'react';
@@ -30,7 +31,7 @@ export default function ReservationPage() {
  {receipt?<section className="staff-panel" role="status"><h2>Request received</h2><p>{receipt.message}</p><p>Reference: {receipt.reference}</p><a href="#home">Back to the restaurant</a></section>:
  <form className="staff-panel" onSubmit={submit}>{optionsError&&<p role="alert" className="staff-error">{optionsError}</p>}{!options.enabled&&<p role="status">Online table requests are currently unavailable. Please contact the restaurant or try again later.</p>}{error&&<p role="alert" className="staff-error">{error}</p>}<fieldset disabled={busy || !timezone}>
  <label>Your name<input name="name" required maxLength={100} autoComplete="name" /></label>
- {options.phoneRequired?<ContactVerification channel="SMS" label="Mobile number (required)" required state={phone} onChange={setPhone} now={now} disabled={busy} />:<label>Mobile number<input name="phone" required type="tel" maxLength={30} autoComplete="tel" value={phone.destination} onChange={e=>setPhone(changeDestination(phone,e.target.value))}/></label>}
+ {options.phoneRequired?<ContactVerification australianMobile channel="SMS" label="Mobile number (required)" required state={phone} onChange={setPhone} now={now} disabled={busy} />:<label>Mobile number<AustralianMobileInput name="phone" required value={phone.destination} disabled={busy} onChange={value=>setPhone(changeDestination(phone,value))}/></label>}
  <label>Email for booking updates (optional)<input name="email" type="email" maxLength={254} autoComplete="email" value={email} onChange={e=>setEmail(e.target.value)} /></label>
  <label>Guests<input name="party" type="number" min={1} max={20} defaultValue={2} required /></label>
  <label>Requested date and time<input name="time" type="datetime-local" step={60} required /></label>

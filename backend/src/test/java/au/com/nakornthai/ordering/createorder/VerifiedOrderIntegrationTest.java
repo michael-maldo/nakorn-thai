@@ -46,6 +46,9 @@ class VerifiedOrderIntegrationTest {
  @Autowired SendOrderConfirmationHandler notifications;
  @Autowired PlatformTransactionManager transactionManager;
  @MockitoBean TwilioVerifyClient provider;@MockitoBean PayPalPaymentProvider paypal;
+ @MockitoBean EmailSender emailSender;@MockitoBean SmsSender smsSender;
+ @MockitoBean au.com.nakornthai.restaurant.configuration.IntegrationDiagnostics diagnostics;
+ @MockitoBean(name="taskScheduler") org.springframework.scheduling.TaskScheduler scheduler;
  @MockitoBean Clock clock;
  UUID id,variation,collection;final String token="a".repeat(64);
  final Instant now=Instant.parse("2030-10-01T08:00:00Z");
@@ -78,6 +81,47 @@ class VerifiedOrderIntegrationTest {
   return mvc.perform(post("/api/orders").with(csrf()).contentType("application/json").content(json.writeValueAsString(request(challenge,phone,email,method))));
  }
  UUID verified(){return challenge("SMS","0412 345 678",true,now.plusSeconds(600));}
+ void staffSettings(boolean customer,boolean staff){
+  var settings=em.find(au.com.nakornthai.restaurant.infrastructure.RestaurantSettingsJpaEntity.class,(short)1);
+  var fields=new HashMap<>(settings.getOperationalConfiguration());
+  fields.put("orderEmail",String.valueOf(customer));fields.put("staffOrderEmail",String.valueOf(staff));
+  fields.put("staffOrderEmailAddress","first@example.test");fields.put("orderSms","false");fields.put("orderPhoneRequired","false");
+  settings.setOperationalConfiguration(fields);em.flush();
+ }
+ @Test void independentCustomerAndStaffEmailCombinationsCreateTransactionalJobs()throws Exception{
+  for(boolean customer:List.of(false,true))for(boolean staff:List.of(false,true)){
+   staffSettings(customer,staff);id=UUID.randomUUID();
+   create(null,"0412345678","guest@example.test","PAY_AT_RESTAURANT").andExpect(status().isCreated());
+   assertEquals(customer?1:0,jobs("ORDER_RECEIVED"));assertEquals(staff?1:0,jobs("STAFF_ORDER_RECEIVED"));
+   assertFalse(jdbc.queryForObject("SELECT phone_verified FROM restaurant_order WHERE id=?",Boolean.class,id));
+  }
+  staffSettings(true,true);id=UUID.randomUUID();
+  create(null,"0412345678",null,"PAY_AT_RESTAURANT").andExpect(status().isCreated());
+  assertEquals(0,jobs("ORDER_RECEIVED"));assertEquals(1,jobs("STAFF_ORDER_RECEIVED"));
+  verifyNoInteractions(emailSender,smsSender);
+ }
+ @Test void replayKeepsCapturedStaffRecipientAfterAddressChangeAndDisablement()throws Exception{
+  staffSettings(true,true);
+  create(null,"0412345678","guest@example.test","PAY_AT_RESTAURANT").andExpect(status().isCreated());
+  assertEquals(1,jobs("STAFF_ORDER_RECEIVED"));
+  var settings=em.find(au.com.nakornthai.restaurant.infrastructure.RestaurantSettingsJpaEntity.class,(short)1);
+  var fields=new HashMap<>(settings.getOperationalConfiguration());fields.put("staffOrderEmailAddress","second@example.test");fields.put("staffOrderEmail","false");
+  settings.setOperationalConfiguration(fields);em.flush();
+  create(null,"0412345678","guest@example.test","PAY_AT_RESTAURANT").andExpect(status().isCreated());
+  assertEquals(1,jobs("ORDER_RECEIVED"));assertEquals(1,jobs("STAFF_ORDER_RECEIVED"));
+  assertEquals("first@example.test",jdbc.queryForObject("SELECT recipient FROM notification_delivery WHERE order_id=? AND type='STAFF_ORDER_RECEIVED'",String.class,id));
+  assertEquals(1,jdbc.queryForObject("SELECT count(*) FROM restaurant_order WHERE id=?",Integer.class,id));
+  id=UUID.randomUUID();create(null,"0412345678","guest@example.test","PAY_AT_RESTAURANT").andExpect(status().isCreated());
+  assertEquals(1,jobs("ORDER_RECEIVED"));assertEquals(0,jobs("STAFF_ORDER_RECEIVED"));
+ }
+ @Test void staffWorkRollsBackWithOrderCreation()throws Exception{
+  staffSettings(false,true);
+  create(null,"0412345678",null,"PAY_AT_RESTAURANT").andExpect(status().isCreated());
+  assertEquals(1,jobs("STAFF_ORDER_RECEIVED"));
+  TestTransaction.flagForRollback();TestTransaction.end();
+  assertEquals(0,jdbc.queryForObject("SELECT count(*) FROM restaurant_order WHERE id=?",Integer.class,id));
+  assertEquals(0,jdbc.queryForObject("SELECT count(*) FROM notification_delivery WHERE order_id=?",Integer.class,id));
+ }
  void flush(){em.flush();em.clear();}
  int jobs(String type){flush();return jdbc.queryForObject("SELECT count(*) FROM notification_delivery WHERE order_id=? AND type=?",Integer.class,id,type);}
  void transition(String role,String next,int expected) throws Exception {

@@ -5,7 +5,7 @@ const businessSettingGroups=[
  ['Online ordering',['orderingEnabled']],
  ['Reservations',['reservationsEnabled']],
  ['Customer verification',['orderPhoneRequired','reservationPhoneRequired']],
- ['Order notifications',['orderSms','orderEmail']],
+ ['Order notifications',['orderSms','orderEmail','staffOrderEmail','staffOrderEmailAddress']],
  ['Reservation notifications',['reservationSms','reservationEmail']],
  ['Payment methods',['paypalEnabled','payidEnabled','payAtRestaurantEnabled']]
 ];
@@ -54,7 +54,7 @@ export default function IntegrationSettingsPage(){
  }
  const row=configuration?.[category],definition=definitions[category];
  const warnings=configuration&&category==='SETTINGS'?dependencyWarnings(fields,configuration):[];
- function renderField(key,label){return <label key={key}>{booleanFields.has(key)?<span className="configuration-checkbox"><input name={key} type="checkbox" checked={fields[key]==='true'} onChange={e=>setFields({...fields,[key]:String(e.target.checked)})}/><span>{label}</span></span>:<>{label}{key==='environment'?<select name={key} value={fields[key]} onChange={e=>setFields({...fields,[key]:e.target.value})}><option value="sandbox">Sandbox</option><option value="live">Live</option></select>:<input name={key} type={key==='port'?'number':'text'} min={key==='port'?1:undefined} max={key==='port'?65535:undefined} maxLength={500} value={fields[key]??''} onChange={e=>setFields({...fields,[key]:e.target.value})}/>}</>}<small>Source: {row.sources[key]==='DASHBOARD'?'Dashboard managed':'Environment/default supplied'}</small></label>;}
+ function renderField(key,label){return <label key={key}>{booleanFields.has(key)?<span className="configuration-checkbox"><input name={key} type="checkbox" checked={fields[key]==='true'} onChange={e=>setFields({...fields,[key]:String(e.target.checked)})}/><span>{label}</span></span>:<>{label}{key==='environment'?<select name={key} value={fields[key]} onChange={e=>setFields({...fields,[key]:e.target.value})}><option value="sandbox">Sandbox</option><option value="live">Live</option></select>:<input name={key} type={key==='staffOrderEmailAddress'?'email':key==='port'?'number':'text'} required={key==='staffOrderEmailAddress'&&fields.staffOrderEmail==='true'} min={key==='port'?1:undefined} max={key==='port'?65535:undefined} maxLength={500} value={fields[key]??''} onChange={e=>setFields({...fields,[key]:e.target.value})}/>}</>}<small>Source: {row.sources[key]==='DASHBOARD'?'Dashboard managed':'Environment/default supplied'}</small></label>;}
  return <main className="staff-menu page-width"><header className="staff-heading"><h1>Settings and integrations</h1><button disabled={busy} onClick={refresh}>Refresh configuration</button></header>
  <p>ADMIN controls restaurant operations and integrations. Configured, enabled and tested are separate states. Secrets are write-only.</p>
  {error&&<p className="staff-error" role="alert">{error}</p>}{notice&&<p role="status">{notice}</p>}

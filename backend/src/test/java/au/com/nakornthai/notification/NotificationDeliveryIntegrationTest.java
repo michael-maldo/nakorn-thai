@@ -23,6 +23,7 @@ class NotificationDeliveryIntegrationTest {
   p.add("spring.datasource.url",()->System.getenv("DB_TEST_URL"));p.add("spring.datasource.username",()->System.getenv().getOrDefault("DB_TEST_USERNAME","nakorn_test"));p.add("spring.datasource.password",()->System.getenv().getOrDefault("DB_TEST_PASSWORD",""));
  }
  @Autowired JdbcTemplate jdbc;
+ @Autowired jakarta.persistence.EntityManager em;
  @Autowired PlatformTransactionManager transactionManager;
  @Autowired SendReservationConfirmationHandler confirmation;
  @Autowired NotificationDeliveryWorker worker;
@@ -67,6 +68,23 @@ class NotificationDeliveryIntegrationTest {
   assertEquals(expected,jdbc.queryForObject("SELECT status FROM notification_delivery WHERE reservation_id=? AND channel=?",String.class,id,channel));
  }
 
+ @Test void independentStaffPurposeIsUniqueAndCapturesQueuedRecipient(){
+  transaction.executeWithoutResult(status->{
+   var settings=em.find(au.com.nakornthai.restaurant.infrastructure.RestaurantSettingsJpaEntity.class,(short)1);
+   var fields=new HashMap<>(settings.getOperationalConfiguration());fields.put("orderEmail","false");fields.put("orderSms","false");fields.put("staffOrderEmail","true");fields.put("staffOrderEmailAddress","first@example.test");settings.setOperationalConfiguration(fields);
+   UUID id=UUID.randomUUID();
+   jdbc.update("INSERT INTO restaurant_order(id,tracking_hash,request_hash,customer_name,phone,notes,total_minor,created_at,updated_at) VALUES (?,? ,?,'Guest','+61412345678','',1990,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)",id,"a".repeat(64),"b".repeat(64));
+   var command=new au.com.nakornthai.notification.orderconfirmation.SendOrderConfirmationCommand(id,NotificationType.ORDER_RECEIVED,null,null,"Guest",1990,null,ZoneId.of("Australia/Melbourne"));
+   orderingNotifications.handle(command);em.flush();
+   fields=new HashMap<>(fields);fields.put("staffOrderEmailAddress","second@example.test");settings.setOperationalConfiguration(fields);
+   orderingNotifications.handle(command);em.flush();
+   assertEquals(1,jdbc.queryForObject("SELECT count(*) FROM notification_delivery WHERE order_id=?",Integer.class,id));
+   assertEquals("first@example.test",jdbc.queryForObject("SELECT recipient FROM notification_delivery WHERE order_id=?",String.class,id));
+   assertEquals("STAFF_ORDER_RECEIVED",jdbc.queryForObject("SELECT type FROM notification_delivery WHERE order_id=?",String.class,id));
+   assertThrows(org.springframework.dao.DataIntegrityViolationException.class,()->jdbc.update("INSERT INTO notification_delivery(id,order_id,type,channel,recipient,subject,body,created_at,next_attempt_at) SELECT ?,order_id,type,channel,recipient,subject,body,created_at,next_attempt_at FROM notification_delivery WHERE order_id=?",UUID.randomUUID(),id));
+   status.setRollbackOnly();
+  });
+ }
  @Test void orderingUsesSameWorkerAndRetriesSmsWithoutResendingEmail() {
   UUID id=UUID.randomUUID();orderIds.add(id);
   transaction.executeWithoutResult(status -> {
@@ -86,6 +104,37 @@ class NotificationDeliveryIntegrationTest {
   doNothing().when(sms).send(any(),any());worker.deliver();
   assertEquals(2,jdbc.queryForObject("SELECT count(*) FROM notification_delivery WHERE order_id=? AND status='SENT'",Integer.class,id));
   verify(sms,times(2)).send(eq("+61412345678"),any());verify(email,times(1)).send(eq("Guest@example.com"),any(),any());
+ }
+ @Test void queuedStaffEmailRetriesIndependentlyAfterRecipientChangeAndDisablement(){
+  UUID id=UUID.randomUUID();orderIds.add(id);
+  var original=transaction.execute(status->new HashMap<>(em.find(au.com.nakornthai.restaurant.infrastructure.RestaurantSettingsJpaEntity.class,(short)1).getOperationalConfiguration()));
+  try {
+   transaction.executeWithoutResult(status->{
+    var settings=em.find(au.com.nakornthai.restaurant.infrastructure.RestaurantSettingsJpaEntity.class,(short)1);
+    var fields=new HashMap<>(original);fields.put("orderEmail","true");fields.put("orderSms","false");fields.put("staffOrderEmail","true");fields.put("staffOrderEmailAddress","first@example.test");settings.setOperationalConfiguration(fields);
+    jdbc.update("INSERT INTO restaurant_order(id,tracking_hash,request_hash,customer_name,phone,notes,total_minor,created_at,updated_at) VALUES (?,?,?,'Guest','+61412345678','',1990,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)",id,"a".repeat(64),"b".repeat(64));
+    orderingNotifications.handle(new au.com.nakornthai.notification.orderconfirmation.SendOrderConfirmationCommand(id,NotificationType.ORDER_RECEIVED,null,"guest@example.test","Guest",1990,null,ZoneId.of("Australia/Melbourne")));
+   });
+   transaction.executeWithoutResult(status->{
+    var settings=em.find(au.com.nakornthai.restaurant.infrastructure.RestaurantSettingsJpaEntity.class,(short)1);
+    var fields=new HashMap<>(settings.getOperationalConfiguration());fields.put("staffOrderEmail","false");fields.put("staffOrderEmailAddress","second@example.test");settings.setOperationalConfiguration(fields);
+   });
+   doThrow(new IllegalStateException("Test provider unavailable")).when(email).send(eq("first@example.test"),any(),any());
+   worker.deliver();
+   assertEquals("SENT",jdbc.queryForObject("SELECT status FROM notification_delivery WHERE order_id=? AND type='ORDER_RECEIVED'",String.class,id));
+   assertEquals("FAILED",jdbc.queryForObject("SELECT status FROM notification_delivery WHERE order_id=? AND type='STAFF_ORDER_RECEIVED'",String.class,id));
+   assertEquals("first@example.test",jdbc.queryForObject("SELECT recipient FROM notification_delivery WHERE order_id=? AND type='STAFF_ORDER_RECEIVED'",String.class,id));
+   assertEquals(1,jdbc.queryForObject("SELECT attempts FROM notification_delivery WHERE order_id=? AND type='STAFF_ORDER_RECEIVED'",Integer.class,id));
+   worker.deliver();verify(email,times(1)).send(eq("first@example.test"),any(),any());
+   jdbc.update("UPDATE notification_delivery SET next_attempt_at=? WHERE order_id=? AND type='STAFF_ORDER_RECEIVED'",java.sql.Timestamp.from(now.minusSeconds(1)),id);
+   doNothing().when(email).send(eq("first@example.test"),any(),any());worker.deliver();
+   assertEquals(2,jdbc.queryForObject("SELECT count(*) FROM notification_delivery WHERE order_id=? AND status='SENT'",Integer.class,id));
+   assertEquals(2,jdbc.queryForObject("SELECT attempts FROM notification_delivery WHERE order_id=? AND type='STAFF_ORDER_RECEIVED'",Integer.class,id));
+   verify(email,times(1)).send(eq("guest@example.test"),any(),any());verify(email,times(2)).send(eq("first@example.test"),any(),any());
+   verify(email,never()).send(eq("second@example.test"),any(),any());verifyNoInteractions(sms);
+  } finally {
+   transaction.executeWithoutResult(status->em.find(au.com.nakornthai.restaurant.infrastructure.RestaurantSettingsJpaEntity.class,(short)1).setOperationalConfiguration(original));
+  }
  }
  @Test void reservationEmailRetriesWithoutResendingSuccessfulSms() {
   UUID id=committedNotifications();

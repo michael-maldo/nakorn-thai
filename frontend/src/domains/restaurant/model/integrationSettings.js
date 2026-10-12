@@ -1,11 +1,11 @@
 export const definitions={
- SETTINGS:{label:'Business settings',fields:{orderingEnabled:'Accept online orders',reservationsEnabled:'Accept reservation requests',orderPhoneRequired:'Require verified mobile for orders',reservationPhoneRequired:'Require verified mobile for reservations',orderSms:'Send SMS order updates',orderEmail:'Send email order updates when email exists',reservationSms:'Send SMS reservation updates',reservationEmail:'Send email reservation updates when email exists',paypalEnabled:'Enable PayPal checkout',payidEnabled:'Enable PayID checkout',payAtRestaurantEnabled:'Offer pay at restaurant'}},
+ SETTINGS:{label:'Business settings',fields:{orderingEnabled:'Accept online orders',reservationsEnabled:'Accept reservation requests',orderPhoneRequired:'Require verified mobile for orders',reservationPhoneRequired:'Require verified mobile for reservations',staffOrderEmail:'Staff new-order email notifications',staffOrderEmailAddress:'Staff notification email address',orderSms:'Send SMS order updates',orderEmail:'Send email order updates when email exists',reservationSms:'Send SMS reservation updates',reservationEmail:'Send email reservation updates when email exists',paypalEnabled:'Enable PayPal checkout',payidEnabled:'Enable PayID checkout',payAtRestaurantEnabled:'Offer pay at restaurant'}},
  PAYPAL:{label:'PayPal',fields:{environment:'Environment',clientId:'Client ID'},secrets:{clientSecret:'Client secret'}},
  PAYID:{label:'PayID',fields:{identifier:'PayID identifier',accountName:'Recipient/account name'}},
  TWILIO:{label:'Twilio',fields:{accountSid:'Account SID',verifyServiceSid:'Verify Service SID',smsFrom:'SMS sender',verifySmsEnabled:'SMS verification capability',verifyEmailEnabled:'Generic email verification capability'},secrets:{authToken:'Auth token'}},
  SMTP:{label:'Email / SMTP',fields:{host:'SMTP host',port:'SMTP port',username:'SMTP username',from:'Sender email',starttls:'Require STARTTLS'},secrets:{password:'SMTP password'}}
 };
-export const booleanFields=new Set([...Object.keys(definitions.SETTINGS.fields),'verifySmsEnabled','verifyEmailEnabled','starttls']);
+export const booleanFields=new Set([...Object.keys(definitions.SETTINGS.fields).filter(k=>k!=='staffOrderEmailAddress'),'verifySmsEnabled','verifyEmailEnabled','starttls']);
 export function dependencyWarnings(fields,configuration){const warnings=[];
  const required=(keys,ready,message)=>{if(keys.some(k=>fields[k]==='true')&&!ready)warnings.push(message);};
  required(['paypalEnabled'],configuration.PAYPAL.configured,'Configure PayPal before enabling checkout.');
@@ -14,7 +14,8 @@ export function dependencyWarnings(fields,configuration){const warnings=[];
  required(['payidEnabled'],configuration.PAYID.configured,'Configure PayID identifier and recipient name first.');
  required(['orderPhoneRequired','reservationPhoneRequired'],configuration.TWILIO.smsVerificationConfigured,'Configure Twilio SMS Verify before requiring verified mobiles.');
  required(['orderSms','reservationSms'],configuration.TWILIO.smsSendingConfigured,'Configure an SMS sender before enabling SMS updates.');
- required(['orderEmail','reservationEmail'],configuration.SMTP.configured,'Configure SMTP before enabling email updates.');
+ required(['orderEmail','reservationEmail','staffOrderEmail'],configuration.SMTP.configured,'Configure SMTP before enabling email updates.');
+ if(fields.staffOrderEmail==='true'&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(fields.staffOrderEmailAddress||''))warnings.push('Enter a usable staff notification email address.');
  if(fields.orderingEnabled==='true'&&['paypalEnabled','payidEnabled','payAtRestaurantEnabled'].every(k=>fields[k]!=='true'))warnings.push('Online ordering requires an available payment method.');
  return warnings;
 }

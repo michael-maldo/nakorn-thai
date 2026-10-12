@@ -38,7 +38,7 @@ const click = async text => {
 function fixture(){
  window.role='ADMIN';window.writes=[];window.audit=[];window.stale=false;window.reads=0;window.holdWrite=false;window.rejectMessage='';window.auditFailure=false;window.confirm=()=>true;
  window.configuration={encryptionAvailable:true};
- const fields={SETTINGS:{orderingEnabled:'false',reservationsEnabled:'true',orderPhoneRequired:'true',reservationPhoneRequired:'true',orderSms:'true',orderEmail:'false',reservationSms:'true',reservationEmail:'true',paypalEnabled:'false',payidEnabled:'false',payAtRestaurantEnabled:'true'},PAYPAL:{environment:'sandbox',clientId:''},PAYID:{identifier:'',accountName:''},TWILIO:{accountSid:'',verifyServiceSid:'',smsFrom:'',verifySmsEnabled:'false',verifyEmailEnabled:'false'},SMTP:{host:'',port:'587',username:'',from:'',starttls:'true'}};
+ const fields={SETTINGS:{orderingEnabled:'false',reservationsEnabled:'true',orderPhoneRequired:'true',reservationPhoneRequired:'true',orderSms:'true',orderEmail:'false',staffOrderEmail:'false',staffOrderEmailAddress:'hello@nakorn.com.au',reservationSms:'true',reservationEmail:'true',paypalEnabled:'false',payidEnabled:'false',payAtRestaurantEnabled:'true'},PAYPAL:{environment:'sandbox',clientId:''},PAYID:{identifier:'',accountName:''},TWILIO:{accountSid:'',verifyServiceSid:'',smsFrom:'',verifySmsEnabled:'false',verifyEmailEnabled:'false'},SMTP:{host:'',port:'587',username:'',from:'',starttls:'true'}};
  for(const [category,values] of Object.entries(fields))window.configuration[category]={fields:values,version:category==='SETTINGS'?6:0,sources:Object.fromEntries(Object.keys(values).map(k=>[k,'ENVIRONMENT_DEFAULT'])),secretsConfigured:category==='PAYPAL'?{clientSecret:false}:category==='TWILIO'?{authToken:false}:category==='SMTP'?{password:false}:{},state:'NOT_CONFIGURED',configured:false,enabled:false,validationStatus:'NOT_TESTED',returnUrl:'https://restaurant.example.test/#/order-confirmation',pendingPayments:2,smsVerificationConfigured:false,smsSendingConfigured:false};
  const realFetch=window.fetch;
  window.fetch=async(url,options={})=>{
@@ -84,11 +84,16 @@ try{
  assert.deepEqual(await evaluate("Array.from(document.querySelectorAll('.business-settings-group')).map(group=>[group.querySelector('h3').textContent,Array.from(group.querySelectorAll('input')).map(input=>input.name)])"),[
   ['Online ordering',['orderingEnabled']],['Reservations',['reservationsEnabled']],
   ['Customer verification',['orderPhoneRequired','reservationPhoneRequired']],
-  ['Order notifications',['orderSms','orderEmail']],['Reservation notifications',['reservationSms','reservationEmail']],
+  ['Order notifications',['orderSms','orderEmail','staffOrderEmail','staffOrderEmailAddress']],['Reservation notifications',['reservationSms','reservationEmail']],
   ['Payment methods',['paypalEnabled','payidEnabled','payAtRestaurantEnabled']]
  ]);
  assert.equal(await evaluate("document.querySelectorAll('form').length===1&&document.querySelectorAll('button[type=submit]').length===1"),true);
- assert.equal(await evaluate("Array.from(document.querySelectorAll('.business-settings-group label')).every(label=>label.firstElementChild.firstElementChild.type==='checkbox'&&label.lastElementChild.tagName==='SMALL')"),true);
+ assert.equal(await evaluate("Array.from(document.querySelectorAll('.business-settings-group label')).filter(label=>label.querySelector('input').type==='checkbox').every(label=>label.firstElementChild.firstElementChild.type==='checkbox'&&label.lastElementChild.tagName==='SMALL')"),true);
+ assert.equal(await evaluate("document.querySelector('[name=staffOrderEmailAddress]').type"),'email');
+ assert.equal(await evaluate("document.querySelector('[name=staffOrderEmailAddress]').value"),'hello@nakorn.com.au');
+ await evaluate("document.querySelector('[name=staffOrderEmail]').click()");
+ assert.equal(await evaluate("document.querySelector('[name=staffOrderEmailAddress]').required"),true);
+ await input('staffOrderEmailAddress','operations@example.test');
  await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
  assert.equal(await evaluate("Array.from(document.querySelectorAll('.configuration-checkbox')).every(row=>{const box=row.querySelector('input').getBoundingClientRect(),text=row.querySelector('span').getBoundingClientRect();return box.right<=text.left&&text.right<=innerWidth;})"),true);
  await send('Emulation.clearDeviceMetricsOverride');

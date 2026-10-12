@@ -5,6 +5,7 @@ public final class ConfigurationFields {
  public static final Map<String,String> ENV=Map.ofEntries(
  Map.entry("orderingEnabled","ONLINE_ORDERING_ENABLED"),Map.entry("reservationsEnabled","ONLINE_RESERVATIONS_ENABLED"),
  Map.entry("orderPhoneRequired","ORDER_PHONE_VERIFICATION_REQUIRED"),Map.entry("reservationPhoneRequired","RESERVATION_PHONE_VERIFICATION_REQUIRED"),
+ Map.entry("staffOrderEmail","STAFF_ORDER_EMAIL_NOTIFICATIONS_ENABLED"),Map.entry("staffOrderEmailAddress","STAFF_ORDER_EMAIL_ADDRESS"),
  Map.entry("orderSms","ORDER_SMS_NOTIFICATIONS_ENABLED"),Map.entry("orderEmail","ORDER_EMAIL_NOTIFICATIONS_ENABLED"),Map.entry("reservationSms","RESERVATION_SMS_NOTIFICATIONS_ENABLED"),Map.entry("reservationEmail","RESERVATION_EMAIL_NOTIFICATIONS_ENABLED"),
  Map.entry("paypalEnabled","PAYPAL_ENABLED"),Map.entry("payidEnabled","PAYID_ENABLED"),Map.entry("payAtRestaurantEnabled","PAY_AT_RESTAURANT_ENABLED"),
  Map.entry("environment","PAYPAL_ENV"),Map.entry("clientId","PAYPAL_CLIENT_ID"),Map.entry("clientSecret","PAYPAL_CLIENT_SECRET"),
@@ -13,13 +14,13 @@ public final class ConfigurationFields {
  Map.entry("vonageApiKey","VONAGE_API_KEY"),Map.entry("vonageApiSecret","VONAGE_API_SECRET"),Map.entry("vonageSmsFrom","VONAGE_SMS_FROM"),Map.entry("vonageVerifyBrand","VONAGE_VERIFY_BRAND"),Map.entry("vonageVerifySmsEnabled","VONAGE_VERIFY_SMS_ENABLED"),
  Map.entry("host","SMTP_HOST"),Map.entry("port","SMTP_PORT"),Map.entry("username","SMTP_USERNAME"),Map.entry("password","SMTP_PASSWORD"),Map.entry("from","SMTP_FROM"),Map.entry("starttls","SMTP_STARTTLS"));
  public static final Map<String,Set<String>> FIELDS=Map.of(
- "SETTINGS",Set.of("orderingEnabled","reservationsEnabled","orderPhoneRequired","reservationPhoneRequired","orderSms","orderEmail","reservationSms","reservationEmail","paypalEnabled","payidEnabled","payAtRestaurantEnabled"),
+ "SETTINGS",Set.of("staffOrderEmail","staffOrderEmailAddress","orderingEnabled","reservationsEnabled","orderPhoneRequired","reservationPhoneRequired","orderSms","orderEmail","reservationSms","reservationEmail","paypalEnabled","payidEnabled","payAtRestaurantEnabled"),
  "PAYPAL",Set.of("environment","clientId","clientSecret"),"PAYID",Set.of("identifier","accountName"),
  "TWILIO",Set.of("accountSid","authToken","verifyServiceSid","smsFrom","verifySmsEnabled","verifyEmailEnabled"),"SMTP",Set.of("host","port","username","password","from","starttls"));
  public static final Set<String> SECRETS=Set.of("clientSecret","authToken","password","vonageApiSecret");
  public static final Set<String> BOOLEAN=new HashSet<>(FIELDS.get("SETTINGS"));
- static {BOOLEAN.addAll(Set.of("verifySmsEnabled","verifyEmailEnabled","starttls"));}
- public static String defaultValue(String key){return switch(key){case "environment"->"sandbox";case "port"->"587";case "orderingEnabled","paypalEnabled","payidEnabled","verifySmsEnabled","verifyEmailEnabled"->"false";default->BOOLEAN.contains(key)?"true":"";};}
+ static {BOOLEAN.remove("staffOrderEmailAddress");BOOLEAN.addAll(Set.of("verifySmsEnabled","verifyEmailEnabled","starttls"));}
+ public static String defaultValue(String key){return switch(key){case "staffOrderEmail"->"false";case "staffOrderEmailAddress"->"hello@nakorn.com.au";case "environment"->"sandbox";case "port"->"587";case "orderingEnabled","paypalEnabled","payidEnabled","verifySmsEnabled","verifyEmailEnabled"->"false";default->BOOLEAN.contains(key)?"true":"";};}
  public static boolean configured(String category,RuntimeConfiguration.Snapshot c){return switch(category){
  case "PAYPAL" -> Set.of("sandbox","live").contains(c.text("environment"))&&!c.text("clientId").isBlank()&&!c.text("clientSecret").isBlank()&&validCallback(c.text("returnUrl"),c.text("environment"));
  case "PAYID" -> !c.text("identifier").isBlank()&&!c.text("accountName").isBlank();

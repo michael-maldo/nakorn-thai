@@ -27,3 +27,10 @@ test('SMS cannot be offered to unverified contacts and disabling features clears
  assert.match(dependencyWarnings({orderSms:'true',orderPhoneRequired:'false'},config).join(' '),/verified mobile/);
  assert.deepEqual(dependencyWarnings(Object.fromEntries(Object.keys(definitions.SETTINGS.fields).map(k=>[k,'false'])),config),[]);
 });
+
+test('staff notification recipient is text and requires independent SMTP readiness',()=>{
+ assert.ok(booleanFields.has('staffOrderEmail'));assert.ok(!booleanFields.has('staffOrderEmailAddress'));
+ assert.equal(definitions.SETTINGS.fields.staffOrderEmailAddress,'Staff notification email address');
+ assert.match(dependencyWarnings({staffOrderEmail:'true',staffOrderEmailAddress:''},config).join(' '),/usable staff/);
+ assert.deepEqual(dependencyWarnings({staffOrderEmail:'true',staffOrderEmailAddress:'staff@example.test',orderEmail:'false'},{...config,SMTP:{configured:true}}),[]);
+});

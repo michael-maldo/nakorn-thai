@@ -70,6 +70,23 @@ class ConfigurationIntegrationTest {
    });
   }finally{reader.shutdownNow();}
  }
+ @Test void staffNotificationsValidateRecipientAndApplyWithoutRestart()throws Exception{
+  assertFalse(runtime.snapshot().flag("staffOrderEmail"));
+  assertEquals("hello@nakorn.com.au",runtime.snapshot().text("staffOrderEmailAddress"));
+  save("SMTP",Map.of("host","smtp.example.test","port","587","from","restaurant@example.test"),Map.of());
+  save("SETTINGS",Map.of("staffOrderEmailAddress","staff@example.test","staffOrderEmail","true","orderEmail","false"),Map.of());
+  assertTrue(runtime.snapshot().flag("staffOrderEmail"));assertFalse(runtime.snapshot().flag("orderEmail"));
+  assertEquals("staff@example.test",runtime.snapshot().text("staffOrderEmailAddress"));
+  mvc.perform(put(PATH+"/SETTINGS").with(user("owner").roles("ADMIN")).with(csrf()).contentType("application/json").content(body("SETTINGS","{\"staffOrderEmailAddress\":\"\"}","{}"))).andExpect(status().isBadRequest());
+ }
+ @Test void staffRecipientSyntaxIsValidatedEvenWhenDisabled()throws Exception{
+  mvc.perform(put(PATH+"/SETTINGS").with(user("owner").roles("ADMIN")).with(csrf()).contentType("application/json").content(body("SETTINGS","{\"staffOrderEmailAddress\":\"invalid-address\",\"staffOrderEmail\":\"false\"}","{}"))).andExpect(status().isBadRequest());
+ }
+ @Test void enabledStaffNotificationsRequireConfiguredSmtp()throws Exception{
+  assertFalse(runtime.snapshot().configured("SMTP"));
+  mvc.perform(put(PATH+"/SETTINGS").with(user("owner").roles("ADMIN")).with(csrf()).contentType("application/json").content(body("SETTINGS","{\"staffOrderEmailAddress\":\"staff@example.test\",\"staffOrderEmail\":\"true\"}","{}")))
+   .andExpect(status().isBadRequest());
+ }
  long version(String c){return ((Number)((Map<?,?>)handler.read().get(c)).get("version")).longValue();}
  void save(String category,Map<String,String> fields,Map<String,String> secrets){handler.save(category,new ConfigurationHandler.Update(version(category),fields,secrets,Set.of(),false),"owner");}
  String body(String c,String fields,String secrets){return "{\"version\":"+version(c)+",\"fields\":"+fields+",\"secrets\":"+secrets+"}";}

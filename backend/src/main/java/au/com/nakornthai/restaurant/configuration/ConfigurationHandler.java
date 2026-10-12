@@ -41,6 +41,7 @@ public class ConfigurationHandler {
    String key=entry.getKey(),value=entry.getValue();
    if(!ConfigurationFields.FIELDS.get(category).contains(key)||ConfigurationFields.SECRETS.contains(key)||value==null||value.length()>500||value.chars().anyMatch(n->n<32))throw bad("Check configuration fields");
    if(ConfigurationFields.BOOLEAN.contains(key)&&!Set.of("true","false").contains(value))throw bad("Check enabled settings");
+   if(key.equals("staffOrderEmailAddress")&&!value.isBlank()&&!validStaffEmail(value.trim()))throw bad("Check staff notification email address");
    if(key.equals("environment")&&!Set.of("sandbox","live").contains(value))throw bad("Choose sandbox or live");
    if(key.equals("port")){try{int port=Integer.parseInt(value);if(port<1||port>65535)throw new NumberFormatException();}catch(NumberFormatException e){throw bad("Check SMTP port");}}
    if(!Objects.equals(fields.put(key,value.trim()),value.trim()))changed.add(key);
@@ -84,7 +85,9 @@ public class ConfigurationHandler {
   log.info("configuration_updated category={} fields={}",category,changed);
   return read();
  }
+ private static boolean validStaffEmail(String value){return value.length()<=254&&value.matches("[^\\s@]+@[^\\s@]+\\.[^\\s@]+");}
  private void validateDependencies(Map<String,String> proposed,RuntimeConfiguration.Snapshot c){
+  if(c.flag("staffOrderEmail")&&(!validStaffEmail(c.text("staffOrderEmailAddress"))||!c.configured("SMTP")))throw bad("Configure SMTP and a usable staff notification email address before enabling staff notifications");
   for(var e:proposed.entrySet())if(e.getValue().equals("true"))switch(e.getKey()){
    case "paypalEnabled"->{if(!c.configured("PAYPAL"))throw bad("Configure PayPal before enabling checkout");if(c.text("environment").equals("live")&&c.flag("paypalDashboardManaged")&&!c.flag("paypalValidated"))throw bad("Test live PayPal credentials successfully before enabling checkout");}
    case "payidEnabled"->{if(!c.configured("PAYID"))throw bad("Configure PayID identifier and recipient name first");}
@@ -118,7 +121,7 @@ public class ConfigurationHandler {
   }
   boolean twilioVerification=ConfigurationFields.usesVerificationProvider(c,"twilio")&&c.flag("verifySmsEnabled");
   boolean twilioSms=ConfigurationFields.usesSmsProvider(c,"twilio")&&(c.flag("orderSms")||c.flag("reservationSms"));
-  boolean configured=c.configured(category),enabled=switch(category){case "PAYPAL"->c.flag("paypalEnabled")&&(!c.text("environment").equals("live")||!c.flag("paypalDashboardManaged")||c.flag("paypalValidated"));case "PAYID"->c.flag("payidEnabled");case "TWILIO"->twilioVerification||twilioSms;case "SMTP"->c.flag("orderEmail")||c.flag("reservationEmail");default->true;};
+  boolean configured=c.configured(category),enabled=switch(category){case "PAYPAL"->c.flag("paypalEnabled")&&(!c.text("environment").equals("live")||!c.flag("paypalDashboardManaged")||c.flag("paypalValidated"));case "PAYID"->c.flag("payidEnabled");case "TWILIO"->twilioVerification||twilioSms;case "SMTP"->c.flag("orderEmail")||c.flag("reservationEmail")||c.flag("staffOrderEmail");default->true;};
   boolean ready=!category.equals("TWILIO")||((!twilioVerification||ConfigurationFields.twilioVerifyConfigured(c))&&(!twilioSms||ConfigurationFields.twilioSmsConfigured(c)));
   enabled=enabled&&ready;
   result.put("fields",fields);result.put("sources",sources);result.put("secretsConfigured",secretConfigured);result.put("version",row==null?settings.getVersion():row.getVersion());result.put("configured",configured);result.put("enabled",enabled&&configured);

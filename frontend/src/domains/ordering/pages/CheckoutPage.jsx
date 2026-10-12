@@ -1,3 +1,4 @@
+import AustralianMobileInput from '../../../shared/components/AustralianMobileInput.jsx';
 import { observeOptions } from '../../restaurant/model/observeOptions.js';
 import ContactVerification from '../../notification/components/ContactVerification.jsx';
 import { emptyVerification,isVerified,changeDestination } from '../../notification/model/contactVerification.js';
@@ -105,7 +106,7 @@ export default function CheckoutPage() {
           <button type="button" disabled={busy} onClick={() => dispatch({ type: 'remove', id: line.key })}>Remove {line.dishName}</button></div>)}
         <p className="order-total">Total: {money(cartTotal(cart))}</p>
         <label>Your name<input required maxLength={100} autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} disabled={busy} /></label>
-        {phoneRequired?<ContactVerification channel="SMS" label="Mobile number (required)" required state={phone} onChange={setPhone} now={now} disabled={busy} startVerification={startContactVerification} verifyCode={verifyContactCode} />:<label>Mobile number<input required type="tel" autoComplete="tel" maxLength={30} value={phone.destination} disabled={busy} onChange={e=>setPhone(changeDestination(phone,e.target.value))}/></label>}
+        {phoneRequired?<ContactVerification australianMobile channel="SMS" label="Mobile number (required)" required state={phone} onChange={setPhone} now={now} disabled={busy} startVerification={startContactVerification} verifyCode={verifyContactCode} />:<label>Mobile number<AustralianMobileInput name="phone" required value={phone.destination} disabled={busy} onChange={value=>setPhone(changeDestination(phone,value))}/></label>}
         <label>Email for order updates (optional)<input type="email" maxLength={254} autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} disabled={busy} /></label>
         <p>We use your contact details for transactional order updates. Email verification is not required.</p>
         <p>Keep the full order ID on your receipt. Where enabled, you can request an SMS or email code to recover tracking access.</p>
