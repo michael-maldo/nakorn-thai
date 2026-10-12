@@ -14,6 +14,7 @@ public class NotificationDeliveryJpaEntity {
  private String recipient;
  private String subject;
  private String body;
+ private String htmlBody;
  @Enumerated(EnumType.STRING) private DeliveryStatus status=DeliveryStatus.PENDING;
  private int attempts;
  private Instant createdAt;

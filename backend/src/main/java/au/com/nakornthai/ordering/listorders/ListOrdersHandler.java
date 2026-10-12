@@ -12,6 +12,13 @@ public class ListOrdersHandler {
     private final SpringDataOrderRepository orders;
     private final OrderMapper mapper;
     @Transactional(readOnly=true)
+    public CreateOrderResponse detail(UUID id,boolean kitchen){
+        var order=orders.findById(id).orElseThrow(()->new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND));
+        if(kitchen&&!List.of("ACCEPTED","PREPARING","READY").contains(order.getStatus()))
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND);
+        return mapper.map(order,!kitchen);
+    }
+    @Transactional(readOnly=true)
     public List<CreateOrderResponse> handle(boolean kitchen, boolean history) {
         var page = PageRequest.of(0,200);
         var result = history && !kitchen ? orders.findByStatusInAndCreatedAtAfterOrderByCreatedAtDesc(

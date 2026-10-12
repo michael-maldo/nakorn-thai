@@ -1,3 +1,4 @@
+import {orderLink} from '../domains/ordering/model/orderLinks.js';
 import IntegrationSettingsPage from '../domains/restaurant/pages/IntegrationSettingsPage';
 import HomepageSettingsPage from '../domains/menu/pages/HomepageSettingsPage';
 import OrdersAdminPage from '../domains/ordering/pages/OrdersAdminPage';
@@ -21,7 +22,8 @@ import HomePage from '../website/pages/HomePage';
 import StaffMenuPage from '../domains/staff/pages/StaffMenuPage';
 
 export default function AppRouter() {
-  const [hash, setHash] = useState(window.location.hash.split('?')[0]);
+  const [location, setLocation] = useState(window.location.hash);
+  const hash=location.split('?')[0], linked=orderLink(location);
   useEffect(() => {
     let currentUrl = window.location.href;
     let approvedUrl = null;
@@ -48,7 +50,7 @@ export default function AppRouter() {
       position = Number.isInteger(targetPosition) ? targetPosition : position + 1;
       window.history.replaceState({ ...window.history.state, menuPosition: position }, '');
       approvedUrl = null; currentUrl = window.location.href;
-      setHash(window.location.hash.split('?')[0]);
+      setLocation(window.location.hash);
     };
     const beforeUnload = event => { if (hasMenuEdits()) { event.preventDefault(); event.returnValue = ''; } };
     document.addEventListener('click', beforeLink);
@@ -67,11 +69,11 @@ export default function AppRouter() {
   if (hash === '#/reservations') return <ReservationPage />;
   if (hash === '#/staff/reservations') return staffPage(<ReservationAdminPage />, ['ADMIN','FOH']);
   if (hash === '#/menu') return <MenuPage />;
-  if (hash === '#/track-order') return <OrderTrackingPage />;
+  if (hash === '#/track-order') return <OrderTrackingPage key={location} linked={linked} />;
   if (hash === '#/checkout') return <CheckoutPage />;
   if (hash === '#/order-confirmation') return <OrderConfirmationPage />;
   if (hash === '#/staff/homepage') return staffPage(<HomepageSettingsPage />, ['ADMIN']);
-  if (hash === '#/staff/orders') return staffPage(<OrdersAdminPage />, ['ADMIN', 'FOH', 'BOH']);
+  if (hash === '#/staff/orders') return staffPage(<OrdersAdminPage key={location} linked={linked} />, ['ADMIN', 'FOH', 'BOH']);
   if (hash === '#/staff/ordering') return staffPage(<OnlineOrderingPage />, ['ADMIN', 'FOH']);
   if (hash === '#/staff/settings') return staffPage(<IntegrationSettingsPage />, ['ADMIN']);
   if (hash === '#/staff/restaurant') return staffPage(<RestaurantSchedulePage />, ['ADMIN']);

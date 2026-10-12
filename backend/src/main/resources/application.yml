@@ -84,6 +84,7 @@ management:
     health:
       show-details: never
 nakorn:
+  public-app-url: ${PUBLIC_APP_URL:${PAYPAL_RETURN_URL:http://localhost:5173/#/order-confirmation}}
   restaurant-time-zone: Australia/Melbourne
   media-base-url: ${MEDIA_BASE_URL:/media/}
 

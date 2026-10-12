@@ -92,6 +92,9 @@ try{
  assert.equal(await evaluate("Array.from(document.querySelectorAll('button')).find(b=>b.textContent==='Place pickup order').disabled"),true);
  await evaluate('window.verificationUnavailable=true');await click('Send verification code');await waitFor("document.body.innerText.includes('SMS verification unavailable')");
  await evaluate('window.verificationUnavailable=false');await input('[autocomplete=tel]','0412 345 678');
+ // Spacing edits preserve the same canonical destination and its retry cooldown.
+ assert.equal(await evaluate("Array.from(document.querySelectorAll('button')).some(b=>b.disabled&&b.textContent.startsWith('Resend in '))"),true);
+ await evaluate("window.originalDateNow=Date.now;Date.now=()=>window.originalDateNow()+61000");
  await click('Send verification code');await waitFor("document.querySelector('[autocomplete=one-time-code]')");
  await input('[autocomplete=one-time-code]','123456');
  for(const error of ['Invalid verification code','Verification expired']){

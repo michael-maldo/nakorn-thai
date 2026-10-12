@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../../identity/model/AuthContext';
-import { changeOrderStatus, getStaffOrders, verifyStaffPayment } from '../api/orderApi';
+import { changeOrderStatus, getStaffOrders, getStaffOrder, verifyStaffPayment } from '../api/orderApi';
 import { needsPayment, orderActions, orderStates } from '../model/orderModel';
 import { money } from '../model/cartReducer';
 import OrderItemOptions from '../components/OrderItemOptions';
@@ -51,7 +51,7 @@ export function StaffOrderCard({ order, role, busy, onAction, onPayment }) {
   </article>;
 }
 
-export default function OrdersAdminPage() {
+export default function OrdersAdminPage({linked={orderId:null,invalid:false}}) {
   const { user, authorization } = useAuth();
   const [history, setHistory] = useState(false);
   const [filter, setFilter] = useState('ALL');
@@ -67,14 +67,14 @@ export default function OrdersAdminPage() {
     let timer;
     async function load() {
       try {
-        const result = await getStaffOrders(authorization, kitchen, history);
+        const result = linked.orderId?[await getStaffOrder(linked.orderId,authorization)]:await getStaffOrders(authorization, kitchen, history);
         if (live) { setOrders(result); setError(''); }
-      } catch (failure) { if (live) setError(failure.message); }
+      } catch (failure) { if (live) setError(failure.status===404&&linked.orderId?'This order is not available for your staff role or no longer exists.':failure.message); }
       finally { if (live) timer = setTimeout(load, 15000); }
     }
     if (!busy) load();
     return () => { live = false; clearTimeout(timer); };
-  }, [authorization, kitchen, history, busy, revision]);
+  }, [authorization, kitchen, history, busy, revision, linked.orderId]);
   async function mutate(action, message) {
     if (saving.current) return false;
     saving.current = true; setBusy(true); setError(''); setNotice('');
@@ -88,9 +88,11 @@ export default function OrdersAdminPage() {
     <p className="staff-kicker">{kitchen ? 'KITCHEN' : 'ORDER MANAGEMENT'}</p><h1>{kitchen ? 'Kitchen orders' : 'Orders'}</h1>
     <p>{kitchen ? 'Accepted → Preparing → Ready for pickup. FOH handles customer handover.' : 'New → Accepted → Preparing → Ready for pickup → Completed. Orders can be cancelled before completion.'}</p>
     {user.role === 'FOH' && <p>The kitchen updates preparation and ready states.</p>}
+    {linked.invalid&&<p role="alert">This order link is invalid. Choose an order from the queue.</p>}
+    {linked.orderId&&<p><a href="#/staff/orders">Back to all orders</a></p>}
     <div className="staff-toolbar">
-      {!kitchen && <label>Queue <select disabled={busy} value={history ? 'history' : 'active'} onChange={event => { setHistory(event.target.value === 'history'); setFilter('ALL'); setOrders(null); }}><option value="active">Active orders</option><option value="history">History (placed in the last 24 hours)</option></select></label>}
-      <label>Status <select value={filter} onChange={event => setFilter(event.target.value)}><option value="ALL">All states</option>{states.map(state => <option key={state} value={state}>{orderStates[state]} ({orders?.filter(order => order.status === state).length || 0})</option>)}</select></label>
+      {!linked.orderId&&!kitchen && <label>Queue <select disabled={busy} value={history ? 'history' : 'active'} onChange={event => { setHistory(event.target.value === 'history'); setFilter('ALL'); setOrders(null); }}><option value="active">Active orders</option><option value="history">History (placed in the last 24 hours)</option></select></label>}
+      {!linked.orderId&&<label>Status <select value={filter} onChange={event => setFilter(event.target.value)}><option value="ALL">All states</option>{states.map(state => <option key={state} value={state}>{orderStates[state]} ({orders?.filter(order => order.status === state).length || 0})</option>)}</select></label>}
       <button type="button" disabled={busy} onClick={() => setRevision(value => value + 1)}>Refresh</button>
     </div>
     <p>Refreshes every 15 seconds. Times shown in Melbourne time.</p>

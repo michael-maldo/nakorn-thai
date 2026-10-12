@@ -31,6 +31,7 @@ function serial(action) {
   const result = staffQueue.then(action, action);
   staffQueue = result.catch(() => {}); return result;
 }
+export const getStaffOrder = (id, authorization) => serial(() => request(`/staff/orders/${id}`, {authorization}));
 export const getStaffOrders = (authorization, kitchen, history = false) => serial(() =>
   request(kitchen ? '/staff/kitchen/orders' : `/staff/foh/orders?history=${history}`, { authorization }));
 export const changeOrderStatus = (id, command, authorization) => serial(async () => {

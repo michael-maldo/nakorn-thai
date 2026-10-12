@@ -1,0 +1,54 @@
+Subject: Nakorn Thai — Order #ABCD1234 — Ready for pickup
+
+Hello Alex Sample,
+
+Your order is ready for pickup at Nakorn Thai, 233 Glenferrie Rd, Malvern.
+
+Order details
+Reference: ABCD1234
+Placed: 7 Oct 2030, 6:05 PM AEDT
+Customer: Alex Sample
+Fulfilment: Pickup
+Payment method: PayPal
+Payment: Paid
+Order status: Ready
+Estimated pickup:
+  7 Oct 2030, 6:45 PM AEDT
+
+Items
+Unit prices include selected options.
+
+2 x Green Curry
+  Variation: Chicken
+  Unit price: AUD 26.40
+  Heat: Mild
+    Qty per item: 1
+    Adjustment each: AUD 0.00
+  Extras: Extra vegetables
+    Qty per item: 1
+    Adjustment each: AUD 2.50
+  Line total: AUD 52.80
+
+1 x Pad Thai
+  Variation: Prawns
+  Unit price: AUD 32.90
+  Extras: Extra prawns
+    Qty per item: 2
+    Adjustment each: AUD 3.00
+  Line total: AUD 32.90
+
+3 x Jasmine Rice
+  Variation: Large
+  Unit price: AUD 4.50
+  Line total: AUD 13.50
+
+Total: AUD 99.20
+
+Customer notes:
+Please pack sauces separately. No cutlery, thank you.
+
+Nakorn Thai
+
+Verify by SMS or email to view the current status.
+Track your order
+https://restaurant.example.test/#/track-order?order=abcd1234-0000-4000-8000-000000000001

@@ -67,6 +67,16 @@ class NotificationDeliveryIntegrationTest {
  void assertStatus(UUID id,String channel,String expected) {
   assertEquals(expected,jdbc.queryForObject("SELECT status FROM notification_delivery WHERE reservation_id=? AND channel=?",String.class,id,channel));
  }
+ @Test void historicalOrderJobWithoutHtmlKeepsPlainTextDelivery(){
+  UUID id=UUID.randomUUID();orderIds.add(id);
+  transaction.executeWithoutResult(status->{
+   jdbc.update("INSERT INTO restaurant_order(id,tracking_hash,request_hash,customer_name,phone,notes,total_minor,created_at,updated_at) VALUES (?,?,?,'Guest','+61412345678','',1990,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)",id,"a".repeat(64),"b".repeat(64));
+   jdbc.update("INSERT INTO notification_delivery(id,order_id,type,channel,recipient,subject,body,created_at,next_attempt_at) VALUES (?,?,'ORDER_RECEIVED','EMAIL','guest@example.test','Legacy subject','Legacy body',?,?)",UUID.randomUUID(),id,java.sql.Timestamp.from(now),java.sql.Timestamp.from(now));
+  });
+  worker.deliver();verify(email).send("guest@example.test","Legacy subject","Legacy body");verify(email,never()).send(any(),any(),any(),any());
+  assertEquals("SENT",jdbc.queryForObject("SELECT status FROM notification_delivery WHERE order_id=?",String.class,id));
+  assertNull(jdbc.queryForObject("SELECT html_body FROM notification_delivery WHERE order_id=?",String.class,id));
+ }
 
  @Test void independentStaffPurposeIsUniqueAndCapturesQueuedRecipient(){
   transaction.executeWithoutResult(status->{
@@ -99,11 +109,11 @@ class NotificationDeliveryIntegrationTest {
   worker.deliver();
   assertEquals("SENT",jdbc.queryForObject("SELECT status FROM notification_delivery WHERE order_id=? AND channel='EMAIL'",String.class,id));
   assertEquals("FAILED",jdbc.queryForObject("SELECT status FROM notification_delivery WHERE order_id=? AND channel='SMS'",String.class,id));
-  worker.deliver();verify(sms,times(1)).send(any(),any());verify(email,times(1)).send(any(),any(),any());
+  worker.deliver();verify(sms,times(1)).send(any(),any());verify(email,times(1)).send(any(),any(),any(),any());
   jdbc.update("UPDATE notification_delivery SET next_attempt_at=? WHERE order_id=? AND channel='SMS'",java.sql.Timestamp.from(now.minusSeconds(1)),id);
   doNothing().when(sms).send(any(),any());worker.deliver();
   assertEquals(2,jdbc.queryForObject("SELECT count(*) FROM notification_delivery WHERE order_id=? AND status='SENT'",Integer.class,id));
-  verify(sms,times(2)).send(eq("+61412345678"),any());verify(email,times(1)).send(eq("Guest@example.com"),any(),any());
+  verify(sms,times(2)).send(eq("+61412345678"),any());verify(email,times(1)).send(eq("Guest@example.com"),any(),any(),any());
  }
  @Test void queuedStaffEmailRetriesIndependentlyAfterRecipientChangeAndDisablement(){
   UUID id=UUID.randomUUID();orderIds.add(id);
@@ -119,19 +129,19 @@ class NotificationDeliveryIntegrationTest {
     var settings=em.find(au.com.nakornthai.restaurant.infrastructure.RestaurantSettingsJpaEntity.class,(short)1);
     var fields=new HashMap<>(settings.getOperationalConfiguration());fields.put("staffOrderEmail","false");fields.put("staffOrderEmailAddress","second@example.test");settings.setOperationalConfiguration(fields);
    });
-   doThrow(new IllegalStateException("Test provider unavailable")).when(email).send(eq("first@example.test"),any(),any());
+   doThrow(new IllegalStateException("Test provider unavailable")).when(email).send(eq("first@example.test"),any(),any(),any());
    worker.deliver();
    assertEquals("SENT",jdbc.queryForObject("SELECT status FROM notification_delivery WHERE order_id=? AND type='ORDER_RECEIVED'",String.class,id));
    assertEquals("FAILED",jdbc.queryForObject("SELECT status FROM notification_delivery WHERE order_id=? AND type='STAFF_ORDER_RECEIVED'",String.class,id));
    assertEquals("first@example.test",jdbc.queryForObject("SELECT recipient FROM notification_delivery WHERE order_id=? AND type='STAFF_ORDER_RECEIVED'",String.class,id));
    assertEquals(1,jdbc.queryForObject("SELECT attempts FROM notification_delivery WHERE order_id=? AND type='STAFF_ORDER_RECEIVED'",Integer.class,id));
-   worker.deliver();verify(email,times(1)).send(eq("first@example.test"),any(),any());
+   worker.deliver();verify(email,times(1)).send(eq("first@example.test"),any(),any(),any());
    jdbc.update("UPDATE notification_delivery SET next_attempt_at=? WHERE order_id=? AND type='STAFF_ORDER_RECEIVED'",java.sql.Timestamp.from(now.minusSeconds(1)),id);
-   doNothing().when(email).send(eq("first@example.test"),any(),any());worker.deliver();
+   doNothing().when(email).send(eq("first@example.test"),any(),any(),any());worker.deliver();
    assertEquals(2,jdbc.queryForObject("SELECT count(*) FROM notification_delivery WHERE order_id=? AND status='SENT'",Integer.class,id));
    assertEquals(2,jdbc.queryForObject("SELECT attempts FROM notification_delivery WHERE order_id=? AND type='STAFF_ORDER_RECEIVED'",Integer.class,id));
-   verify(email,times(1)).send(eq("guest@example.test"),any(),any());verify(email,times(2)).send(eq("first@example.test"),any(),any());
-   verify(email,never()).send(eq("second@example.test"),any(),any());verifyNoInteractions(sms);
+   verify(email,times(1)).send(eq("guest@example.test"),any(),any(),any());verify(email,times(2)).send(eq("first@example.test"),any(),any(),any());
+   verify(email,never()).send(eq("second@example.test"),any(),any(),any());verifyNoInteractions(sms);
   } finally {
    transaction.executeWithoutResult(status->em.find(au.com.nakornthai.restaurant.infrastructure.RestaurantSettingsJpaEntity.class,(short)1).setOperationalConfiguration(original));
   }

@@ -37,7 +37,7 @@ public class NotificationDeliveryWorker {
   if(n.getStatus()==DeliveryStatus.SENT || n.getAttempts()>=5)return;
   n.setAttempts(n.getAttempts()+1);
   try {
-   if(n.getChannel()==NotificationChannel.SMS)sms.send(n.getRecipient(),n.getBody());else email.send(n.getRecipient(),n.getSubject(),n.getBody());
+   if(n.getChannel()==NotificationChannel.SMS)sms.send(n.getRecipient(),n.getBody());else if(n.getHtmlBody()==null)email.send(n.getRecipient(),n.getSubject(),n.getBody());else email.send(n.getRecipient(),n.getSubject(),n.getBody(),n.getHtmlBody());
    n.setStatus(DeliveryStatus.SENT);n.setSentAt(clock.instant());n.setLastError(null);
    metrics.counter("notification.delivery.attempts","channel",n.getChannel().name(),"type",n.getType().name(),"result","sent").increment();
    log.info("notification_sent type={} channel={} id={}",n.getType(),n.getChannel(),n.getId());

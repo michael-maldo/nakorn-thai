@@ -16,6 +16,11 @@ public class ListOrdersController {
     ResponseEntity<List<CreateOrderResponse>> kitchen() {
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(handler.handle(true,false));
     }
+    @GetMapping("/api/staff/orders/{id}")
+    ResponseEntity<CreateOrderResponse> detail(@PathVariable UUID id,org.springframework.security.core.Authentication authentication){
+        boolean kitchen=authentication.getAuthorities().stream().anyMatch(a->a.getAuthority().equals("ROLE_BOH"));
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(handler.detail(id,kitchen));
+    }
     @GetMapping("/api/staff/orders/csrf")
     ResponseEntity<Map<String,String>> csrf(CsrfToken token) {
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(Map.of("headerName",token.getHeaderName(),"token",token.getToken()));

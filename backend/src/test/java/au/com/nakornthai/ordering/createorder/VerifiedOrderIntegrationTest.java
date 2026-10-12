@@ -122,6 +122,29 @@ class VerifiedOrderIntegrationTest {
   assertEquals(0,jdbc.queryForObject("SELECT count(*) FROM restaurant_order WHERE id=?",Integer.class,id));
   assertEquals(0,jdbc.queryForObject("SELECT count(*) FROM notification_delivery WHERE order_id=?",Integer.class,id));
  }
+ @Test void trackingLocatorNeedsTokenAndRecoveryGrantExpires()throws Exception{
+  create(verified(),"0412345678","guest@example.test","PAY_AT_RESTAURANT").andExpect(status().isCreated());flush();
+  mvc.perform(get("/api/orders/"+id)).andExpect(status().isNotFound());
+  mvc.perform(get("/api/orders/"+id).header("X-Order-Token","b".repeat(64))).andExpect(status().isNotFound());
+  jdbc.update("UPDATE restaurant_order SET status='READY' WHERE id=?",id);em.clear();
+  mvc.perform(get("/api/orders/"+id).header("X-Order-Token",token)).andExpect(status().isOk()).andExpect(jsonPath("$.status").value("READY"));
+  String started=mvc.perform(post("/api/order-verification/start").with(csrf()).contentType("application/json").content(json.writeValueAsString(Map.of("orderId",id,"channel","sms")))).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+  String challenge=json.readTree(started).path("challengeId").asText();
+  String checked=mvc.perform(post("/api/order-verification/check").with(csrf()).contentType("application/json").content(json.writeValueAsString(Map.of("challengeId",challenge,"code","123456")))).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+  String grant=json.readTree(checked).path("trackingToken").asText();flush();
+  mvc.perform(get("/api/orders/"+id).header("X-Order-Token",grant)).andExpect(status().isOk()).andExpect(jsonPath("$.status").value("READY"));
+  jdbc.update("UPDATE order_tracking_grant SET expires_at=CURRENT_TIMESTAMP-interval '1 second' WHERE order_id=?",id);em.clear();
+  mvc.perform(get("/api/orders/"+id).header("X-Order-Token",grant)).andExpect(status().isNotFound());
+ }
+ @Test void staffDetailRequiresStaffRoleAndPreservesKitchenVisibility()throws Exception{
+  create(verified(),"0412345678",null,"PAY_AT_RESTAURANT").andExpect(status().isCreated());flush();
+  mvc.perform(get("/api/staff/orders/"+id)).andExpect(status().isUnauthorized());
+  mvc.perform(get("/api/staff/orders/"+id).with(user("guest").roles("CUSTOMER"))).andExpect(status().isForbidden());
+  for(String role:List.of("FOH","ADMIN"))mvc.perform(get("/api/staff/orders/"+id).with(user("staff").roles(role))).andExpect(status().isOk()).andExpect(jsonPath("$.customerName").value("Guest"));
+  mvc.perform(get("/api/staff/orders/"+id).with(user("kitchen").roles("BOH"))).andExpect(status().isNotFound());
+  jdbc.update("UPDATE restaurant_order SET status='ACCEPTED' WHERE id=?",id);em.clear();
+  mvc.perform(get("/api/staff/orders/"+id).with(user("kitchen").roles("BOH"))).andExpect(status().isOk()).andExpect(jsonPath("$.customerName").doesNotExist()).andExpect(jsonPath("$.phone").doesNotExist());
+ }
  void flush(){em.flush();em.clear();}
  int jobs(String type){flush();return jdbc.queryForObject("SELECT count(*) FROM notification_delivery WHERE order_id=? AND type=?",Integer.class,id,type);}
  void transition(String role,String next,int expected) throws Exception {

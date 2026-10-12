@@ -17,6 +17,7 @@ export default function OrderConfirmationPage() {
       try {
         const receipt = JSON.parse(sessionStorage.getItem(PENDING_ORDER) || sessionStorage.getItem(RECEIPT) || 'null');
         if (!receipt) { if (!stopped) setError('No order receipt is available in this browser tab.'); return; }
+        if(!stopped)setReceipt(receipt);
         const data = await getOrder(receipt);
         if (stopped) return;
         sessionStorage.setItem(RECEIPT, JSON.stringify({ requestId: receipt.requestId, trackingToken: receipt.trackingToken }));
@@ -25,15 +26,16 @@ export default function OrderConfirmationPage() {
         if (!['COMPLETED', 'CANCELLED'].includes(data.status)) timer = setTimeout(poll, 5000);
       } catch (failure) {
         if (stopped) return;
-        setError(failure.status === 404 ? 'No order has been found yet. Return to checkout to retry the saved submission.' : failure.message);
-        timer = setTimeout(poll, 5000);
+        if(failure.status===404&&!sessionStorage.getItem(PENDING_ORDER))setOrder(null);
+        setError(failure.status === 404 ? sessionStorage.getItem(PENDING_ORDER)?'No order has been found yet. Return to checkout to retry the saved submission.':'Tracking access expired or is invalid. Recover tracking with a new verification code.' : failure.message);
+        if(failure.status!==404||sessionStorage.getItem(PENDING_ORDER))timer = setTimeout(poll, 5000);
       }
     }
     poll(); return () => { stopped = true; clearTimeout(timer); };
   }, [dispatch]);
   return <><Header currentPage="Menu" /><main className="restaurant-menu page-width">
     <h1>Your pickup order</h1>
-    {error && <p role="alert" className="staff-error">{error}</p>}
+    {error && <><p role="alert" className="staff-error">{error}</p><a href={`#/track-order${receipt?.requestId?'?order='+encodeURIComponent(receipt.requestId):''}`}>Recover order tracking</a></>}
     {!order && !error && <p role="status">Checking your order…</p>}
     {order && <section className="order-panel">
       <h2>Order {order.reference}</h2><p role="status"><strong>{labels[order.status]}</strong></p>
