@@ -87,3 +87,9 @@ test('payment verification preserves version and serializes CSRF with queue refr
   await Promise.all([verifyStaffPayment('id', command, 'Basic test'), getStaffOrders('Basic test', false)]);
   assert.deepEqual(calls, ['/api/staff/orders/csrf', '/api/staff/payments/id/payid-confirm', '/api/staff/foh/orders?history=false']);
 });
+
+test('availability reads forward the observer abort signal to fetch',async()=>{
+ const original=globalThis.fetch;const signal=new AbortController().signal;let received;
+ globalThis.fetch=async(_url,options)=>{received=options.signal;return Response.json({enabled:true});};
+ try{await (await import('./orderApi.js')).getOrderingOptions(signal);assert.equal(received,signal);}finally{globalThis.fetch=original;}
+});

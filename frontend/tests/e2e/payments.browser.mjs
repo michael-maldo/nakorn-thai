@@ -49,6 +49,7 @@ function fixture() {
   window.requests.push({url,body:options.body?JSON.parse(options.body):null});
   if(url.endsWith('/csrf'))return Response.json({headerName:'X-CSRF-TOKEN',token:'test'});
   if(url==='/api/identity/refresh')return sessionStorage.getItem('payment-test-staff')?Response.json({accessToken:'test',expiresAt:new Date(Date.now()+900000).toISOString(),user:{username:'front',role:'FOH'}}):new Response(null,{status:401});
+  if(url==='/api/orders/contact-verifications/options')return Response.json({sms:true,email:false});
   if(url==='/api/orders/options')return Response.json({enabled:true});
   if(url==='/api/payments/options')return Response.json({paypal:!sessionStorage.getItem('payment-test-disabled'),payid:!sessionStorage.getItem('payment-test-disabled'),payAtRestaurant:true});
   if(url==='/api/menu/collections')return Response.json([menu]);

@@ -8,3 +8,5 @@ async function write(path,body) {
 }
 export const startContactVerification=(channel,destination)=>write('',{channel,destination});
 export const verifyContactCode=(id,code)=>write('/'+id+'/verify',{code});
+
+export const getContactVerificationOptions = async (signal) => decode(await fetch('/api/orders/contact-verifications/options', { credentials: 'same-origin', cache: 'no-store', signal }));

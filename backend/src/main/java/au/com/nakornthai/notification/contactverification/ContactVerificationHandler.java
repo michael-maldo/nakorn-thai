@@ -40,6 +40,7 @@ public class ContactVerificationHandler {
   if(entry==null || (entry.getConsumedBy()!=null || entry.getConsumedOrderId()!=null) || !entry.getExpiresAt().isAfter(clock.instant()))throw failure(HttpStatus.BAD_REQUEST,"Code expired or invalid; request a new code");
   if(entry.getVerifiedAt()!=null)return Map.of("id",id,"verified",true,"expiresAt",entry.getExpiresAt());
   if(entry.getAttempts()>=5 || entry.getProviderReference()==null)throw failure(HttpStatus.BAD_REQUEST,"Attempt limit reached; request a new code");
+  if(!provider.enabled(entry.getChannel().toLowerCase(Locale.ROOT)))throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,"Verification channel unavailable");
   entry.setAttempts(entry.getAttempts()+1);
   if(!provider.check(entry.getProviderReference(),code)) {
    metrics.counter("reservation.contact.verification.checks","channel",entry.getChannel(),"result","failed").increment();

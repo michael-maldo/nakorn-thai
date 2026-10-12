@@ -29,3 +29,9 @@ test('invalid, expired, limited and unavailable verification errors are surfaced
   await assert.rejects(startContactVerification('SMS','0412345678'),{message:'Verification service unavailable. Please try again.'});
  } finally {globalThis.fetch=original;}
 });
+
+test('availability reads forward the observer abort signal to fetch',async()=>{
+ const original=globalThis.fetch;const signal=new AbortController().signal;let received;
+ globalThis.fetch=async(_url,options)=>{received=options.signal;return Response.json({enabled:true});};
+ try{await (await import('./contactVerificationApi.js')).getContactVerificationOptions(signal);assert.equal(received,signal);}finally{globalThis.fetch=original;}
+});

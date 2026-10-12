@@ -1,3 +1,4 @@
+import { observeOptions } from '../../restaurant/model/observeOptions.js';
 import ContactVerification from '../../notification/components/ContactVerification.jsx';
 import { emptyVerification,isVerified,changeDestination } from '../../notification/model/contactVerification.js';
 import { startContactVerification,verifyContactCode } from '../../notification/api/contactVerificationApi.js';
@@ -25,11 +26,21 @@ export default function CheckoutPage() {
   const [orderingMessage, setOrderingMessage] = useState('Online ordering is currently closed or unavailable.');
   const [email, setEmail] = useState(pending?.email ?? '');
   const [paymentMethod, setPaymentMethod] = useState(pending?.paymentMethod ?? 'PAY_AT_RESTAURANT');
+  const [paymentOptionsError,setPaymentOptionsError]=useState(''),[orderingOptionsError,setOrderingOptionsError]=useState('');
   const [paymentOptions, setPaymentOptions] = useState({});
   const [now,setNow]=useState(Date.now());
   useEffect(()=>{const timer=setInterval(()=>setNow(Date.now()),1000);return()=>clearInterval(timer);},[]);
-  useEffect(() => { paymentRequest('/api/payments/options').then(options=>{setPaymentOptions(options);if(!pending&&!(paymentMethod==='PAYPAL'?options.paypal:paymentMethod==='PAYID'?options.payid:options.payAtRestaurant!==false))setPaymentMethod(options.payAtRestaurant?'PAY_AT_RESTAURANT':options.paypal?'PAYPAL':options.payid?'PAYID':'');}).catch(() => {}); }, []);
-  useEffect(() => { let active = true; getOrderingOptions().then((options) => { if (active) { setPhoneRequired(options.phoneRequired!==false);setEnabled(options.enabled); setOrderingMessage(options.message || 'Online ordering is currently closed or unavailable.'); } }).catch((e) => { if (active) setError(e.message); }); return () => { active = false; }; }, []);
+  useEffect(() => observeOptions(signal => paymentRequest('/api/payments/options',{signal}), options=>{setPaymentOptions(options);setPaymentOptionsError('');},
+    e => { setPaymentOptions({}); setPaymentOptionsError(e.message); }), []);
+  useEffect(() => {
+    if (pending) return;
+    setPaymentMethod(current => (current === 'PAYPAL' ? paymentOptions.paypal === true : current === 'PAYID' ? paymentOptions.payid === true : current === 'PAY_AT_RESTAURANT' && paymentOptions.payAtRestaurant === true)
+      ? current : paymentOptions.payAtRestaurant === true ? 'PAY_AT_RESTAURANT' : paymentOptions.paypal === true ? 'PAYPAL' : paymentOptions.payid === true ? 'PAYID' : '');
+  }, [paymentOptions, pending]);
+  useEffect(() => observeOptions(getOrderingOptions, options => {
+    setOrderingOptionsError('');setPhoneRequired(options.phoneRequired !== false); setEnabled(options.enabled === true);
+    setOrderingMessage(options.message || 'Online ordering is currently closed or unavailable.');
+  }, e => { setEnabled(false); setOrderingOptionsError(e.message); }), []);
   function complete(payload) {
     sessionStorage.setItem(RECEIPT, JSON.stringify({ requestId: payload.requestId, trackingToken: payload.trackingToken }));
     sessionStorage.removeItem(PENDING_ORDER); dispatch({ type: 'clear' }); setPending(null); window.location.hash = '/order-confirmation';
@@ -48,14 +59,14 @@ export default function CheckoutPage() {
   async function refresh() {
     setBusy(true); setError('');
     try {
-      const [lines, options] = await Promise.all([refreshCartPrices(cart), getOrderingOptions()]);
-      updateReviewedLines(lines); setEnabled(options.enabled === true); setOrderingMessage(options.message || 'Online ordering is currently closed or unavailable.');
+      const lines = await refreshCartPrices(cart);
+      updateReviewedLines(lines);
       setError(lines.some((line) => line.issue) ? 'Review the marked cart items before ordering.' : 'Cart refreshed. Review the prices and options before submitting.');
     } catch (failure) { setError(failure.message); }
     finally { setBusy(false); }
   }
   async function place(event) {
-    event.preventDefault(); if (busy) return; if(!pending&&phoneRequired&&!isVerified(phone)){setError('Verify your current mobile by SMS before placing an order.');return;} setBusy(true); setError('');
+    event.preventDefault(); if (busy) return; if(!pending&&(!enabled||!(paymentMethod==='PAYPAL'?paymentOptions.paypal===true:paymentMethod==='PAYID'?paymentOptions.payid===true:paymentMethod==='PAY_AT_RESTAURANT'&&paymentOptions.payAtRestaurant===true))){setError('Ordering or the selected payment method is currently unavailable. Please try again later.');return;} if(!pending&&phoneRequired&&!isVerified(phone)){setError('Verify your current mobile by SMS before placing an order.');return;} setBusy(true); setError('');
     let payload = pending;
     try {
       if (payload) {
@@ -83,6 +94,8 @@ export default function CheckoutPage() {
   return <><Header currentPage="Menu" /><main className="restaurant-menu page-width">
     <h1>Pickup checkout</h1><p>Choose how to pay below. Your order needs staff confirmation before preparation begins.</p>
     <p>Pickup: 233 Glenferrie Rd, Malvern VIC 3144.</p>
+    {paymentOptionsError&&<p role="alert" className="staff-error">{paymentOptionsError}</p>}
+    {orderingOptionsError&&<p role="alert" className="staff-error">{orderingOptionsError}</p>}
     {error && <p role="alert" className="staff-error">{error}</p>}
     {!enabled && !pending && <p>{orderingMessage}</p>}
     {!cart.length && !pending ? <a href="#/menu">Choose your dishes</a> : <form className="order-panel" onSubmit={place}>
@@ -97,7 +110,7 @@ export default function CheckoutPage() {
         <p>We use your contact details for transactional order updates. Email verification is not required.</p>
         <p>Keep the full order ID on your receipt. Where enabled, you can request an SMS or email code to recover tracking access.</p>
         <label>Payment method<select value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)} disabled={busy}>
-          {paymentOptions.payAtRestaurant!==false&&<option value="PAY_AT_RESTAURANT">Pay at restaurant</option>}
+          {paymentOptions.payAtRestaurant === true&&<option value="PAY_AT_RESTAURANT">Pay at restaurant</option>}
           {paymentOptions.paypal && <option value="PAYPAL">PayPal</option>}
           {paymentOptions.payid && <option value="PAYID">PayID bank transfer</option>}
         </select></label>

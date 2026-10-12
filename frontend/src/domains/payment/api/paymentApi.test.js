@@ -26,3 +26,9 @@ test('provider failure is shown without treating it as a successful payment', as
   globalThis.fetch = async () => Response.json({ message: 'PayPal status unavailable' }, { status: 502 });
   await assert.rejects(paymentRequest('/api/payments/options'), /PayPal status unavailable/);
 });
+
+test('availability reads forward the observer abort signal to fetch',async()=>{
+ const original=globalThis.fetch;const signal=new AbortController().signal;let received;
+ globalThis.fetch=async(_url,options)=>{received=options.signal;return Response.json({enabled:true});};
+ try{await paymentRequest('/api/payments/options',{signal});assert.equal(received,signal);}finally{globalThis.fetch=original;}
+});

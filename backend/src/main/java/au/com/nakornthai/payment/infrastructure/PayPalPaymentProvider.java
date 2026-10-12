@@ -49,6 +49,7 @@ public class PayPalPaymentProvider {
   catch(Exception e){log.warn("payment_provider_unavailable provider=PAYPAL");throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,"PayPal could not be reached. Please retry.");}
  }
  public JsonNode create(UUID orderId,long total) {
+  if(!enabled())throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,"PayPal is unavailable");
   if(configuration!=null)return configured(false).create(orderId,total);
   var amount=Map.of("currency_code","AUD","value",BigDecimal.valueOf(total,2).toPlainString());
   return send("/v2/checkout/orders",Map.of("intent","CAPTURE","purchase_units",List.of(Map.of("custom_id",orderId.toString(),"amount",amount)),"payment_source",Map.of("paypal",Map.of("experience_context",Map.of("return_url",callback("return"),"cancel_url",callback("cancel"),"user_action","PAY_NOW","shipping_preference","NO_SHIPPING")))),orderId.toString());

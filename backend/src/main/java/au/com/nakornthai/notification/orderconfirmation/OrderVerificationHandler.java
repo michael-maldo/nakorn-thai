@@ -35,6 +35,7 @@ public class OrderVerificationHandler {
  public Map<String,Object> check(UUID id,String code) {
   var entry=em.find(OrderVerificationJpaEntity.class,id,LockModeType.PESSIMISTIC_WRITE);
   if(entry==null || entry.isConsumed() || entry.getProviderSid()==null || entry.getAttempts()>=5 || !entry.getExpiresAt().isAfter(Instant.now()))throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Code expired or invalid; request a new code");
+  if(!provider.enabled(entry.getChannel()))throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,"Verification channel unavailable");
   entry.setAttempts(entry.getAttempts()+1);
   if(!provider.check(entry.getProviderSid(),code))throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Code expired or invalid");
   entry.setConsumed(true);byte[] bytes=new byte[32];new java.security.SecureRandom().nextBytes(bytes);String token=HexFormat.of().formatHex(bytes);

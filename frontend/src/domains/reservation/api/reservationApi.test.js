@@ -23,3 +23,9 @@ test('contact verification uses reservation CSRF and code endpoints',async()=>{
   assert.deepEqual(JSON.parse(calls[3].options.body),{code:'123456'});
  }finally{globalThis.fetch=original;}
 });
+
+test('availability reads forward the observer abort signal to fetch',async()=>{
+ const original=globalThis.fetch;const signal=new AbortController().signal;let received;
+ globalThis.fetch=async(_url,options)=>{received=options.signal;return Response.json({enabled:true});};
+ try{await reservationRequest('/options',{signal});assert.equal(received,signal);}finally{globalThis.fetch=original;}
+});
