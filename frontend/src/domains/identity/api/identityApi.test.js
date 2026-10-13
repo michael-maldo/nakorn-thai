@@ -33,3 +33,20 @@ test('concurrent refreshes share a request and failure clears identity', async (
     assert.equal(identityState().user, null);
   } finally { globalThis.fetch = original; }
 });
+
+test('dispatch hook runs synchronously at every fetch after refresh and 401 retry, without leaking into RequestInit', async () => {
+  const original = globalThis.fetch; let attempts = 0; const events = [];
+  globalThis.fetch = async (url, options = {}) => {
+    assert.equal('beforeDispatch' in options, false);
+    if (url.endsWith('/csrf')) return response({ headerName: 'X-CSRF-TOKEN', token: 'csrf' });
+    if (url.endsWith('/login')) return response(session('first'));
+    if (url.endsWith('/refresh')) return response(session('second'));
+    events.push('fetch:' + options.headers.Authorization);
+    return response({}, ++attempts === 1 ? 401 : 200);
+  };
+  try {
+    await login('synthetic', 'synthetic');
+    await fetchWithIdentity('/synthetic', { headers: { Authorization: 'Bearer first' }, beforeDispatch: () => events.push('guard:' + identityState().accessToken) });
+    assert.deepEqual(events, ['guard:first', 'fetch:Bearer first', 'guard:second', 'fetch:Bearer second']);
+  } finally { globalThis.fetch = original; }
+});

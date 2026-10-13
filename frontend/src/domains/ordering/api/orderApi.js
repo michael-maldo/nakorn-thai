@@ -1,4 +1,4 @@
-import { fetchWithIdentity } from '../../identity/api/identityApi.js';
+import { fetchWithIdentity, createStaffMutationGuard } from '../../identity/api/identityApi.js';
 async function request(path, { authorization, token, csrf, ...options } = {}) {
   const response = await fetchWithIdentity(`/api${path}`, {
     ...options, credentials: 'same-origin',
@@ -34,16 +34,24 @@ function serial(action) {
 export const getStaffOrder = (id, authorization) => serial(() => request(`/staff/orders/${id}`, {authorization}));
 export const getStaffOrders = (authorization, kitchen, history = false) => serial(() =>
   request(kitchen ? '/staff/kitchen/orders' : `/staff/foh/orders?history=${history}`, { authorization }));
-export const changeOrderStatus = (id, command, authorization) => serial(async () => {
-  const csrf = await request('/staff/orders/csrf', { authorization });
-  return request(`/staff/orders/${id}/status`, { method: 'PATCH', body: JSON.stringify(command), authorization, csrf });
-});
-export const verifyStaffPayment = (id, command, authorization) => serial(async () => {
-  const csrf = await request('/staff/orders/csrf', { authorization });
-  return request(`/staff/payments/${id}/${command ? 'payid-confirm' : 'check'}`, {
-    method: 'POST', body: JSON.stringify(command || {}), authorization, csrf,
+export async function changeOrderStatus(id, command, authorization, isCurrent) {
+  const beforeDispatch = createStaffMutationGuard(authorization, isCurrent);
+  return serial(async () => {
+    beforeDispatch();
+    const csrf = await request('/staff/orders/csrf', { authorization, beforeDispatch });
+    return request(`/staff/orders/${id}/status`, { method: 'PATCH', body: JSON.stringify(command), authorization, csrf, beforeDispatch });
   });
-});
+}
+export async function verifyStaffPayment(id, command, authorization, isCurrent) {
+  const beforeDispatch = createStaffMutationGuard(authorization, isCurrent);
+  return serial(async () => {
+    beforeDispatch();
+    const csrf = await request('/staff/orders/csrf', { authorization, beforeDispatch });
+    return request(`/staff/payments/${id}/${command ? 'payid-confirm' : 'check'}`, {
+      method: 'POST', body: JSON.stringify(command || {}), authorization, csrf, beforeDispatch,
+    });
+  });
+}
 
 export async function getReadOnlyOrder(token,signal){
  const response=await fetch('/api/order-tracking',{headers:{'X-Order-View-Token':token},credentials:'omit',cache:'no-store',referrerPolicy:'no-referrer',signal});

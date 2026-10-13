@@ -1,6 +1,7 @@
 /** Uses mocked APIs, Vite on 5174 and Chromium remote debugging on 9223.
  * No application database is touched. */
 import assert from 'node:assert/strict';
+import { staffSessionFixture } from './staffIdentityFixtures.mjs';
 const base = process.env.PAYMENT_TEST_URL || 'http://127.0.0.1:5174/';
 const debug = process.env.CHROME_DEBUG_URL || 'http://127.0.0.1:9223';
 const page = await (await fetch(`${debug}/json/new?about:blank`, { method: 'PUT' })).json();
@@ -48,7 +49,7 @@ function fixture() {
   if(!String(url).startsWith('/api'))return realFetch(url,options);
   window.requests.push({url,body:options.body?JSON.parse(options.body):null});
   if(url.endsWith('/csrf'))return Response.json({headerName:'X-CSRF-TOKEN',token:'test'});
-  if(url==='/api/identity/refresh')return sessionStorage.getItem('payment-test-staff')?Response.json({accessToken:'test',expiresAt:new Date(Date.now()+900000).toISOString(),user:{username:'front',role:'FOH'}}):new Response(null,{status:401});
+  if(url==='/api/identity/refresh')return sessionStorage.getItem('payment-test-staff')?Response.json(staffSessionFixture({role:'FOH'})):new Response(null,{status:401});
   if(url==='/api/orders/contact-verifications/options')return Response.json({sms:true,email:false});
   if(url==='/api/orders/options')return Response.json({enabled:true});
   if(url==='/api/payments/options')return Response.json({paypal:!sessionStorage.getItem('payment-test-disabled'),payid:!sessionStorage.getItem('payment-test-disabled'),payAtRestaurant:true});
@@ -82,7 +83,7 @@ const input=async(selector,value)=>{
 };
 try{
  await send('Page.enable');await send('Runtime.enable');
- await send('Page.addScriptToEvaluateOnNewDocument',{source:`(${fixture.toString()})()`});
+ await send('Page.addScriptToEvaluateOnNewDocument',{source:`window.staffSessionFixture=(${staffSessionFixture.toString()});(${fixture.toString()})()`});
  await send('Page.navigate',{url:`${base}#/checkout`});
  await waitFor("document.querySelector('select option[value=PAYPAL]')");
  assert.equal(await evaluate("!!document.querySelector('select option[value=PAYID]')"),true);
