@@ -1,8 +1,8 @@
+import { StaffPageHeading } from '../../staff/components/StaffPresentation';
 import { useEffect, useState } from 'react';
 import { usersRequest } from '../api/identityApi';
-import { useAuth } from '../model/AuthContext';
 export default function UsersPage() {
-  const { logout } = useAuth(); const [users, setUsers] = useState([]); const [draft, setDraft] = useState(null);
+  const [users, setUsers] = useState([]); const [draft, setDraft] = useState(null);
   const [error, setError] = useState(''); const [busy, setBusy] = useState(false); const [notice, setNotice] = useState('');
   async function reload() { setBusy(true);setError('');try { setUsers(await usersRequest());setDraft(null); } catch(e){setError(e.message);}finally{setBusy(false);} }
   useEffect(() => { let active = true; usersRequest().then((data) => { if(active)setUsers(data); }).catch((e) => { if(active)setError(e.message); });return () => {active=false;}; }, []);
@@ -13,7 +13,7 @@ export default function UsersPage() {
       setDraft(null);setNotice('Staff account saved. Updated accounts must sign in again.');setUsers(await usersRequest());
     } catch(e) {setError(e.message);}finally{setBusy(false);}
   }
-  return <main className="staff-menu page-width"><header className="staff-heading"><div><a href="#home">Restaurant website</a><h1>Staff accounts</h1></div><button disabled={busy} onClick={logout}>Sign out</button></header>
+  return <main className="staff-menu page-width"><StaffPageHeading title="Staff accounts" />
     {error && <p role="alert" className="staff-error">{error}</p>}{notice && <p role="status">{notice}</p>}
     <div className="staff-toolbar"><button disabled={busy} onClick={() => {setDraft({username:'',role:'FOH',password:''});setError('');}}>Add staff account</button><button disabled={busy} onClick={reload}>Reload accounts</button></div>
     {draft && <form className="staff-panel" onSubmit={save}><h2>{draft.id ? 'Edit account' : 'New account'}</h2><fieldset disabled={busy}>

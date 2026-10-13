@@ -14,6 +14,6 @@ export default function LoginForm() {
     {error && <p role="alert" className="staff-error">{error}</p>}
     <label>Username<input name="username" required maxLength={50} autoComplete="username" disabled={busy} /></label>
     <label>Password<input name="password" type="password" required maxLength={72} autoComplete="current-password" disabled={busy} /></label>
-    <button className="button button-primary" disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</button>
+    <button className="button button-primary" disabled={busy} aria-busy={busy || undefined}>{busy ? 'Signing in…' : 'Sign in'}</button>
   </form>;
 }

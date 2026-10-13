@@ -1,3 +1,4 @@
+import { StaffPageHeading } from '../../staff/components/StaffPresentation';
 import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../../identity/model/AuthContext';
 import { changeOrderStatus, getStaffOrders, getStaffOrder, verifyStaffPayment } from '../api/orderApi';
@@ -85,7 +86,7 @@ export default function OrdersAdminPage({linked={orderId:null,invalid:false}}) {
   const states = history ? ['COMPLETED', 'CANCELLED'] : kitchen ? ['ACCEPTED', 'PREPARING', 'READY'] : ['NEW', 'ACCEPTED', 'PREPARING', 'READY'];
   const visible = orders?.filter(order => filter === 'ALL' || order.status === filter);
   return <main className="staff-menu page-width">
-    <p className="staff-kicker">{kitchen ? 'KITCHEN' : 'ORDER MANAGEMENT'}</p><h1>{kitchen ? 'Kitchen orders' : 'Orders'}</h1>
+    <StaffPageHeading title={kitchen ? 'Kitchen orders' : 'Orders'} />
     <p>{kitchen ? 'Accepted → Preparing → Ready for pickup. FOH handles customer handover.' : 'New → Accepted → Preparing → Ready for pickup → Completed. Orders can be cancelled before completion.'}</p>
     {user.role === 'FOH' && <p>The kitchen updates preparation and ready states.</p>}
     {linked.invalid&&<p role="alert">This order link is invalid. Choose an order from the queue.</p>}

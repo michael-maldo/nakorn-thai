@@ -1,3 +1,4 @@
+import { StaffPageHeading } from '../../staff/components/StaffPresentation';
 import { useEffect } from 'react';
 import { useAuth } from '../../identity/model/AuthContext';
 import { allowMenuNavigation, parseMenuAdminRoute } from '../model/menuAdminNavigation';
@@ -18,7 +19,7 @@ export default function MenuAdminPage({ hash }) {
   const row = state.collections?.find(c => c.collection.id === route?.id);
   const title = !route ? 'Page not found' : route.id === 'new' ? `Create ${route.resource === 'items' ? 'item' : 'collection'}` : route.id ? item?.name || row?.collection.data.name || 'Menu resource' : route.resource === 'items' ? 'Menu items' : 'Menu collections';
   return <MenuAdminLayout route={route} title={title}>
-    <header className="menu-admin-page-heading"><div><p className="menu-admin-eyebrow">MENU MANAGEMENT</p><h1 tabIndex={-1}>{title}</h1></div><button type="button" disabled={state.busy} onClick={() => { if (allowMenuNavigation()) state.reload(); }}>Refresh data</button></header>
+    <StaffPageHeading title={title} kicker="MENU MANAGEMENT" actions={<button type="button" disabled={state.busy} aria-busy={state.busy || undefined} onClick={() => { if (allowMenuNavigation()) state.reload(); }}>Refresh data</button>} />
     {state.error && <p className="menu-admin-error" role="alert" tabIndex={-1}>{state.error}</p>}
     {state.notice && <p className="menu-admin-success" role="status">{state.notice}</p>}
     {state.needsReload && <p role="status">Refresh data before making further changes.</p>}

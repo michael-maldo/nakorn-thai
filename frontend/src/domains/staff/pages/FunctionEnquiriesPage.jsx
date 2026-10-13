@@ -1,3 +1,4 @@
+import { StaffPageHeading } from '../components/StaffPresentation';
 import { useEffect, useState } from 'react';
 import { useAuth } from '../../identity/model/AuthContext';
 import { functionRequest } from '../../reservation/api/functionApi';
@@ -44,7 +45,7 @@ export default function FunctionEnquiriesPage() {
   }
 
   return <main className="staff-menu page-width">
-    <a href="#home">Restaurant website</a><h1>Functions &amp; venue enquiries</h1>
+    <StaffPageHeading title="Functions & venue enquiries" />
     <p>Follow up with the customer, check availability and agree arrangements before confirming. Record the agreed date and details below. No automatic email or SMS is sent.</p>
     <div className="staff-toolbar">
       <label>Status<select value={status} disabled={busy} onChange={(event) => { setStatus(event.target.value); setPage(0); setNotice(''); }}>

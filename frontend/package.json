@@ -18,6 +18,7 @@
     "test:order-links-browser": "node tests/e2e/orderEmailLinks.browser.mjs",
     "test:phone-browser": "node tests/e2e/australianPhone.browser.mjs",
     "test:settings-browser": "node tests/e2e/adminSettings.browser.mjs",
+    "test:staff-layout-browser": "node tests/e2e/staffLayout.browser.mjs",
     "test:availability-browser": "node tests/e2e/featureAvailability.browser.mjs"
   },
   "dependencies": {

@@ -73,7 +73,7 @@ function fixture(){
  };
 }
 const input=async(name,value)=>evaluate(`(()=>{const el=document.querySelector('[name="${name}"]');Object.getOwnPropertyDescriptor(Object.getPrototypeOf(el),'value').set.call(el,${JSON.stringify(value)});el.dispatchEvent(new Event(el.tagName==='SELECT'?'change':'input',{bubbles:true}));})()`);
-const category=async(name)=>{const button=`Array.from(document.querySelectorAll('button')).find(b=>b.textContent.startsWith(${JSON.stringify(name+' ·')})&&!b.disabled)`;await waitFor(button);await evaluate(`${button}.click()`);};
+const category=async(name)=>{const button=`Array.from(document.querySelectorAll('button')).find(b=>b.textContent.trim()===${JSON.stringify(name)}&&!b.disabled)`;await waitFor(button);await evaluate(`${button}.click()`);};
 try{
  await send('Page.enable');await send('Runtime.enable');await send('Page.addScriptToEvaluateOnNewDocument',{source:`(${fixture.toString()})()`});
  await send('Page.navigate',{url:`${base}#/staff/settings`});await waitFor("document.body.innerText.includes('Integrations overview')");

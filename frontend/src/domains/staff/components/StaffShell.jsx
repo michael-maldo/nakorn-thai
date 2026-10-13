@@ -31,7 +31,7 @@ export default function StaffShell({ hash, children }) {
     <a className="staff-skip" href="#staff-content" onClick={event => { event.preventDefault(); content.current?.focus(); }}>Skip to content</a>
     <header className="staff-topbar">
       <a className="staff-brand" href="#/staff">NAKORN THAI<span>Staff workspace</span></a>
-      <nav aria-label="Staff account" className="staff-account-nav"><a href="#home">Restaurant website</a><span className="staff-user">{user.username}<small>{user.role}</small></span><button type="button" disabled={signingOut} onClick={signOut}>{signingOut ? 'Signing out…' : 'Sign out'}</button></nav>
+      <nav aria-label="Staff account" className="staff-account-nav"><a href="#home">Restaurant website</a><span className="staff-user">{user.username}<small>{user.role}</small></span><button type="button" disabled={signingOut} aria-busy={signingOut || undefined} onClick={signOut}>{signingOut ? 'Signing out…' : 'Sign out'}</button></nav>
     </header>
     <div className="staff-workspace-body">
       <aside className="staff-sidebar" onKeyDown={event => { if (event.key === 'Escape' && expanded) { setExpanded(false); toggle.current?.focus(); } }}>
