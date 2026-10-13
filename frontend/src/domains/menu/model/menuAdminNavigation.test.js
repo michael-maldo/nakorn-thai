@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseMenuAdminRoute, menuAdminHref, registerMenuGuard, allowMenuNavigation, hasMenuEdits, availabilityLabel, money, instantFromInput, instantToInput } from './menuAdminNavigation.js';
+import { parseMenuAdminRoute, menuAdminHref, registerMenuGuard, createMenuNavigationApproval, allowMenuNavigation, hasMenuEdits, availabilityLabel, money, instantFromInput, instantToInput } from './menuAdminNavigation.js';
 
 test('Menu opens the item index; Items and Collections have independent URLs', () => {
   assert.deepEqual(parseMenuAdminRoute('#/staff/menu'), { resource: 'items', id: null, section: 'overview' });
@@ -52,4 +52,43 @@ test('validity date pickers display UTC and preserve instants across offsets', (
 test('clearing validity bounds preserves unrestricted null semantics', () => {
   assert.equal(instantToInput(null), '');
   assert.equal(instantFromInput(''), null);
+});
+
+test('Settings delegates dirty navigation to an accessible confirmation and resumes only on Leave', () => {
+  let leave; let resumed = false;
+  const unregister = registerMenuGuard(() => ({dirty:true,busy:false,requestLeave:resume=>{leave=resume;}}));
+  try {
+    assert.equal(allowMenuNavigation(()=>{throw new Error('Native confirmation must not run');},()=>{},()=>{resumed=true;}),false);
+    assert.equal(resumed,false); // Stay leaves the continuation untouched.
+    leave();assert.equal(resumed,true);
+  } finally { unregister(); }
+});
+
+test('Stay, replacement, guard removal and repeated approval invalidate continuations', () => {
+  let leave, queued;let calls=0;
+  const state={dirty:true,busy:false,requestLeave:action=>{leave=action;}};
+  const unregister=registerMenuGuard(()=>state);
+  const request=()=>allowMenuNavigation(()=>true,()=>{},ticket=>{queued=ticket;calls++;return true;});
+  try {
+    request();const cancelled=leave;cancelled.cancel();assert.equal(cancelled(),false);assert.equal(calls,0);
+    request();const older=leave;request();assert.equal(older(),false);assert.equal(leave(),true);assert.equal(leave(),false);assert.equal(calls,1);
+    request();assert.equal(queued.complete(),false); // New attempt invalidates approved work still queued.
+    state.busy=true;assert.equal(leave(),false);state.busy=false;
+    leave();unregister();assert.equal(queued.complete(),false);assert.equal(leave(),false);
+  } finally {unregister();}
+});
+test('queued approval cannot execute during a save and can complete only once',()=>{
+ let leave,ticket;const state={dirty:true,busy:false,requestLeave:value=>{leave=value;}};
+ const unregister=registerMenuGuard(()=>state);
+ try {
+  allowMenuNavigation(()=>true,()=>{},value=>{ticket=value;return true;});leave();state.busy=true;
+  assert.equal(ticket.complete(),false);state.busy=false;assert.equal(ticket.complete(),false);
+  allowMenuNavigation(()=>true,()=>{},value=>{ticket=value;return true;});leave();assert.equal(ticket.complete(),true);assert.equal(ticket.complete(),false);
+ }finally{unregister();}
+});
+
+test('clean navigation queued during restoration also belongs to active guards and respects saves',()=>{
+ const state={dirty:false,busy:false};const unregister=registerMenuGuard(()=>state);
+ const token=createMenuNavigationApproval();state.busy=true;assert.equal(token.complete(),false);state.busy=false;
+ const replacement=createMenuNavigationApproval();unregister();assert.equal(replacement.complete(),false);
 });

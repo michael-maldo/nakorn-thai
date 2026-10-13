@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { registerMenuGuard } from '../model/menuAdminNavigation';
 
-export function useMenuNavigationGuard(dirty, busy) {
+export function useMenuNavigationGuard(dirty, busy, requestLeave) {
   const state = useRef({ dirty, busy });
-  state.current = { dirty, busy };
+  state.current = { dirty, busy, requestLeave };
   useEffect(() => registerMenuGuard(() => state.current), []);
   return state;
 }

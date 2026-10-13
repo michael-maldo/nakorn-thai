@@ -46,7 +46,7 @@ function fixture() {
     { id: 'second', name: 'Second collection', status: 'PUBLISHED' },
     { id: 'draft', name: 'Draft collection', status: 'DRAFT' },
   ] };
-  window.failHomepageSave = false; window.homepageWrites = [];
+  window.failHomepageSave = false; window.homepageWrites = [];window.acceptNavigation=true;window.navigationPrompts=[];window.confirm=message=>{navigationPrompts.push(message);return acceptNavigation;};window.alert=()=>{};
   window.photoCollection = c => ({ ...c, slug: c.id, availability: { available: true },
     categories: [{ id: 'photo-category', name: 'Photo examples' }],
     items: Array.from({ length: 6 }, (_, i) => ({ id: `${c.id}-${i}`, name: `${c.name} dish ${i}`,
@@ -98,6 +98,21 @@ try {
   await send('Page.addScriptToEvaluateOnNewDocument', { source: `(${fixture.toString()})()` });
   await send('Page.navigate', { url: `${base}#/staff/homepage` });
   await waitFor("document.querySelectorAll('.homepage-collection-choices input').length === 3");
+  // Homepage keeps its synchronous guard: declined links/Back/Forward and sign-out retain edits.
+  await evaluate("location.hash='home'");await waitFor("document.querySelector('.hero')");
+  await evaluate("location.hash='/staff/homepage'");await waitFor("document.querySelectorAll('.homepage-collection-choices input').length===3");
+  await toggle('Second collection');await evaluate('window.acceptNavigation=false');
+  await evaluate("document.querySelector('a[href=\"#home\"]').click()");assert.equal(await evaluate('location.hash'),'#/staff/homepage');
+  await evaluate('history.back()');await waitFor("navigationPrompts.length>=2&&location.hash==='#/staff/homepage'");
+  assert.equal(await evaluate("[...document.querySelectorAll('.homepage-collection-choices label')].find(label=>label.textContent.includes('Second collection')).querySelector('input').checked"),true);
+  await click('Sign out');assert.equal(await evaluate('location.hash'),'#/staff/homepage');
+  await click('Cancel changes');await evaluate('history.back()');await waitFor("document.querySelector('.hero')");
+  await evaluate('history.forward()');await waitFor("document.querySelectorAll('.homepage-collection-choices input').length===3");
+  await evaluate("location.hash='home'");await waitFor("document.querySelector('.hero')");
+  await evaluate('history.back()');await waitFor("document.querySelectorAll('.homepage-collection-choices input').length===3");
+  await toggle('Second collection');const promptsBeforeForward=await evaluate('navigationPrompts.length');
+  await evaluate('history.forward()');await waitFor(`navigationPrompts.length>${promptsBeforeForward}&&location.hash==='#/staff/homepage'`);
+  await click('Cancel changes');await evaluate('window.acceptNavigation=true');
   await toggle('Second collection'); await toggle('Draft collection');
   await evaluate("document.querySelector('[aria-label=\"Move Second collection up\"]').click()");
   await click('Save home page collections');
@@ -134,7 +149,7 @@ try {
   await evaluate("window.location.hash = 'home'");
   await waitFor("document.querySelector('.hero') && !document.querySelector('.signature')");
   assert.deepEqual(errors, []);
-  console.log('Home page browser checks passed: select/order/save/reload, conflict recovery, mobile layout, four dishes per published collection, empty selection, and full-source position/zoom/rotation parity across homepage, preview and Menu at mobile/desktop widths.');
+  console.log('Home page browser checks passed: dirty link/Back/Forward/sign-out guards, select/order/save/reload, conflict recovery, mobile layout, four dishes per published collection, empty selection, and full-source position/zoom/rotation parity across homepage, preview and Menu at mobile/desktop widths.');
 } finally {
   await send('Page.close'); ws.close();
 }

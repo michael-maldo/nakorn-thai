@@ -18,13 +18,52 @@ export function parseMenuAdminRoute(hash) {
   return { resource, id, section };
 }
 
-// Only active menu forms register here. The existing hash router owns navigation.
+// Active staff editors register here. The existing hash router owns navigation.
 const guards = new Set();
-export function registerMenuGuard(readState) { guards.add(readState); return () => guards.delete(readState); }
+let pendingApproval = null;
+export function cancelPendingMenuNavigation() { pendingApproval?.cancel(); }
+export function registerMenuGuard(readState) {
+  guards.add(readState);
+  return () => { guards.delete(readState); if (pendingApproval?.owns(readState)) pendingApproval.cancel(); };
+}
 export function hasMenuEdits() { return [...guards].some(read => { const state = read(); return state.dirty || state.busy; }); }
-export function allowMenuNavigation(confirm = message => window.confirm(message), alert = message => window.alert(message)) {
+export function createMenuNavigationApproval(owner) {
+  cancelPendingMenuNavigation();
+  let valid = true;
+  const owners = new Set(owner ? [owner] : guards);
+  const ticket = {
+    owns: readState => owners.has(readState),
+    active: () => valid && [...owners].every(readState => guards.has(readState)),
+    cancel() { valid = false; if (pendingApproval === ticket) pendingApproval = null; },
+    complete() {
+      const allowed = this.active() && ![...guards].some(read => read().busy);
+      this.cancel(); return allowed;
+    },
+  };
+  pendingApproval = ticket;
+  return ticket;
+}
+export function allowMenuNavigation(confirm = message => window.confirm(message), alert = message => window.alert(message), resume) {
+  // A newer attempt supersedes any dialog or approved traversal still awaiting restoration.
+  cancelPendingMenuNavigation();
   const states = [...guards].map(read => read());
   if (states.some(state => state.busy)) { alert('Please wait for the current save to finish.'); return false; }
+  const owner = [...guards].find(read => { const state = read(); return state.dirty && state.requestLeave; });
+  if (owner) {
+    let approved = false;
+    const ticket = createMenuNavigationApproval(owner);
+    const leave = () => {
+      if (!ticket.active() || approved || [...guards].some(read => read().busy)) return false;
+      approved = true;
+      // Routers return true while queued. Other callers (for example sign-out) complete synchronously.
+      if (resume?.(ticket) !== true) ticket.cancel();
+      return true;
+    };
+    leave.cancel = () => ticket.cancel();
+    leave.active = () => ticket.active() && !approved && ![...guards].some(read => read().busy);
+    owner().requestLeave(leave);
+    return false;
+  }
   return !states.some(state => state.dirty) || confirm('Discard your unsaved changes and leave this view?');
 }
 export function availabilityLabel(result) {
