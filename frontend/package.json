@@ -11,7 +11,7 @@
     "test:homepage-browser": "node tests/e2e/homepageMenu.browser.mjs",
     "test:menu-browser": "node tests/e2e/menuAdmin.browser.mjs",
     "test:menu-navigation-browser": "node tests/e2e/menuNavigation.browser.mjs",
-    "test:reservation-browser": "node tests/e2e/reservationVerification.browser.mjs",
+    "test:reservation-browser": "node tests/e2e/reservationVerification.browser.mjs && node tests/e2e/reservationAvailability.browser.mjs",
     "test:payment-browser": "node tests/e2e/payments.browser.mjs",
     "test:reservation-email-browser": "node tests/e2e/reservationEmailSamples.browser.mjs",
     "test:email-samples-browser": "node tests/e2e/orderEmailSamples.browser.mjs",
