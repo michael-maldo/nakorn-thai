@@ -1,0 +1,15 @@
+<?xml version="1.0" ?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android" android:fillViewport="true" android:layout_width="match_parent" android:layout_height="match_parent">
+    <LinearLayout android:orientation="vertical" android:gravity="center" android:padding="24dp" android:layout_width="match_parent" android:layout_height="wrap_content">
+        <TextView android:text="@string/label_nakorn_thai" android:textStyle="bold" android:textSize="28sp" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+        <TextView android:text="@string/label_staff_workspace" android:textSize="18sp" android:paddingBottom="24dp" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+        <com.google.android.material.textfield.TextInputLayout android:hint="@string/label_username" android:layout_width="match_parent" android:layout_height="wrap_content">
+            <com.google.android.material.textfield.TextInputEditText android:id="@+id/username" android:inputType="textNoSuggestions" android:autofillHints="username" android:maxLines="1" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+        </com.google.android.material.textfield.TextInputLayout>
+        <com.google.android.material.textfield.TextInputLayout android:hint="@string/label_password" android:layout_width="match_parent" android:layout_height="wrap_content">
+            <com.google.android.material.textfield.TextInputEditText android:id="@+id/password" android:inputType="textPassword" android:saveEnabled="false" android:autofillHints="password" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+        </com.google.android.material.textfield.TextInputLayout>
+        <TextView android:id="@+id/loginMessage" android:accessibilityLiveRegion="polite" android:padding="12dp" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+        <com.google.android.material.button.MaterialButton android:id="@+id/signIn" android:text="@string/label_sign_in" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+    </LinearLayout>
+</ScrollView>

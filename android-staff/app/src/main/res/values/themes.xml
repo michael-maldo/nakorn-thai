@@ -1,0 +1,33 @@
+<resources>
+    <style name="Theme.NakornStaff" parent="Theme.MaterialComponents.Light.NoActionBar">
+        <item name="colorPrimary">#236653</item>
+        <item name="colorPrimaryVariant">#184537</item>
+        <item name="colorSecondary">#236653</item>
+        <item name="android:fontFamily">sans</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowActionModeOverlay">true</item>
+        <item name="android:windowBackground">#FFFFFF</item>
+        <item name="android:textColorPrimary">@color/staff_ink</item>
+        <item name="android:textColorSecondary">@color/staff_muted</item>
+    </style>
+    <style name="Widget.NakornStaff.Navigation" parent="Widget.MaterialComponents.Button.TextButton">
+        <item name="android:minHeight">56dp</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="android:gravity">start|center_vertical</item>
+        <item name="android:textSize">15sp</item>
+        <item name="android:textColor">@color/staff_nav_foreground</item>
+        <item name="backgroundTint">@color/staff_nav_background</item>
+        <item name="iconTint">@color/staff_nav_foreground</item>
+        <item name="cornerRadius">10dp</item>
+        <item name="android:insetTop">4dp</item>
+        <item name="android:insetBottom">4dp</item>
+        <item name="iconSize">24dp</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+    </style>
+    <style name="TextAppearance.NakornStaff.FooterActive" parent="TextAppearance.MaterialComponents.Caption">
+        <item name="android:textSize">12sp</item>
+    </style>
+    <style name="TextAppearance.NakornStaff.FooterInactive" parent="TextAppearance.MaterialComponents.Caption">
+        <item name="android:textSize">12sp</item>
+    </style>
+</resources>

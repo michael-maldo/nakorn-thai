@@ -1,0 +1,11 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto" android:orientation="vertical" android:padding="@dimen/board_padding" android:layout_width="match_parent" android:layout_height="match_parent" android:background="@color/staff_surface">
+    <LinearLayout android:gravity="center_vertical" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="56dp">
+        <TextView android:text="@string/label_online_orders" android:textStyle="bold" android:textSize="20sp" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:fontFamily="sans-serif-medium" />
+        <com.google.android.material.button.MaterialButton android:id="@+id/refresh" android:text="@string/label_refresh" android:layout_width="wrap_content" android:layout_height="wrap_content" style="@style/Widget.MaterialComponents.Button.OutlinedButton" android:minHeight="48dp" android:textAllCaps="false" />
+    </LinearLayout>
+    <TextView android:id="@+id/connection" android:accessibilityLiveRegion="polite" android:textSize="12sp" android:paddingBottom="8dp" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="@color/staff_muted" />
+    <TextView android:id="@+id/boardMessage" android:accessibilityLiveRegion="polite" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingBottom="8dp" android:visibility="gone" />
+    <Button android:id="@+id/retainedDrafts" android:text="@string/review_retained_drafts" android:visibility="gone" android:layout_width="match_parent" android:layout_height="wrap_content" />
+    <com.google.android.material.tabs.TabLayout android:id="@+id/statusTabs" app:tabMode="scrollable" android:layout_width="match_parent" android:layout_height="wrap_content" />
+    <LinearLayout android:id="@+id/columns" android:orientation="horizontal" android:baselineAligned="false" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" />
+</LinearLayout>

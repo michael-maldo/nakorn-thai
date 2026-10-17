@@ -1,0 +1,6 @@
+<resources>
+<color name="staff_ink">#26343D</color><color name="staff_muted">#52626D</color>
+<color name="staff_accent">#236653</color><color name="staff_selected">#E4F0EB</color>
+<color name="staff_surface">#FFFFFF</color><color name="staff_board">#F6F8FA</color>
+<color name="staff_line">#E0E6EA</color><color name="staff_footer">#F8FAFB</color>
+</resources>

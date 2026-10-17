@@ -1,0 +1,32 @@
+<androidx.drawerlayout.widget.DrawerLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto" android:id="@+id/drawer" android:layout_width="match_parent" android:layout_height="match_parent">
+    <LinearLayout android:id="@+id/rootContent" android:orientation="vertical" android:layout_width="match_parent" android:layout_height="match_parent">
+        <LinearLayout android:orientation="horizontal" android:baselineAligned="false" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1">
+            <LinearLayout android:id="@+id/sidebar" android:orientation="vertical" android:padding="8dp" android:background="@color/staff_surface" android:layout_width="208dp" android:layout_height="match_parent">
+                <ImageButton android:id="@+id/sidebarToggle" android:src="@drawable/ic_menu" android:contentDescription="@string/label_collapse_navigation" android:background="?attr/selectableItemBackgroundBorderless" android:layout_width="48dp" android:layout_height="48dp" />
+                <TextView android:id="@+id/brand" android:text="@string/label_nakorn_thai" android:textStyle="bold" android:textSize="18sp" android:padding="8dp" android:layout_width="match_parent" android:layout_height="wrap_content" />
+                <com.google.android.material.button.MaterialButton android:id="@+id/sidebarOrders" android:text="@string/orders" app:icon="@drawable/ic_orders" android:minWidth="48dp" android:contentDescription="@string/orders" android:layout_width="match_parent" android:layout_height="wrap_content" style="@style/Widget.NakornStaff.Navigation" />
+                <com.google.android.material.button.MaterialButton android:id="@+id/sidebarReservations" android:text="@string/reservations" app:icon="@drawable/ic_reservations" android:minWidth="48dp" android:contentDescription="@string/reservations" android:layout_width="match_parent" android:layout_height="wrap_content" style="@style/Widget.NakornStaff.Navigation" />
+                <Space android:layout_width="1dp" android:layout_height="0dp" android:layout_weight="1" />
+                <TextView android:id="@+id/identityLabel" android:textSize="14sp" android:padding="8dp" android:layout_width="match_parent" android:layout_height="wrap_content" />
+            </LinearLayout>
+            <LinearLayout android:orientation="vertical" android:layout_width="0dp" android:layout_weight="1" android:layout_height="match_parent">
+                <ImageButton android:id="@+id/drawerToggle" android:src="@drawable/ic_menu" android:contentDescription="@string/label_open_navigation" android:background="?attr/selectableItemBackgroundBorderless" android:layout_width="48dp" android:layout_height="48dp" android:visibility="gone" />
+                <androidx.fragment.app.FragmentContainerView android:id="@+id/navHost" android:name="androidx.navigation.fragment.NavHostFragment" app:defaultNavHost="true" app:navGraph="@navigation/staff_navigation" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" />
+            </LinearLayout>
+        </LinearLayout>
+        <LinearLayout android:id="@+id/alertBar" android:orientation="horizontal" android:paddingHorizontal="12dp" android:gravity="center_vertical" android:background="#FFF2CD" android:layout_width="match_parent" android:layout_height="wrap_content" android:visibility="gone">
+            <TextView android:id="@+id/alertText" android:accessibilityLiveRegion="polite" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" />
+            <Button android:id="@+id/acknowledge" android:text="@string/label_acknowledge_alert" android:layout_width="wrap_content" android:layout_height="wrap_content" />
+        </LinearLayout>
+        <TextView android:id="@+id/shellConnection" android:paddingHorizontal="12dp" android:paddingVertical="6dp" android:textSize="12sp" android:background="@color/staff_footer" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="@color/staff_muted" />
+        <View android:id="@+id/footerDivider" android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/staff_line" android:importantForAccessibility="no" />
+        <FrameLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:background="@color/staff_footer">
+            <com.google.android.material.bottomnavigation.BottomNavigationView android:id="@+id/footer" app:menu="@menu/footer" app:labelVisibilityMode="labeled" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_gravity="center_horizontal" android:background="@color/staff_footer" android:minHeight="72dp" app:elevation="0dp" app:itemIconTint="@color/staff_nav_foreground" app:itemTextColor="@color/staff_nav_foreground" app:itemIconSize="24dp" app:itemTextAppearanceActive="@style/TextAppearance.NakornStaff.FooterActive" app:itemTextAppearanceInactive="@style/TextAppearance.NakornStaff.FooterInactive" app:itemHorizontalTranslationEnabled="false" />
+        </FrameLayout>
+    </LinearLayout>
+    <LinearLayout android:id="@+id/overlayNavigation" android:layout_gravity="start" android:orientation="vertical" android:padding="16dp" android:background="#FFFFFF" android:layout_width="264dp" android:layout_height="match_parent">
+        <TextView android:text="@string/label_nakorn_thai" android:textSize="22sp" android:textStyle="bold" android:paddingVertical="24dp" android:layout_width="match_parent" android:layout_height="wrap_content" />
+        <com.google.android.material.button.MaterialButton android:id="@+id/overlayOrders" android:text="@string/orders" android:layout_width="match_parent" android:layout_height="wrap_content" app:icon="@drawable/ic_orders" style="@style/Widget.NakornStaff.Navigation" />
+        <com.google.android.material.button.MaterialButton android:id="@+id/overlayReservations" android:text="@string/reservations" android:layout_width="match_parent" android:layout_height="wrap_content" app:icon="@drawable/ic_reservations" style="@style/Widget.NakornStaff.Navigation" />
+    </LinearLayout>
+</androidx.drawerlayout.widget.DrawerLayout>

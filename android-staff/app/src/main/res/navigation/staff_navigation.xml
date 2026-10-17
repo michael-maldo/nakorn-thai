@@ -1,0 +1,8 @@
+<?xml version="1.0" ?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto" android:id="@+id/staff_navigation" app:startDestination="@id/loginFragment">
+    <fragment android:id="@+id/loginFragment" android:name="au.com.nakornthai.staffapp.identity.ui.LoginFragment" android:label="Sign in"/>
+    <fragment android:id="@+id/ordersFragment" android:name="au.com.nakornthai.staffapp.ordering.ui.OrdersFragment" android:label="Orders"/>
+    <fragment android:id="@+id/reservationsFragment" android:name="au.com.nakornthai.staffapp.reservation.ui.ReservationsFragment" android:label="Reservations"/>
+    <fragment android:id="@+id/analyticsFragment" android:name="au.com.nakornthai.staffapp.analytics.ui.AnalyticsFragment" android:label="Analytics"/>
+    <fragment android:id="@+id/printerManagementFragment" android:name="au.com.nakornthai.staffapp.printing.ui.PrinterManagementFragment" android:label="Printers"/>
+</navigation>

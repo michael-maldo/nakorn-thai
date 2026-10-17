@@ -1,0 +1,5 @@
+<resources>
+<dimen name="board_padding">12dp</dimen><dimen name="board_gutter">8dp</dimen>
+<dimen name="column_heading_size">16sp</dimen><dimen name="sidebar_expanded_width">208dp</dimen>
+<dimen name="sidebar_collapsed_width">72dp</dimen><dimen name="footer_content_max_width">480dp</dimen>
+</resources>

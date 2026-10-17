@@ -1,0 +1,7 @@
+<?xml version="1.0" ?>
+<resources>
+    <item name="orderListNew" type="id"/>
+    <item name="orderListAccepted" type="id"/>
+    <item name="orderListPreparing" type="id"/>
+    <item name="orderListReady" type="id"/>
+</resources>
