@@ -3,6 +3,10 @@ name: Deploy website and backend
 on:
   push:
     branches: [main]
+    paths:
+      - 'backend/**'
+      - 'frontend/**'
+      - 'infrastructure/**'
   workflow_dispatch:
 
 permissions:
