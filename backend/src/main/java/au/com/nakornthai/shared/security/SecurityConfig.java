@@ -41,6 +41,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/identity/login", "/api/identity/refresh", "/api/identity/logout").permitAll()
                         .requestMatchers("/api/identity/users", "/api/identity/users/**").hasRole("ADMIN")
                         .requestMatchers("/api/identity/me").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/staff/timekeeping/me", "/api/staff/timekeeping/csrf").hasAnyRole("ADMIN", "FOH", "BOH")
+                        .requestMatchers("/api/staff/timekeeping/**").hasRole("ADMIN")
                         .requestMatchers("/api/staff/foh/**").hasAnyRole("ADMIN", "FOH")
                         .requestMatchers("/api/staff/kitchen/**").hasAnyRole("ADMIN", "BOH")
                         .requestMatchers("/api/staff/orders/**").hasAnyRole("ADMIN", "FOH", "BOH")
