@@ -1,5 +1,8 @@
 <?xml version="1.0" ?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:orientation="vertical" android:padding="24dp" android:layout_width="match_parent" android:layout_height="wrap_content">
+<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/manageScroll" android:layout_width="match_parent"
+    android:layout_height="wrap_content" android:fillViewport="true">
+<LinearLayout android:orientation="vertical" android:padding="24dp" android:layout_width="match_parent" android:layout_height="wrap_content">
     <TextView android:text="@string/manage" android:textStyle="bold" android:textSize="22sp" android:layout_width="match_parent" android:layout_height="wrap_content"/>
     <Button android:id="@+id/manageOrders" android:text="@string/orders" android:layout_width="match_parent" android:layout_height="wrap_content"/>
     <Button android:id="@+id/manageReservations" android:text="@string/reservations" android:layout_width="match_parent" android:layout_height="wrap_content"/>
@@ -7,3 +10,5 @@
     <Button android:id="@+id/managePrinters" android:text="@string/printers_title" android:layout_width="match_parent" android:layout_height="wrap_content"/>
     <Button android:id="@+id/manageSignOut" android:text="@string/label_sign_out" android:layout_width="match_parent" android:layout_height="wrap_content"/>
 </LinearLayout>
+
+</androidx.core.widget.NestedScrollView>

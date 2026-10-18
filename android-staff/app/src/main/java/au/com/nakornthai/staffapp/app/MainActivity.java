@@ -5,7 +5,6 @@ import android.os.Bundle;
 import android.view.*;
 import android.widget.*;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.graphics.Insets;
 import androidx.core.view.*;
 import androidx.drawerlayout.widget.DrawerLayout;
 import androidx.lifecycle.ViewModelProvider;
@@ -16,6 +15,7 @@ import au.com.nakornthai.staffapp.databinding.ActivityMainBinding;
 import au.com.nakornthai.staffapp.identity.ui.AuthViewModel;
 import au.com.nakornthai.staffapp.ordering.ui.OrdersViewModel;
 import au.com.nakornthai.staffapp.shared.navigation.ManageSheet;
+import au.com.nakornthai.staffapp.shared.navigation.WindowInsetsSupport;
 import com.google.android.material.button.MaterialButton;
 
 public final class MainActivity extends AppCompatActivity {
@@ -46,17 +46,7 @@ public final class MainActivity extends AppCompatActivity {
     heard = graph().heardAlertSequence;
     binding = ActivityMainBinding.inflate(getLayoutInflater());
     setContentView(binding.getRoot());
-    ViewCompat.setOnApplyWindowInsetsListener(
-        binding.getRoot(),
-        (view, insets) -> {
-          Insets bars =
-              insets.getInsets(
-                  WindowInsetsCompat.Type.systemBars()
-                      | WindowInsetsCompat.Type.displayCutout()
-                      | WindowInsetsCompat.Type.ime());
-          view.setPadding(bars.left, bars.top, bars.right, bars.bottom);
-          return WindowInsetsCompat.CONSUMED;
-        });
+    WindowInsetsSupport.apply(binding.getRoot());
     navigation =
         ((NavHostFragment) getSupportFragmentManager().findFragmentById(R.id.navHost))
             .getNavController();
@@ -88,8 +78,7 @@ public final class MainActivity extends AppCompatActivity {
         });
     binding.acknowledge.setOnClickListener(v -> orders.acknowledge());
     navigation.addOnDestinationChangedListener((controller, destination, args) -> renderShell());
-    binding
-        .getRoot()
+    binding.drawer
         .addOnLayoutChangeListener(
             (v, l, t, r, b, ol, ot, or, ob) -> {
               int width = Math.max(0, r - l - v.getPaddingLeft() - v.getPaddingRight());
@@ -102,7 +91,7 @@ public final class MainActivity extends AppCompatActivity {
                 footerParams.width = footerWidth;
                 binding.footer.setLayoutParams(footerParams);
               }
-              boolean small = (r - l) / getResources().getDisplayMetrics().density < 840;
+              boolean small = width / getResources().getDisplayMetrics().density < 840;
               if (small != narrow) {
                 narrow = small;
                 renderShell();

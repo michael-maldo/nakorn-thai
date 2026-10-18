@@ -1,4 +1,14 @@
 <resources>
+    <style name="Theme.NakornStaff.Manage" parent="ThemeOverlay.MaterialComponents.BottomSheetDialog">
+        <item name="enableEdgeToEdge">false</item>
+        <item name="bottomSheetStyle">@style/Widget.NakornStaff.ManageSheet</item>
+    </style>
+    <style name="Widget.NakornStaff.ManageSheet" parent="Widget.MaterialComponents.BottomSheet.Modal">
+        <item name="paddingBottomSystemWindowInsets">false</item>
+        <item name="paddingLeftSystemWindowInsets">false</item>
+        <item name="paddingRightSystemWindowInsets">false</item>
+        <item name="paddingTopSystemWindowInsets">false</item>
+    </style>
     <style name="Theme.NakornStaff" parent="Theme.MaterialComponents.Light.NoActionBar">
         <item name="colorPrimary">#236653</item>
         <item name="colorPrimaryVariant">#184537</item>

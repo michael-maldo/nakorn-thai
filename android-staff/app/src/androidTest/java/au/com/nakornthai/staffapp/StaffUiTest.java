@@ -82,7 +82,7 @@ public class StaffUiTest {
     waitText("Analytics — Coming Soon");
     onView(withId(R.id.home)).check(matches(not(isSelected())));
     onView(withId(R.id.manage)).perform(click());
-    onView(withId(R.id.manageReservations)).perform(click());
+    onView(withId(R.id.manageReservations)).perform(scrollTo(), click());
     waitText("Reservations — Coming Soon");
     onView(withId(R.id.footer)).check(matches(isDisplayed()));
     onView(withId(R.id.home)).perform(click());
@@ -97,7 +97,7 @@ public class StaffUiTest {
     scenario.recreate();
     waitVisible(R.id.footer);
     onView(withId(R.id.manage)).perform(click());
-    onView(withId(R.id.manageAnalytics)).perform(click());
+    onView(withId(R.id.manageAnalytics)).perform(scrollTo(), click());
     scenario.recreate();
     waitText("Analytics — Coming Soon");
     scenario.onActivity(
@@ -126,7 +126,7 @@ public class StaffUiTest {
   @Test
   public void manageSignOutHidesFooter() {
     onView(withId(R.id.manage)).perform(click());
-    onView(withId(R.id.manageSignOut)).perform(click());
+    onView(withId(R.id.manageSignOut)).perform(scrollTo(), click());
     waitVisible(R.id.signIn);
     onView(withId(R.id.footer)).check(matches(withEffectiveVisibility(Visibility.GONE)));
   }
@@ -171,6 +171,29 @@ public class StaffUiTest {
           activity.findViewById(R.id.footer).getGlobalVisibleRect(footer);
           org.junit.Assert.assertTrue(content.bottom <= footer.top);
         });
+  }
+
+  @Test
+  public void drawerAndContentStayInsideWindowInsetsAfterRotation() {
+    for (int orientation : new int[] {ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE,
+        ActivityInfo.SCREEN_ORIENTATION_PORTRAIT}) {
+      scenario.onActivity(a -> a.setRequestedOrientation(orientation));
+      waitVisible(R.id.footer);
+      retry(() -> scenario.onActivity(activity -> {
+        android.view.View root = activity.findViewById(R.id.windowContent);
+        android.view.View drawer = activity.findViewById(R.id.drawer);
+        androidx.core.view.WindowInsetsCompat insets = androidx.core.view.ViewCompat.getRootWindowInsets(root);
+        org.junit.Assert.assertNotNull(insets);
+        androidx.core.graphics.Insets safe = insets.getInsets(
+            androidx.core.view.WindowInsetsCompat.Type.systemBars()
+                | androidx.core.view.WindowInsetsCompat.Type.displayCutout()
+                | androidx.core.view.WindowInsetsCompat.Type.ime());
+        org.junit.Assert.assertEquals(safe.left, drawer.getLeft());
+        org.junit.Assert.assertEquals(safe.top, drawer.getTop());
+        org.junit.Assert.assertEquals(root.getWidth() - safe.right, drawer.getRight());
+        org.junit.Assert.assertEquals(root.getHeight() - safe.bottom, drawer.getBottom());
+      }));
+    }
   }
 
   @Test

@@ -138,3 +138,69 @@ Initial verification found ambiguous Espresso imports and three Bluetooth Missin
 Before acceptance, run connected tests on the intended tablet and supported API levels; verify ADMIN-only access through sign-out/in, rotation and direct navigation; real Bluetooth runtime permission grant/denial/revocation, disabled adapter, pairing and SPP; BLE advertisements without implied printing support; NSD visibility and manual LAN configuration; socket failures and interruption; persistence across process restart; and one documented-compatible physical ASCII test. Inspect paper width, actual text wrapping, timezone and output. Verify no duplicate test on rotation, no automatic retry after uncertainty, and no effect on Orders/authentication/payment/polling. Paper-out/cover/cutter/Thai behavior is unsupported by the initial driver and must not be presented as verified.
 
 Phase A is not operational acceptance for an unidentified printer. Hardware-specific drivers, manual order dockets, automatic printing, durable backend jobs and background operation remain separate phases. Full usage, security/storage limits, extension instructions and hardware acceptance steps are in README.md; the exact source inventory is in FILES.md.
+
+## Viewport and navigation correction (2026-10-18)
+
+Root causes confirmed in source:
+
+- `MainActivity.onCreate` opted into edge-to-edge but padded `DrawerLayout` itself.
+  DrawerLayout measures and positions its children using its own margins/insets;
+  ordinary root padding does not constrain those children to a safe rectangle.
+- `ManageSheet` uses a separate dialog window. Activity inset consumption cannot
+  protect that window. Its default collapsed bottom-sheet state and the plain,
+  non-scrollable `sheet_manage.xml` left actions outside a short viewport.
+- `fragment_printers.xml` scrolled only the list/editor below a fixed header/status
+  region. Long messages and enlarged text could consume that region's remaining
+  height. Spinners also used fixed 48dp heights.
+
+Changes: `activity_main.xml` now wraps the drawer in a FrameLayout safe viewport;
+`MainActivity` observes the actual drawer width for responsive shell decisions.
+`WindowInsetsSupport` applies system bars (including caption/taskbar), cutout and
+IME insets once at each window boundary and consumes them before Material children.
+Inset unions use the maximum overlapping edge, preserve initial layout padding,
+and replace previous inset padding on each dispatch. Existing `adjustResize` and
+edge-to-edge remain enabled; there is no SDK-35 opt-out or screen-height estimate.
+
+`ManageSheet.onStart` sets up the dialog's FrameLayout safe viewport, disables
+competing Material fitting/padding via its theme, and opens expanded. Drag collapse
+is disabled so nested scrolling cannot strand actions in a collapsed panel;
+Back, outside-tap dismissal and navigation dismissal remain available. Its
+NestedScrollView measures within the current coordinator height. The entire
+printer page now scrolls, with wrap-content/minimum-48dp spinners. Printer logic,
+permissions, transports, APIs and deployment configuration are unchanged.
+
+Added instrumentation coverage in `WindowInsetsTest` for changing bar/cutout/IME
+unions (API 30+ synthetic insets), repeated inset dispatch without accumulation, and 2x-font layouts in a
+320x180dp viewport. `PrinterUiTest` adds all ADMIN Manage actions in a constrained
+240dp dialog window over three open/close cycles, plus printer save/cancel access
+while a software keyboard is visibly reported. `StaffUiTest` also checks the actual
+drawer bounds against window insets after landscape/portrait rotation. Existing authorization,
+profile persistence and navigation tests remain in place. A constrained dialog test
+is not a substitute for actual Samsung freeform/split-screen testing.
+
+Device acceptance still requires landscape and portrait fullscreen, landscape
+reduced-height and Samsung split-screen/freeform windows, both gesture and
+three-button navigation, taskbar show/hide, cutouts, increased font **and display**
+scaling, keyboard open/close while editing, and repeated Manage open/close. Check
+all five ADMIN destinations, FOH/BOH printer exclusion, first/last controls and
+focus scrolling after every resize. Run connected instrumentation with software
+keyboard enabled; do not infer physical-device results from synthetic inset tests.
+
+Validation for this correction (Java 21, temporary Android SDK 35 restored at the
+existing ignored `local.properties` SDK location):
+
+```text
+./gradlew testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest --offline --console=plain
+BUILD SUCCESSFUL
+JVM: 42 tests, 0 failures, 0 errors, 0 skipped
+Lint: 0 errors, 54 warnings
+Debug application APK and instrumentation APK both built
+```
+
+Reports: `app/build/reports/tests/testDebugUnitTest/index.html` and
+`app/build/reports/lint-results-debug.html`. APK:
+`app/build/outputs/apk/debug/app-debug.apk`. `git diff --check` passed.
+`adb devices -l` reported an empty device list. Instrumentation compilation is
+verified; instrumentation execution and physical Samsung UI behavior are not.
+`./gradlew connectedDebugAndroidTest --console=plain` was also attempted and stopped
+with `DeviceException: No connected devices!`; no instrumentation tests executed.

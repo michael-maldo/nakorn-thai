@@ -49,10 +49,50 @@ public final class PrinterUiTest {
   }
 
   @Test
+  public void manageRemainsScrollableInShortWindowAcrossRepeatedOpenings() {
+    login("fixture-admin");
+    for (int opening = 0; opening < 3; opening++) {
+      onView(withId(R.id.manage)).perform(click());
+      scenario.onActivity(activity -> {
+        androidx.fragment.app.DialogFragment sheet = (androidx.fragment.app.DialogFragment)
+            activity.getSupportFragmentManager().findFragmentByTag("manage");
+        sheet.requireDialog().getWindow().setLayout(
+            android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+            (int) (240 * activity.getResources().getDisplayMetrics().density));
+      });
+      onView(withId(R.id.manageSignOut)).perform(scrollTo()).check(matches(isCompletelyDisplayed()));
+      onView(withId(R.id.manageOrders)).perform(scrollTo()).check(matches(isCompletelyDisplayed()));
+      onView(withId(R.id.manageReservations)).perform(scrollTo()).check(matches(isCompletelyDisplayed()));
+      onView(withId(R.id.manageAnalytics)).perform(scrollTo()).check(matches(isCompletelyDisplayed()));
+      onView(withId(R.id.managePrinters)).perform(scrollTo()).check(matches(isCompletelyDisplayed()));
+      androidx.test.espresso.Espresso.pressBack();
+    }
+  }
+
+  @Test
+  public void printerEditorScrollsWithKeyboardVisible() {
+    login("fixture-admin");
+    scenario.onActivity(a -> a.navigate(R.id.printerManagementFragment));
+    StaffUiTest.waitVisible(R.id.addPrinter);
+    onView(withId(R.id.addPrinter)).perform(click());
+    onView(withId(R.id.printerTimezone)).perform(scrollTo(), click(), typeText(" "));
+    StaffUiTest.retry(() -> scenario.onActivity(activity -> {
+      androidx.core.view.WindowInsetsCompat insets = androidx.core.view.ViewCompat
+          .getRootWindowInsets(activity.findViewById(R.id.windowContent));
+      Assert.assertNotNull(insets);
+      Assert.assertTrue("Run with the software keyboard enabled",
+          insets.isVisible(androidx.core.view.WindowInsetsCompat.Type.ime()));
+    }));
+    onView(withId(R.id.savePrinter)).perform(scrollTo()).check(matches(isCompletelyDisplayed()));
+    onView(withId(R.id.cancelPrinter)).perform(scrollTo()).check(matches(isCompletelyDisplayed()));
+    androidx.test.espresso.Espresso.closeSoftKeyboard();
+  }
+
+  @Test
   public void adminCanSaveUnknownPrinterAndRestoreScreen() {
     login("fixture-admin");
     onView(withId(R.id.manage)).perform(click());
-    onView(withId(R.id.managePrinters)).perform(click());
+    onView(withId(R.id.managePrinters)).perform(scrollTo(), click());
     StaffUiTest.waitVisible(R.id.addPrinter);
     onView(withId(R.id.addPrinter)).perform(click());
     onView(withId(R.id.printerName)).perform(scrollTo(), replaceText("Fixture kitchen"));
@@ -114,7 +154,7 @@ public final class PrinterUiTest {
   public void unsavedAdminEditorSurvivesActivityRecreation() {
     login("fixture-admin");
     onView(withId(R.id.manage)).perform(click());
-    onView(withId(R.id.managePrinters)).perform(click());
+    onView(withId(R.id.managePrinters)).perform(scrollTo(), click());
     StaffUiTest.waitVisible(R.id.addPrinter);
     onView(withId(R.id.addPrinter)).perform(click());
     onView(withId(R.id.printerName))
