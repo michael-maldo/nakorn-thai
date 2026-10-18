@@ -54,6 +54,9 @@ public final class ManageSheet extends BottomSheetDialogFragment {
               ((MainActivity) requireActivity()).signOut();
             });
     MainActivity activity = (MainActivity) requireActivity();
+    android.widget.Button timekeeping = view.findViewById(R.id.manageTimekeeping);
+    timekeeping.setText(au.com.nakornthai.staffapp.timekeeping.data.TimekeepingRepository.title(activity.graph().identity.current()));
+    timekeeping.setOnClickListener(v -> go(R.id.timekeepingFragment));
     view.findViewById(R.id.managePrinters).setVisibility(
         au.com.nakornthai.staffapp.printing.ui.PrinterManagementViewModel.isAdmin(activity.graph().identity.current()) ? View.VISIBLE : View.GONE);
     view.findViewById(R.id.managePrinters).setOnClickListener(v -> go(R.id.printerManagementFragment));

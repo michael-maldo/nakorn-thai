@@ -18,6 +18,7 @@ public final class AppGraph {
   public final IdentityRepository identity;
   public final OrderMonitor monitor;
   public final OrderRepository orders;
+  public final au.com.nakornthai.staffapp.timekeeping.data.TimekeepingRepository timekeeping;
 
   public AppGraph(Context context) {
     this(BuildConfig.API_BASE_URL, new KeystoreCredentialStore(context));
@@ -51,6 +52,7 @@ public final class AppGraph {
             .create(StaffApi.class);
     identity = new IdentityRepository(api, jar);
     orders = new ApiOrderRepository(api, identity);
+    timekeeping = new au.com.nakornthai.staffapp.timekeeping.data.TimekeepingRepository(api, identity);
     monitor = new OrderMonitor(executor, orders, identity);
   }
 }

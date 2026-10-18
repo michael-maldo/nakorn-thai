@@ -8,6 +8,7 @@
     <Button android:id="@+id/manageReservations" android:text="@string/reservations" android:layout_width="match_parent" android:layout_height="wrap_content"/>
     <Button android:id="@+id/manageAnalytics" android:text="@string/analytics" android:layout_width="match_parent" android:layout_height="wrap_content"/>
     <Button android:id="@+id/managePrinters" android:text="@string/printers_title" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+    <Button android:id="@+id/manageTimekeeping" android:text="@string/timekeeping_title" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="48dp"/>
     <Button android:id="@+id/manageSignOut" android:text="@string/label_sign_out" android:layout_width="match_parent" android:layout_height="wrap_content"/>
 </LinearLayout>
 

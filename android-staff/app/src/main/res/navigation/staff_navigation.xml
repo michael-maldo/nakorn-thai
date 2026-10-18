@@ -5,4 +5,5 @@
     <fragment android:id="@+id/reservationsFragment" android:name="au.com.nakornthai.staffapp.reservation.ui.ReservationsFragment" android:label="Reservations"/>
     <fragment android:id="@+id/analyticsFragment" android:name="au.com.nakornthai.staffapp.analytics.ui.AnalyticsFragment" android:label="Analytics"/>
     <fragment android:id="@+id/printerManagementFragment" android:name="au.com.nakornthai.staffapp.printing.ui.PrinterManagementFragment" android:label="Printers"/>
+    <fragment android:id="@+id/timekeepingFragment" android:name="au.com.nakornthai.staffapp.timekeeping.ui.TimekeepingFragment" android:label="Timekeeping"/>
 </navigation>

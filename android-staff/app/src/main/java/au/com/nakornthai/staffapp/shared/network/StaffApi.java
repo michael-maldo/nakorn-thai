@@ -7,7 +7,7 @@ import java.util.*;
 import retrofit2.Call;
 import retrofit2.http.*;
 
-public interface StaffApi {
+public interface StaffApi extends au.com.nakornthai.staffapp.timekeeping.data.TimekeepingApi {
   final class Csrf {
     public String headerName, token;
   }

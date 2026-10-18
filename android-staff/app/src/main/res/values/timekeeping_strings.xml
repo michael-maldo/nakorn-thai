@@ -1,0 +1,26 @@
+<resources>
+  <string name="timekeeping_title">Timekeeping</string>
+  <string name="tk_refresh">Refresh / retry reads</string>
+  <string name="tk_today">Today</string>
+  <string name="tk_apply">Apply date range / staff filter</string>
+  <string name="tk_time_in">Time In</string>
+  <string name="tk_time_out">Time Out</string>
+  <string name="tk_manual">Manual historical entry</string>
+  <string name="tk_review">Review change</string>
+  <string name="tk_cancel">Cancel change</string>
+  <string name="tk_confirm">Confirm attendance change</string>
+  <string name="tk_previous">Previous attendance page</string>
+  <string name="tk_next">Next attendance page</string>
+  <string name="tk_start">Start — date, time and UTC offset</string>
+  <string name="tk_end">End — date, time and UTC offset</string>
+  <string name="tk_reason">Required audit reason (1–1000 characters)</string>
+  <string name="tk_open">Leave shift open (correction only)</string>
+  <string name="tk_pick_start">Choose start date and time</string>
+  <string name="tk_pick_end">Choose end date and time</string>
+  <string name="tk_audit_prev">Previous audit page</string>
+  <string name="tk_audit_next">Next audit page</string>
+  <string name="tk_staff">Active staff — select an account for live/manual actions</string>
+  <string name="tk_dates">Inclusive restaurant-local dates. Matching shifts retain their full completed duration.</string>
+  <string name="tk_form_help">Use an explicit offset, e.g. 2026-10-18T09:00:00+11:00. Include the next date for overnight shifts.</string>
+  <string name="tk_correction">Attendance editor</string>
+</resources>

@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android" android:id="@+id/timekeepingScroll" android:layout_width="match_parent" android:layout_height="match_parent" android:fillViewport="true">
+<LinearLayout android:orientation="vertical" android:padding="16dp" android:layout_width="match_parent" android:layout_height="wrap_content">
+<TextView android:id="@+id/tkTitle" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="8dp" android:textSize="16sp" android:text="@string/timekeeping_title"/>
+<TextView android:id="@+id/tkZone" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="8dp" android:textSize="16sp"/>
+<TextView android:id="@+id/tkMessage" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="8dp" android:textSize="16sp"/>
+<ProgressBar android:id="@+id/tkProgress" android:layout_width="48dp" android:layout_height="48dp" android:contentDescription="@string/timekeeping_title"/>
+<TextView android:id="@+id/tkDatesHelp" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="8dp" android:textSize="16sp" android:text="@string/tk_dates"/>
+<Button android:id="@+id/tkFrom" android:text="@string/tk_today" android:minHeight="48dp" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+<Button android:id="@+id/tkTo" android:text="@string/tk_today" android:minHeight="48dp" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+<Button android:id="@+id/tkToday" android:text="@string/tk_today" android:minHeight="48dp" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+<LinearLayout android:id="@+id/tkAdmin" android:orientation="vertical" android:layout_width="match_parent" android:layout_height="wrap_content" android:visibility="gone">
+<TextView android:id="@+id/tkStaffLabel" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="8dp" android:textSize="16sp" android:text="@string/tk_staff"/>
+<Spinner android:id="@+id/tkStaff" android:layout_width="match_parent" android:layout_height="48dp" android:contentDescription="@string/tk_staff"/>
+<Button android:id="@+id/tkTimeIn" android:text="@string/tk_time_in" android:minHeight="48dp" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+<Button android:id="@+id/tkTimeOut" android:text="@string/tk_time_out" android:minHeight="48dp" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+<Button android:id="@+id/tkManual" android:text="@string/tk_manual" android:minHeight="48dp" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+<TextView android:id="@+id/tkOpenSummary" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="8dp" android:textSize="16sp"/>
+<LinearLayout android:id="@+id/tkOpenList" android:orientation="vertical" android:layout_width="match_parent" android:layout_height="wrap_content">
+</LinearLayout>
+</LinearLayout>
+<Button android:id="@+id/tkApply" android:text="@string/tk_apply" android:minHeight="48dp" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+<Button android:id="@+id/tkRefresh" android:text="@string/tk_refresh" android:minHeight="48dp" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+<TextView android:id="@+id/tkSummary" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="8dp" android:textSize="16sp"/>
+<LinearLayout android:id="@+id/tkEditor" android:orientation="vertical" android:layout_width="match_parent" android:layout_height="wrap_content" android:visibility="gone">
+<TextView android:id="@+id/tkEditorTitle" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="8dp" android:textSize="16sp" android:text="@string/tk_correction"/>
+<TextView android:id="@+id/tkFormHelp" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="8dp" android:textSize="16sp" android:text="@string/tk_form_help"/>
+<TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:labelFor="@id/tkStart" android:text="@string/tk_start"/>
+<EditText android:id="@+id/tkStart" android:inputType="text" android:importantForAutofill="no" android:minHeight="48dp" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+<Button android:id="@+id/tkPickStart" android:text="@string/tk_pick_start" android:minHeight="48dp" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+<TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:labelFor="@id/tkEnd" android:text="@string/tk_end"/>
+<EditText android:id="@+id/tkEnd" android:inputType="text" android:importantForAutofill="no" android:minHeight="48dp" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+<Button android:id="@+id/tkPickEnd" android:text="@string/tk_pick_end" android:minHeight="48dp" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+<TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:labelFor="@id/tkReason" android:text="@string/tk_reason"/>
+<EditText android:id="@+id/tkReason" android:inputType="textMultiLine" android:importantForAutofill="no" android:minHeight="48dp" android:layout_width="match_parent" android:layout_height="wrap_content" android:maxLength="1000"/>
+<CheckBox android:id="@+id/tkLeaveOpen" android:text="@string/tk_open" android:minHeight="48dp" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+<TextView android:id="@+id/tkEditorMessage" android:accessibilityLiveRegion="polite" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+<Button android:id="@+id/tkReview" android:text="@string/tk_review" android:minHeight="48dp" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+<Button android:id="@+id/tkCancel" android:text="@string/tk_cancel" android:minHeight="48dp" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+</LinearLayout>
+<LinearLayout android:id="@+id/tkConfirmation" android:orientation="vertical" android:layout_width="match_parent" android:layout_height="wrap_content" android:visibility="gone">
+<TextView android:id="@+id/tkConfirmText" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="8dp" android:textSize="16sp"/>
+<Button android:id="@+id/tkConfirm" android:text="@string/tk_confirm" android:minHeight="48dp" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+<Button android:id="@+id/tkCancelConfirm" android:text="@string/tk_cancel" android:minHeight="48dp" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+</LinearLayout>
+<LinearLayout android:id="@+id/tkEntries" android:orientation="vertical" android:layout_width="match_parent" android:layout_height="wrap_content">
+</LinearLayout>
+<Button android:id="@+id/tkPrevious" android:text="@string/tk_previous" android:minHeight="48dp" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+<Button android:id="@+id/tkNext" android:text="@string/tk_next" android:minHeight="48dp" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+<LinearLayout android:id="@+id/tkAudit" android:orientation="vertical" android:layout_width="match_parent" android:layout_height="wrap_content" android:visibility="gone">
+<TextView android:id="@+id/tkAuditTitle" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="8dp" android:textSize="16sp"/>
+<LinearLayout android:id="@+id/tkAuditEntries" android:orientation="vertical" android:layout_width="match_parent" android:layout_height="wrap_content">
+</LinearLayout>
+<Button android:id="@+id/tkAuditPrevious" android:text="@string/tk_audit_prev" android:minHeight="48dp" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+<Button android:id="@+id/tkAuditNext" android:text="@string/tk_audit_next" android:minHeight="48dp" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+</LinearLayout>
+</LinearLayout>
+</androidx.core.widget.NestedScrollView>
