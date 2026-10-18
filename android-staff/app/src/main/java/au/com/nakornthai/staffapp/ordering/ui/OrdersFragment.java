@@ -13,14 +13,15 @@ import com.google.android.material.tabs.TabLayout;
 import java.util.*;
 
 public final class OrdersFragment extends Fragment {
-  private static final String[] STATES = {"NEW", "ACCEPTED", "PREPARING", "READY"},
-      LABELS = {"Pending", "Accepted", "Preparing", "Ready"};
+  private static final String[] STATES = au.com.nakornthai.staffapp.shared.dashboard.DashboardPresentation.STATES;
   private FragmentOrdersBinding binding;
   private final List<ViewOrderColumnBinding> columns = new ArrayList<>();
   private final List<OrderAdapter> adapters = new ArrayList<>();
   private int selected;
   private OrdersViewModel vm;
   private boolean wide;
+  private Boolean compactHeader;
+  private au.com.nakornthai.staffapp.shared.dashboard.QueueSummaries summaries;
 
   @Override
   public View onCreateView(LayoutInflater inflater, ViewGroup parent, Bundle saved) {
@@ -34,6 +35,14 @@ public final class OrdersFragment extends Fragment {
         new ViewModelProvider(requireActivity(), ((MainActivity) requireActivity()).factory())
             .get(OrdersViewModel.class);
     selected = saved == null ? 0 : saved.getInt("statusTab", 0);
+    summaries=new au.com.nakornthai.staffapp.shared.dashboard.QueueSummaries(binding.orderSummaries,index->{
+      if(binding!=null && binding.statusTabs.getTabAt(index)!=null)binding.statusTabs.getTabAt(index).select();
+    });
+    binding.getRoot().addOnLayoutChangeListener((v,l,t,r,b,ol,ot,or,ob)->{
+      if(binding==null || v!=binding.getRoot())return;
+      boolean next=au.com.nakornthai.staffapp.shared.dashboard.DashboardPresentation.compact((b-t)/getResources().getDisplayMetrics().density,getResources().getConfiguration().fontScale);
+      if(compactHeader==null || compactHeader!=next){compactHeader=next;binding.ordersHeader.setExpanded(!next,false);}
+    });
     for (int i = 0; i < 4; i++) {
       ViewOrderColumnBinding column =
           ViewOrderColumnBinding.inflate(getLayoutInflater(), binding.columns, false);
@@ -61,7 +70,7 @@ public final class OrdersFragment extends Fragment {
       adapters.add(adapter);
       column.orderList.setLayoutManager(new LinearLayoutManager(requireContext()));
       column.orderList.setAdapter(adapter);
-      binding.statusTabs.addTab(binding.statusTabs.newTab().setText(LABELS[i]));
+      binding.statusTabs.addTab(binding.statusTabs.newTab().setText(au.com.nakornthai.staffapp.shared.dashboard.QueueSummaries.LABELS[i]));
     }
     binding.statusTabs.addOnTabSelectedListener(
         new TabLayout.OnTabSelectedListener() {
@@ -77,7 +86,7 @@ public final class OrdersFragment extends Fragment {
     binding.statusTabs.getTabAt(selected).select();
     binding.columns.addOnLayoutChangeListener(
         (v, l, t, r, b, ol, ot, or, ob) -> {
-          boolean next = (r - l) / getResources().getDisplayMetrics().density >= 800;
+          boolean next = au.com.nakornthai.staffapp.shared.dashboard.DashboardPresentation.wideQueues((r-l)/getResources().getDisplayMetrics().density,getResources().getConfiguration().fontScale);
           if (next != wide) {
             wide = next;
             layoutColumns();
@@ -96,6 +105,7 @@ public final class OrdersFragment extends Fragment {
   private void layoutColumns() {
     if (binding == null) return;
     binding.statusTabs.setVisibility(wide ? View.GONE : View.VISIBLE);
+    if(summaries!=null)summaries.selected(selected);
     int gutter = getResources().getDimensionPixelSize(R.dimen.board_gutter);
     for (int i = 0; i < columns.size(); i++) {
       View column = columns.get(i).getRoot();
@@ -114,7 +124,7 @@ public final class OrdersFragment extends Fragment {
     binding.refresh.setEnabled(!state.loading && !state.busy);
     int retained = vm.orphanDrafts().size();
     binding.retainedDrafts.setVisibility(retained == 0 ? View.GONE : View.VISIBLE);
-    binding.retainedDrafts.setText("Review " + retained + " retained draft(s) outside this queue");
+    binding.retainedDrafts.setText(getString(R.string.dashboard_retained,retained));
     // Connection and last-sync status stay in the persistent shell; avoid a duplicate
     // healthy-status row above the board or a layout jump on every polling cycle.
     binding.connection.setVisibility(state.orders.size() == 200 ? View.VISIBLE : View.GONE);
@@ -124,19 +134,22 @@ public final class OrdersFragment extends Fragment {
             + (state.error == null ? "" : state.error + " ")
             + (state.notice == null ? "" : state.notice)
             + (state.blocked ? " Refresh required before another action." : ""));
+    binding.boardMessage.setBackgroundResource(state.error==null?R.drawable.tk_notice_info:R.drawable.tk_notice_error);
     binding.boardMessage.setVisibility(
         binding.boardMessage.getText().length() == 0 ? View.GONE : View.VISIBLE);
+    summaries.render(state);
     for (int i = 0; i < 4; i++) {
       List<au.com.nakornthai.staffapp.ordering.model.Order> orders = state.column(STATES[i]);
-      columns.get(i).columnHeading.setText(LABELS[i]);
+      columns.get(i).columnHeading.setText(au.com.nakornthai.staffapp.shared.dashboard.QueueSummaries.LABELS[i]);
+      columns.get(i).getRoot().setBackgroundResource(au.com.nakornthai.staffapp.shared.dashboard.QueueSummaries.SURFACES[i]);
       columns.get(i).columnCount.setText(String.valueOf(orders.size()));
       columns
           .get(i)
           .columnCount
-          .setContentDescription(getString(R.string.order_column_count, LABELS[i], orders.size()));
-      binding.statusTabs.getTabAt(i).setText(LABELS[i] + " " + orders.size());
+          .setContentDescription(getString(R.string.order_column_count, getString(au.com.nakornthai.staffapp.shared.dashboard.QueueSummaries.LABELS[i]), orders.size()));
+      binding.statusTabs.getTabAt(i).setText(getString(R.string.dashboard_tab_count,getString(au.com.nakornthai.staffapp.shared.dashboard.QueueSummaries.LABELS[i]),orders.size()));
       adapters.get(i).submitList(orders);
-      columns.get(i).emptyColumn.setText("No " + LABELS[i].toLowerCase(Locale.ROOT) + " orders");
+      columns.get(i).emptyColumn.setText(getString(R.string.dashboard_no_orders,getString(au.com.nakornthai.staffapp.shared.dashboard.QueueSummaries.LABELS[i]).toLowerCase(Locale.getDefault())));
       columns.get(i).emptyColumn.setVisibility(orders.isEmpty() ? View.VISIBLE : View.GONE);
     }
   }
@@ -153,6 +166,7 @@ public final class OrdersFragment extends Fragment {
     columns.clear();
     adapters.clear();
     binding = null;
+    summaries=null;compactHeader=null;
     super.onDestroyView();
   }
 }

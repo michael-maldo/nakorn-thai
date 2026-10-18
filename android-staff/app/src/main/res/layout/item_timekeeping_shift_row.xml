@@ -1,0 +1,8 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto" android:orientation="horizontal" android:gravity="center_vertical" android:paddingTop="8dp" android:paddingBottom="8dp" android:layout_width="match_parent" android:layout_height="wrap_content">
+<TextView android:id="@+id/shiftStaff" style="@style/TkCell" android:layout_weight="1.2"/>
+<TextView android:id="@+id/shiftIn" style="@style/TkCell" android:layout_weight="1.6"/>
+<TextView android:id="@+id/shiftOut" style="@style/TkCell" android:layout_weight="1.6"/>
+<TextView android:id="@+id/shiftDuration" style="@style/TkCell" android:layout_weight=".9"/>
+<FrameLayout android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:padding="4dp"><TextView android:id="@+id/shiftStatus" style="@style/TkBadge"/></FrameLayout>
+<FrameLayout android:id="@+id/shiftActions" android:layout_width="0dp" android:layout_weight=".7" android:layout_height="wrap_content"><com.google.android.material.button.MaterialButton android:id="@+id/shiftOverflow" style="@style/TkTextButton" android:layout_width="48dp" android:layout_height="48dp" android:minWidth="48dp" android:padding="12dp" app:icon="@drawable/tk_more" app:iconGravity="textStart" app:iconPadding="0dp"/></FrameLayout>
+</LinearLayout>

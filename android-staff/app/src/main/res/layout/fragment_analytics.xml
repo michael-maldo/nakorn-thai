@@ -1,0 +1,10 @@
+<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto" android:layout_width="match_parent" android:layout_height="match_parent" android:background="@color/staff_board" android:fillViewport="true"><LinearLayout style="@style/DashboardBody"><TextView android:id="@+id/analyticsTitle" style="@style/DashboardTitle" android:text="@string/dashboard_analytics_title" android:drawableStart="@drawable/ic_analytics" android:drawablePadding="12dp"/>
+<TextView style="@style/DashboardMuted" android:text="@string/dashboard_analytics_subtitle" android:paddingVertical="12dp"/>
+<TextView android:id="@+id/analyticsStatus" style="@style/DashboardText" android:background="@drawable/tk_notice_info" android:accessibilityLiveRegion="polite"/>
+<com.google.android.material.button.MaterialButton android:id="@+id/analyticsRefresh" style="@style/DashboardOutline" android:text="@string/label_refresh" app:icon="@drawable/tk_refresh"/>
+<GridLayout android:id="@+id/analyticsSummaries" android:columnCount="4" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+<com.google.android.material.card.MaterialCardView style="@style/DashboardCard"><LinearLayout style="@style/DashboardBody">
+<TextView style="@style/DashboardHeading" android:text="@string/dashboard_analytics_scope"/>
+<TextView style="@style/DashboardMuted" android:text="@string/dashboard_analytics_scope_body"/>
+<TextView android:id="@+id/analyticsSync" style="@style/DashboardMuted" android:paddingTop="12dp"/>
+</LinearLayout></com.google.android.material.card.MaterialCardView></LinearLayout></androidx.core.widget.NestedScrollView>

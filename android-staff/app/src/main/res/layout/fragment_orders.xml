@@ -1,11 +1,14 @@
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto" android:orientation="vertical" android:padding="@dimen/board_padding" android:layout_width="match_parent" android:layout_height="match_parent" android:background="@color/staff_surface">
-    <LinearLayout android:gravity="center_vertical" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="56dp">
-        <TextView android:text="@string/label_online_orders" android:textStyle="bold" android:textSize="20sp" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:fontFamily="sans-serif-medium" />
-        <com.google.android.material.button.MaterialButton android:id="@+id/refresh" android:text="@string/label_refresh" android:layout_width="wrap_content" android:layout_height="wrap_content" style="@style/Widget.MaterialComponents.Button.OutlinedButton" android:minHeight="48dp" android:textAllCaps="false" />
-    </LinearLayout>
-    <TextView android:id="@+id/connection" android:accessibilityLiveRegion="polite" android:textSize="12sp" android:paddingBottom="8dp" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="@color/staff_muted" />
-    <TextView android:id="@+id/boardMessage" android:accessibilityLiveRegion="polite" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingBottom="8dp" android:visibility="gone" />
-    <Button android:id="@+id/retainedDrafts" android:text="@string/review_retained_drafts" android:visibility="gone" android:layout_width="match_parent" android:layout_height="wrap_content" />
-    <com.google.android.material.tabs.TabLayout android:id="@+id/statusTabs" app:tabMode="scrollable" android:layout_width="match_parent" android:layout_height="wrap_content" />
-    <LinearLayout android:id="@+id/columns" android:orientation="horizontal" android:baselineAligned="false" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" />
-</LinearLayout>
+<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto" android:id="@+id/ordersWorkspace" android:layout_width="match_parent" android:layout_height="match_parent" android:background="@color/staff_board">
+<com.google.android.material.appbar.AppBarLayout android:id="@+id/ordersHeader" android:layout_width="match_parent" android:layout_height="wrap_content" android:background="@color/staff_board" app:elevation="0dp">
+<LinearLayout android:orientation="vertical" android:padding="@dimen/board_padding" android:layout_width="match_parent" android:layout_height="wrap_content" app:layout_scrollFlags="scroll|enterAlways">
+<TextView style="@style/DashboardTitle" android:text="@string/dashboard_orders_title"/>
+<TextView style="@style/DashboardMuted" android:text="@string/dashboard_orders_subtitle" android:paddingVertical="8dp"/>
+<TextView android:id="@+id/connection" style="@style/DashboardMuted" android:accessibilityLiveRegion="polite"/>
+<TextView android:id="@+id/boardMessage" style="@style/DashboardText" android:accessibilityLiveRegion="polite" android:visibility="gone" android:padding="8dp" android:background="@drawable/tk_notice_info"/>
+<com.google.android.material.button.MaterialButton android:id="@+id/retainedDrafts" style="@style/DashboardOutline" android:text="@string/review_retained_drafts" android:visibility="gone"/>
+<GridLayout android:id="@+id/orderSummaries" android:columnCount="4" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+</LinearLayout></com.google.android.material.appbar.AppBarLayout>
+<LinearLayout android:orientation="vertical" android:layout_width="match_parent" android:layout_height="match_parent" app:layout_behavior="@string/appbar_scrolling_view_behavior">
+<LinearLayout android:gravity="center_vertical|end" android:layout_width="match_parent" android:layout_height="wrap_content" android:background="@color/staff_surface"><com.google.android.material.tabs.TabLayout android:id="@+id/statusTabs" app:tabMode="scrollable" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:background="@color/staff_surface"/><com.google.android.material.button.MaterialButton android:id="@+id/refresh" style="@style/DashboardOutline" android:text="@string/label_refresh" app:icon="@drawable/tk_refresh"/></LinearLayout>
+<LinearLayout android:id="@+id/columns" android:orientation="horizontal" android:baselineAligned="false" android:padding="@dimen/board_padding" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1"/>
+</LinearLayout></androidx.coordinatorlayout.widget.CoordinatorLayout>

@@ -1,58 +1,88 @@
-<?xml version="1.0" encoding="utf-8"?>
-<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android" android:id="@+id/timekeepingScroll" android:layout_width="match_parent" android:layout_height="match_parent" android:fillViewport="true">
-<LinearLayout android:orientation="vertical" android:padding="16dp" android:layout_width="match_parent" android:layout_height="wrap_content">
-<TextView android:id="@+id/tkTitle" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="8dp" android:textSize="16sp" android:text="@string/timekeeping_title"/>
-<TextView android:id="@+id/tkZone" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="8dp" android:textSize="16sp"/>
-<TextView android:id="@+id/tkMessage" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="8dp" android:textSize="16sp"/>
-<ProgressBar android:id="@+id/tkProgress" android:layout_width="48dp" android:layout_height="48dp" android:contentDescription="@string/timekeeping_title"/>
-<TextView android:id="@+id/tkDatesHelp" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="8dp" android:textSize="16sp" android:text="@string/tk_dates"/>
-<Button android:id="@+id/tkFrom" android:text="@string/tk_today" android:minHeight="48dp" android:layout_width="match_parent" android:layout_height="wrap_content"/>
-<Button android:id="@+id/tkTo" android:text="@string/tk_today" android:minHeight="48dp" android:layout_width="match_parent" android:layout_height="wrap_content"/>
-<Button android:id="@+id/tkToday" android:text="@string/tk_today" android:minHeight="48dp" android:layout_width="match_parent" android:layout_height="wrap_content"/>
-<LinearLayout android:id="@+id/tkAdmin" android:orientation="vertical" android:layout_width="match_parent" android:layout_height="wrap_content" android:visibility="gone">
-<TextView android:id="@+id/tkStaffLabel" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="8dp" android:textSize="16sp" android:text="@string/tk_staff"/>
-<Spinner android:id="@+id/tkStaff" android:layout_width="match_parent" android:layout_height="48dp" android:contentDescription="@string/tk_staff"/>
-<Button android:id="@+id/tkTimeIn" android:text="@string/tk_time_in" android:minHeight="48dp" android:layout_width="match_parent" android:layout_height="wrap_content"/>
-<Button android:id="@+id/tkTimeOut" android:text="@string/tk_time_out" android:minHeight="48dp" android:layout_width="match_parent" android:layout_height="wrap_content"/>
-<Button android:id="@+id/tkManual" android:text="@string/tk_manual" android:minHeight="48dp" android:layout_width="match_parent" android:layout_height="wrap_content"/>
-<TextView android:id="@+id/tkOpenSummary" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="8dp" android:textSize="16sp"/>
-<LinearLayout android:id="@+id/tkOpenList" android:orientation="vertical" android:layout_width="match_parent" android:layout_height="wrap_content">
-</LinearLayout>
-</LinearLayout>
-<Button android:id="@+id/tkApply" android:text="@string/tk_apply" android:minHeight="48dp" android:layout_width="match_parent" android:layout_height="wrap_content"/>
-<Button android:id="@+id/tkRefresh" android:text="@string/tk_refresh" android:minHeight="48dp" android:layout_width="match_parent" android:layout_height="wrap_content"/>
-<TextView android:id="@+id/tkSummary" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="8dp" android:textSize="16sp"/>
-<LinearLayout android:id="@+id/tkEditor" android:orientation="vertical" android:layout_width="match_parent" android:layout_height="wrap_content" android:visibility="gone">
+<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto" android:id="@+id/timekeepingScroll" android:layout_width="match_parent" android:layout_height="match_parent" android:background="@color/staff_board" android:fillViewport="true">
+<LinearLayout android:id="@+id/tkContent" android:orientation="vertical" android:padding="16dp" android:layout_width="match_parent" android:layout_height="wrap_content">
+<TextView android:id="@+id/tkTitle" style="@style/TkHeading" android:textSize="28sp" android:drawableStart="@drawable/tk_clock" android:drawablePadding="12dp" android:text="@string/tk_page_title"/>
+<TextView android:id="@+id/tkSubtitle" style="@style/TkMuted" android:text="@string/tk_page_subtitle"/>
+<TextView android:id="@+id/tkZone" style="@style/TkMuted" android:textSize="12sp" android:paddingTop="8dp" android:paddingBottom="16dp"/>
+<TextView android:id="@+id/tkMessage" style="@style/TkText" android:background="@drawable/tk_notice_info" android:layout_marginBottom="12dp" android:accessibilityLiveRegion="polite"/>
+<ProgressBar android:id="@+id/tkProgress" style="?android:attr/progressBarStyleHorizontal" android:indeterminate="true" android:layout_width="match_parent" android:layout_height="4dp" android:layout_marginBottom="12dp" android:contentDescription="@string/tk_loading"/>
+<com.google.android.material.card.MaterialCardView android:id="@+id/tkAdmin" style="@style/TkCard" app:cardBackgroundColor="@color/tk_mint" app:strokeColor="@color/tk_mint_line" android:visibility="gone">
+<LinearLayout style="@style/TkCardBody">
+<TextView android:id="@+id/tkStaffLabel" style="@style/TkHeading" android:labelFor="@id/tkStaff" android:text="@string/tk_select_staff"/>
+<Spinner android:id="@+id/tkStaff" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="56dp" android:background="@drawable/tk_selector_surface" android:padding="8dp" android:contentDescription="@string/tk_select_hint"/>
+<TextView android:id="@+id/tkStaffStatus" style="@style/TkBadge" android:layout_marginTop="12dp" android:text="@string/tk_status_select"/>
+<TextView style="@style/TkMuted" android:textSize="12sp" android:layout_marginTop="6dp" android:text="@string/tk_status_caption"/>
+<LinearLayout android:id="@+id/tkLiveActions" android:orientation="vertical" android:layout_marginTop="12dp" android:layout_width="match_parent" android:layout_height="wrap_content">
+<com.google.android.material.button.MaterialButton android:id="@+id/tkTimeIn" style="@style/TkButton" android:text="@string/tk_time_in" app:icon="@drawable/tk_in"/>
+<com.google.android.material.button.MaterialButton android:id="@+id/tkTimeOut" style="@style/TkOutline" android:text="@string/tk_time_out" app:icon="@drawable/tk_out"/>
+</LinearLayout></LinearLayout></com.google.android.material.card.MaterialCardView>
+<com.google.android.material.card.MaterialCardView style="@style/TkCard"><LinearLayout style="@style/TkCardBody">
+<TextView style="@style/TkHeading" android:text="@string/tk_range_heading"/>
+<com.google.android.material.chip.ChipGroup android:id="@+id/tkRangeChoices" android:layout_width="match_parent" android:layout_height="wrap_content" app:singleSelection="true" app:selectionRequired="true">
+<com.google.android.material.chip.Chip android:id="@+id/tkToday" style="@style/Widget.MaterialComponents.Chip.Choice" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/tk_today" app:ensureMinTouchTargetSize="true" app:chipMinTouchTargetSize="48dp" app:chipBackgroundColor="@color/tk_chip_background" app:chipStrokeWidth="1dp" app:chipStrokeColor="@color/staff_line"/>
+<com.google.android.material.chip.Chip android:id="@+id/tkWeek" style="@style/Widget.MaterialComponents.Chip.Choice" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/tk_week" app:ensureMinTouchTargetSize="true" app:chipMinTouchTargetSize="48dp" app:chipBackgroundColor="@color/tk_chip_background" app:chipStrokeWidth="1dp" app:chipStrokeColor="@color/staff_line"/>
+<com.google.android.material.chip.Chip android:id="@+id/tkMonth" style="@style/Widget.MaterialComponents.Chip.Choice" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/tk_month" app:ensureMinTouchTargetSize="true" app:chipMinTouchTargetSize="48dp" app:chipBackgroundColor="@color/tk_chip_background" app:chipStrokeWidth="1dp" app:chipStrokeColor="@color/staff_line"/>
+<com.google.android.material.chip.Chip android:id="@+id/tkCustom" style="@style/Widget.MaterialComponents.Chip.Choice" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/tk_custom" app:ensureMinTouchTargetSize="true" app:chipMinTouchTargetSize="48dp" app:chipBackgroundColor="@color/tk_chip_background" app:chipStrokeWidth="1dp" app:chipStrokeColor="@color/staff_line"/>
+</com.google.android.material.chip.ChipGroup>
+<LinearLayout android:id="@+id/tkRangeDates" android:orientation="vertical" android:layout_width="match_parent" android:layout_height="wrap_content">
+<com.google.android.material.button.MaterialButton android:id="@+id/tkFrom" style="@style/TkOutline" android:text="@string/tk_today"/>
+<com.google.android.material.button.MaterialButton android:id="@+id/tkTo" style="@style/TkOutline" android:text="@string/tk_today"/>
+<com.google.android.material.button.MaterialButton android:id="@+id/tkApply" style="@style/TkButton" android:text="@string/tk_apply"/>
+</LinearLayout><TextView android:id="@+id/tkDatesHelp" style="@style/TkMuted" android:textSize="12sp" android:text="@string/tk_dates"/>
+</LinearLayout></com.google.android.material.card.MaterialCardView>
+<LinearLayout android:id="@+id/tkEditor" android:orientation="vertical" android:padding="20dp" android:background="@drawable/tk_notice_info" android:layout_marginBottom="16dp" android:layout_width="match_parent" android:layout_height="wrap_content" android:visibility="gone">
 <TextView android:id="@+id/tkEditorTitle" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="8dp" android:textSize="16sp" android:text="@string/tk_correction"/>
 <TextView android:id="@+id/tkFormHelp" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="8dp" android:textSize="16sp" android:text="@string/tk_form_help"/>
 <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:labelFor="@id/tkStart" android:text="@string/tk_start"/>
 <EditText android:id="@+id/tkStart" android:inputType="text" android:importantForAutofill="no" android:minHeight="48dp" android:layout_width="match_parent" android:layout_height="wrap_content"/>
-<Button android:id="@+id/tkPickStart" android:text="@string/tk_pick_start" android:minHeight="48dp" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+<com.google.android.material.button.MaterialButton style="@style/TkOutline" android:id="@+id/tkPickStart" android:text="@string/tk_pick_start" android:minHeight="48dp" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
 <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:labelFor="@id/tkEnd" android:text="@string/tk_end"/>
 <EditText android:id="@+id/tkEnd" android:inputType="text" android:importantForAutofill="no" android:minHeight="48dp" android:layout_width="match_parent" android:layout_height="wrap_content"/>
-<Button android:id="@+id/tkPickEnd" android:text="@string/tk_pick_end" android:minHeight="48dp" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+<com.google.android.material.button.MaterialButton style="@style/TkOutline" android:id="@+id/tkPickEnd" android:text="@string/tk_pick_end" android:minHeight="48dp" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
 <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:labelFor="@id/tkReason" android:text="@string/tk_reason"/>
 <EditText android:id="@+id/tkReason" android:inputType="textMultiLine" android:importantForAutofill="no" android:minHeight="48dp" android:layout_width="match_parent" android:layout_height="wrap_content" android:maxLength="1000"/>
 <CheckBox android:id="@+id/tkLeaveOpen" android:text="@string/tk_open" android:minHeight="48dp" android:layout_width="match_parent" android:layout_height="wrap_content"/>
 <TextView android:id="@+id/tkEditorMessage" android:accessibilityLiveRegion="polite" android:layout_width="match_parent" android:layout_height="wrap_content"/>
-<Button android:id="@+id/tkReview" android:text="@string/tk_review" android:minHeight="48dp" android:layout_width="match_parent" android:layout_height="wrap_content"/>
-<Button android:id="@+id/tkCancel" android:text="@string/tk_cancel" android:minHeight="48dp" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+<com.google.android.material.button.MaterialButton style="@style/TkButton" android:id="@+id/tkReview" android:text="@string/tk_review" android:minHeight="48dp" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+<com.google.android.material.button.MaterialButton style="@style/TkOutline" android:id="@+id/tkCancel" android:text="@string/tk_cancel" android:minHeight="48dp" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
 </LinearLayout>
-<LinearLayout android:id="@+id/tkConfirmation" android:orientation="vertical" android:layout_width="match_parent" android:layout_height="wrap_content" android:visibility="gone">
+<LinearLayout android:id="@+id/tkConfirmation" android:orientation="vertical" android:padding="20dp" android:background="@drawable/tk_notice_info" android:layout_marginBottom="16dp" android:layout_width="match_parent" android:layout_height="wrap_content" android:visibility="gone">
 <TextView android:id="@+id/tkConfirmText" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="8dp" android:textSize="16sp"/>
-<Button android:id="@+id/tkConfirm" android:text="@string/tk_confirm" android:minHeight="48dp" android:layout_width="match_parent" android:layout_height="wrap_content"/>
-<Button android:id="@+id/tkCancelConfirm" android:text="@string/tk_cancel" android:minHeight="48dp" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+<com.google.android.material.button.MaterialButton style="@style/TkButton" android:id="@+id/tkConfirm" android:text="@string/tk_confirm" android:minHeight="48dp" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+<com.google.android.material.button.MaterialButton style="@style/TkOutline" android:id="@+id/tkCancelConfirm" android:text="@string/tk_cancel" android:minHeight="48dp" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
 </LinearLayout>
-<LinearLayout android:id="@+id/tkEntries" android:orientation="vertical" android:layout_width="match_parent" android:layout_height="wrap_content">
+
+
+<com.google.android.material.card.MaterialCardView style="@style/TkCard"><LinearLayout style="@style/TkCardBody">
+<TextView android:id="@+id/tkShiftsTitle" style="@style/TkHeading" android:text="@string/tk_shifts_heading"/>
+<com.google.android.material.button.MaterialButton android:id="@+id/tkRefresh" style="@style/TkOutline" android:text="@string/tk_refresh" app:icon="@drawable/tk_refresh"/>
+<TextView android:id="@+id/tkSummary" style="@style/TkMuted" android:paddingTop="8dp" android:paddingBottom="8dp"/>
+<com.google.android.material.button.MaterialButton android:id="@+id/tkOpenSummary" style="@style/TkTextButton" android:text="@string/tk_open_heading" android:visibility="gone"/>
+<LinearLayout android:id="@+id/tkOpenList" android:orientation="vertical" android:layout_width="match_parent" android:layout_height="wrap_content" android:visibility="gone"/>
+<LinearLayout android:id="@+id/tkTableHeader" android:background="@color/staff_board" android:orientation="horizontal" android:layout_width="match_parent" android:layout_height="wrap_content" android:visibility="gone" android:contentDescription="@string/tk_table_description">
+<TextView android:id="@+id/tkHeaderStaff" style="@style/TkCell" android:layout_weight="1.2" android:textStyle="bold" android:text="@string/tk_column_staff"/>
+<TextView android:id="@+id/tkHeaderIn" style="@style/TkCell" android:layout_weight="1.6" android:textStyle="bold" android:text="@string/tk_column_in"/>
+<TextView android:id="@+id/tkHeaderOut" style="@style/TkCell" android:layout_weight="1.6" android:textStyle="bold" android:text="@string/tk_column_out"/>
+<TextView android:id="@+id/tkHeaderDuration" style="@style/TkCell" android:layout_weight=".9" android:textStyle="bold" android:text="@string/tk_column_duration"/>
+<TextView android:id="@+id/tkHeaderStatus" style="@style/TkCell" android:layout_weight="1" android:textStyle="bold" android:text="@string/tk_column_status"/>
+<TextView android:id="@+id/tkHeaderActions" style="@style/TkCell" android:layout_weight=".7" android:textStyle="bold" android:text="@string/tk_column_actions"/>
+</LinearLayout><LinearLayout android:id="@+id/tkEntries" android:orientation="vertical" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+<LinearLayout android:id="@+id/tkPaging" android:orientation="horizontal" android:gravity="center_vertical" android:layout_width="match_parent" android:layout_height="wrap_content">
+<com.google.android.material.button.MaterialButton android:id="@+id/tkPrevious" style="@style/TkTextButton" android:text="@string/tk_page_previous" android:contentDescription="@string/tk_previous"/>
+<TextView android:id="@+id/tkPage" style="@style/TkMuted" android:layout_width="0dp" android:layout_weight="1" android:gravity="center"/>
+<com.google.android.material.button.MaterialButton android:id="@+id/tkNext" style="@style/TkTextButton" android:text="@string/tk_page_next" android:contentDescription="@string/tk_next"/>
+</LinearLayout></LinearLayout></com.google.android.material.card.MaterialCardView>
+<com.google.android.material.card.MaterialCardView android:id="@+id/tkManualCard" style="@style/TkCard" android:visibility="gone"><LinearLayout style="@style/TkCardBody">
+<TextView style="@style/TkHeading" android:text="@string/tk_manual_heading"/>
+<TextView style="@style/TkMuted" android:text="@string/tk_manual_description"/>
+<com.google.android.material.button.MaterialButton android:id="@+id/tkManual" style="@style/TkOutline" android:text="@string/tk_manual" app:icon="@drawable/tk_add"/>
+</LinearLayout></com.google.android.material.card.MaterialCardView>
+<LinearLayout android:id="@+id/tkAudit" style="@style/TkCardBody" android:background="@drawable/tk_notice_info" android:layout_marginBottom="16dp" android:visibility="gone">
+<TextView android:id="@+id/tkAuditTitle" style="@style/TkHeading"/>
+<LinearLayout android:id="@+id/tkAuditEntries" android:orientation="vertical" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+<com.google.android.material.button.MaterialButton android:id="@+id/tkAuditPrevious" style="@style/TkTextButton" android:text="@string/tk_audit_prev"/>
+<com.google.android.material.button.MaterialButton android:id="@+id/tkAuditNext" style="@style/TkTextButton" android:text="@string/tk_audit_next"/>
 </LinearLayout>
-<Button android:id="@+id/tkPrevious" android:text="@string/tk_previous" android:minHeight="48dp" android:layout_width="match_parent" android:layout_height="wrap_content"/>
-<Button android:id="@+id/tkNext" android:text="@string/tk_next" android:minHeight="48dp" android:layout_width="match_parent" android:layout_height="wrap_content"/>
-<LinearLayout android:id="@+id/tkAudit" android:orientation="vertical" android:layout_width="match_parent" android:layout_height="wrap_content" android:visibility="gone">
-<TextView android:id="@+id/tkAuditTitle" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="8dp" android:textSize="16sp"/>
-<LinearLayout android:id="@+id/tkAuditEntries" android:orientation="vertical" android:layout_width="match_parent" android:layout_height="wrap_content">
-</LinearLayout>
-<Button android:id="@+id/tkAuditPrevious" android:text="@string/tk_audit_prev" android:minHeight="48dp" android:layout_width="match_parent" android:layout_height="wrap_content"/>
-<Button android:id="@+id/tkAuditNext" android:text="@string/tk_audit_next" android:minHeight="48dp" android:layout_width="match_parent" android:layout_height="wrap_content"/>
-</LinearLayout>
-</LinearLayout>
-</androidx.core.widget.NestedScrollView>
+<LinearLayout style="@style/TkCardBody" android:background="@drawable/tk_notice_info">
+<TextView style="@style/TkHeading" android:textSize="16sp" android:text="@string/tk_info_heading"/>
+<TextView style="@style/TkMuted" android:text="@string/tk_info_body"/>
+</LinearLayout></LinearLayout></androidx.core.widget.NestedScrollView>

@@ -1,41 +1,39 @@
-<?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
- android:id="@+id/printerScroll" android:layout_width="match_parent"
- android:layout_height="match_parent" android:fillViewport="true">
-<LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="16dp">
- <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/printers_title" android:textSize="24sp" android:textStyle="bold"/>
- <TextView android:id="@+id/printerMessage" android:layout_width="match_parent" android:layout_height="wrap_content" android:accessibilityLiveRegion="polite"/>
- <ProgressBar android:id="@+id/printerProgress" style="?android:attr/progressBarStyleHorizontal" android:indeterminate="true" android:layout_width="match_parent" android:layout_height="4dp"/>
- <Button android:id="@+id/addPrinter" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/add_printer"/>
-
-  <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
-   <LinearLayout android:id="@+id/printerList" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical"/>
-   <LinearLayout android:id="@+id/printerEditor" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:visibility="gone">
-    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/printer_step_connection" android:textStyle="bold"/>
-    <Spinner android:id="@+id/printerTransport" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="48dp" android:contentDescription="@string/printer_transport"/>
-    <Button android:id="@+id/discoverPrinters" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/discover_printers"/>
-    <Button android:id="@+id/stopPrinterDiscovery" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/stop_discovery"/>
-    <Button android:id="@+id/bluetoothSettings" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/bluetooth_settings"/>
-    <TextView android:id="@+id/discoveryStatus" android:layout_width="match_parent" android:layout_height="wrap_content" android:accessibilityLiveRegion="polite"/>
-    <LinearLayout android:id="@+id/discoveredPrinters" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical"/>
-    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/printer_step_profile" android:textStyle="bold"/>
-    <EditText android:id="@+id/printerName" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="48dp" android:hint="@string/printer_name" android:inputType="text" android:maxLength="100"/>
-    <EditText android:id="@+id/printerEndpoint" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="48dp" android:hint="@string/printer_endpoint" android:inputType="textUri"/>
-    <EditText android:id="@+id/printerPort" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="48dp" android:hint="@string/printer_port" android:inputType="number"/>
-    <TextView android:id="@+id/printerIdentity" android:layout_width="match_parent" android:layout_height="wrap_content"/>
-    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/printer_step_driver" android:textStyle="bold"/>
-    <Spinner android:id="@+id/printerDriver" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="48dp" android:contentDescription="@string/printer_driver"/>
-    <CheckBox android:id="@+id/printerCompatible" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/printer_confirm_compatibility"/>
-    <Spinner android:id="@+id/printerPaper" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="48dp" android:contentDescription="@string/printer_paper"/>
-    <TextView android:id="@+id/printerCapabilities" android:layout_width="match_parent" android:layout_height="wrap_content"/>
-    <EditText android:id="@+id/printerTimezone" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="48dp" android:hint="@string/printer_timezone" android:inputType="text"/>
-    <Spinner android:id="@+id/printerAssignment" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="48dp" android:contentDescription="@string/printer_assignment"/>
-    <CheckBox android:id="@+id/printerEnabled" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/printer_enabled"/>
-    <Button android:id="@+id/savePrinter" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/save_printer"/>
-    <Button android:id="@+id/cancelPrinter" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/cancel_printer"/>
-   </LinearLayout>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android" android:id="@+id/printerScroll" android:layout_width="match_parent" android:layout_height="match_parent" android:fillViewport="true" android:background="@color/staff_board">
+  <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="16dp">
+    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/printers_title" android:textSize="24sp" android:textStyle="bold" style="@style/DashboardTitle" />
+    <TextView style="@style/DashboardMuted" android:text="@string/dashboard_printers_subtitle" android:paddingTop="8dp" android:paddingBottom="12dp" />
+    <TextView style="@style/DashboardMuted" android:text="@string/dashboard_printers_guidance" android:paddingBottom="12dp" />
+    <TextView android:id="@+id/printerMessage" android:layout_width="match_parent" android:layout_height="wrap_content" android:accessibilityLiveRegion="polite" android:background="@drawable/tk_notice_info" android:padding="12dp" />
+    <ProgressBar android:id="@+id/printerProgress" style="?android:attr/progressBarStyleHorizontal" android:indeterminate="true" android:layout_width="match_parent" android:layout_height="4dp" />
+    <com.google.android.material.button.MaterialButton android:id="@+id/addPrinter" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/add_printer" style="@style/DashboardOutline" />
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
+      <LinearLayout android:id="@+id/printerList" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" />
+      <com.google.android.material.card.MaterialCardView android:id="@+id/printerEditor" android:layout_width="match_parent" android:layout_height="wrap_content" android:visibility="gone" style="@style/DashboardCard">
+        <LinearLayout style="@style/DashboardBody">
+          <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/printer_step_connection" android:textStyle="bold" style="@style/DashboardHeading" android:layout_marginTop="20dp" />
+          <Spinner android:id="@+id/printerTransport" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="48dp" android:contentDescription="@string/printer_transport" />
+          <com.google.android.material.button.MaterialButton android:id="@+id/discoverPrinters" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/discover_printers" style="@style/DashboardOutline" />
+          <com.google.android.material.button.MaterialButton android:id="@+id/stopPrinterDiscovery" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/stop_discovery" style="@style/DashboardOutline" />
+          <com.google.android.material.button.MaterialButton android:id="@+id/bluetoothSettings" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/bluetooth_settings" style="@style/DashboardOutline" />
+          <TextView android:id="@+id/discoveryStatus" android:layout_width="match_parent" android:layout_height="wrap_content" android:accessibilityLiveRegion="polite" />
+          <LinearLayout android:id="@+id/discoveredPrinters" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" />
+          <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/printer_step_profile" android:textStyle="bold" style="@style/DashboardHeading" android:layout_marginTop="20dp" />
+          <EditText android:id="@+id/printerName" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="48dp" android:hint="@string/printer_name" android:inputType="text" android:maxLength="100" />
+          <EditText android:id="@+id/printerEndpoint" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="48dp" android:hint="@string/printer_endpoint" android:inputType="textUri" />
+          <EditText android:id="@+id/printerPort" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="48dp" android:hint="@string/printer_port" android:inputType="number" />
+          <TextView android:id="@+id/printerIdentity" android:layout_width="match_parent" android:layout_height="wrap_content" />
+          <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/printer_step_driver" android:textStyle="bold" style="@style/DashboardHeading" android:layout_marginTop="20dp" />
+          <Spinner android:id="@+id/printerDriver" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="48dp" android:contentDescription="@string/printer_driver" />
+          <CheckBox android:id="@+id/printerCompatible" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/printer_confirm_compatibility" android:minHeight="48dp" />
+          <Spinner android:id="@+id/printerPaper" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="48dp" android:contentDescription="@string/printer_paper" />
+          <TextView android:id="@+id/printerCapabilities" android:layout_width="match_parent" android:layout_height="wrap_content" />
+          <EditText android:id="@+id/printerTimezone" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="48dp" android:hint="@string/printer_timezone" android:inputType="text" />
+          <Spinner android:id="@+id/printerAssignment" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="48dp" android:contentDescription="@string/printer_assignment" />
+          <CheckBox android:id="@+id/printerEnabled" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/printer_enabled" android:minHeight="48dp" />
+          <com.google.android.material.button.MaterialButton android:id="@+id/savePrinter" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/save_printer" style="@style/DashboardPrimary" />
+          <com.google.android.material.button.MaterialButton android:id="@+id/cancelPrinter" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/cancel_printer" style="@style/DashboardOutline" />
+        </LinearLayout>
+      </com.google.android.material.card.MaterialCardView>
+    </LinearLayout>
   </LinearLayout>
-
-</LinearLayout>
-
 </ScrollView>

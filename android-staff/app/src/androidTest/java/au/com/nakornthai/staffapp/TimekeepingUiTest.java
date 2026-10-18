@@ -55,25 +55,36 @@ public final class TimekeepingUiTest {
   void waitSaved(int count) {
     StaffUiTest.retry(()->assertEquals(count,app.attendanceMutations.get()));
     StaffUiTest.retry(()->onView(withId(R.id.tkMessage)).check(matches(withText(containsString("Confirmed by server")))));
-    StaffUiTest.retry(()->onView(withId(R.id.tkTimeIn)).check(matches(isEnabled())));
+    StaffUiTest.retry(()->onView(withId(R.id.tkProgress)).check(matches(withEffectiveVisibility(Visibility.GONE))));
   }
   @Test public void adminLiveActionsConfirmOnceAndUseServerTimes() {
-    login("admin");open("Timekeeping");selectStaff();
+    login("admin");open("Timekeeping");
+    onView(withId(R.id.tkTimeIn)).check(matches(not(isEnabled())));
+    onView(withId(R.id.tkTimeOut)).check(matches(not(isEnabled())));
+    selectStaff();
+    onView(withId(R.id.tkTimeIn)).check(matches(isEnabled()));
+    onView(withId(R.id.tkTimeOut)).check(matches(not(isEnabled())));
     onView(withId(R.id.tkTimeIn)).perform(scrollTo(),click());assertEquals(0,app.attendanceMutations.get());
     onView(withId(R.id.tkConfirm)).perform(scrollTo(),click());waitSaved(1);
     onView(withId(R.id.tkMessage)).check(matches(withText(containsString("16:00:00 +11:00"))));
+    onView(withId(R.id.tkTimeIn)).check(matches(not(isEnabled())));
+    onView(withId(R.id.tkTimeOut)).check(matches(isEnabled()));
     onView(withId(R.id.tkTimeOut)).perform(scrollTo(),click());onView(withId(R.id.tkConfirm)).perform(scrollTo(),click());waitSaved(2);
     onView(withId(R.id.tkSummary)).check(matches(withText(containsString("1 h completed"))));
+    onView(withId(R.id.tkTimeIn)).check(matches(isEnabled()));
+    onView(withId(R.id.tkTimeOut)).check(matches(not(isEnabled())));
   }
   @Test public void manualOvernightCorrectionRequiresReasonAndAuditShowsBothVersions() {
     login("admin");open("Timekeeping");manual();
     onView(withId(R.id.tkSummary)).check(matches(withText(containsString("4 h completed"))));
-    onView(withTagValue(is((Object)"correct:fixture-entry"))).perform(scrollTo(),click());
+    onView(withTagValue(is((Object)"overflow:fixture-entry"))).perform(scrollTo(),click());
+    onView(withText(R.string.tk_correct_action)).perform(click());
     onView(withId(R.id.tkReview)).perform(scrollTo(),click());assertEquals(1,app.attendanceMutations.get());
     onView(withId(R.id.tkMessage)).check(matches(withText(containsString("audit reason"))));
     onView(withId(R.id.tkReason)).perform(scrollTo(),replaceText("Correct recorded minutes"),androidx.test.espresso.action.ViewActions.closeSoftKeyboard());
     onView(withId(R.id.tkReview)).perform(scrollTo(),click());onView(withId(R.id.tkConfirm)).perform(scrollTo(),click());waitSaved(2);
-    onView(withTagValue(is((Object)"audit:fixture-entry"))).perform(scrollTo(),click());
+    onView(withTagValue(is((Object)"overflow:fixture-entry"))).perform(scrollTo(),click());
+    onView(withText(R.string.tk_audit_action)).perform(click());
     StaffUiTest.retry(()->onView(withId(R.id.tkAudit)).check(matches(withEffectiveVisibility(Visibility.VISIBLE))));
     onView(withId(R.id.tkAuditEntries)).check(matches(hasDescendant(withText(containsString("Correct recorded minutes")))));
   }
@@ -81,9 +92,9 @@ public final class TimekeepingUiTest {
     login("foh");open("My Timesheet");
     onView(withId(R.id.tkAdmin)).check(matches(withEffectiveVisibility(Visibility.GONE)));
     onView(withId(R.id.tkEditor)).check(matches(withEffectiveVisibility(Visibility.GONE)));
-    onView(withText("Correct attendance")).check(doesNotExist());
-    onView(withText("View audit history")).check(doesNotExist());assertEquals(0,app.attendanceMutations.get());
-    onView(withId(R.id.tkEntries)).check(matches(hasDescendant(withText("No attendance matches these dates."))));
+    onView(withText(R.string.tk_correct_action)).check(doesNotExist());
+    onView(withText(R.string.tk_audit_action)).check(doesNotExist());assertEquals(0,app.attendanceMutations.get());
+    onView(withId(R.id.tkEntries)).check(matches(hasDescendant(withText(R.string.tk_empty_body))));
   }
   @Test public void kitchenStaffAlsoNavigateToReadOnlyTimesheet() {
     login("boh");open("My Timesheet");onView(withId(R.id.tkAdmin)).check(matches(withEffectiveVisibility(Visibility.GONE)));
@@ -99,8 +110,8 @@ public final class TimekeepingUiTest {
   }
   @Test public void forbiddenMutationIsVisibleAndNotRetried() {
     login("admin");open("Timekeeping");selectStaff();app.attendanceWriteFailure=403;
-    onView(withId(R.id.tkTimeOut)).perform(scrollTo(),click());onView(withId(R.id.tkConfirm)).perform(scrollTo(),click());
-    StaffUiTest.retry(()->onView(withId(R.id.tkTimeOut)).check(matches(not(isEnabled()))));
+    onView(withId(R.id.tkTimeIn)).perform(scrollTo(),click());onView(withId(R.id.tkConfirm)).perform(scrollTo(),click());
+    StaffUiTest.retry(()->onView(withId(R.id.tkTimeIn)).check(matches(not(isEnabled()))));
     assertEquals(1,app.attendanceMutations.get());
   }
   @Test public void draftSurvivesRecreationAndLandscapeWhileKeyboardControlsStayReachable() {
@@ -111,6 +122,22 @@ public final class TimekeepingUiTest {
     scenario.recreate();onView(withId(R.id.tkReason)).perform(scrollTo()).check(matches(withText("Retained reason")));
     scenario.onActivity(a->a.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE));
     StaffUiTest.retry(()->onView(withId(R.id.tkCancel)).perform(scrollTo()).check(matches(isDisplayed())));
+    assertEquals(0,app.attendanceMutations.get());
+  }
+  @Test public void quickDateSelectionsDoNotSubmitAttendanceAndApplyAndRefreshRemainReads() {
+    login("admin");open("Timekeeping");
+    onView(withId(R.id.tkWeek)).perform(scrollTo(),click());
+    onView(withId(R.id.tkFrom)).check(matches(withText(containsString("2026-10-12"))));
+    onView(withId(R.id.tkMonth)).perform(scrollTo(),click());
+    onView(withId(R.id.tkTo)).check(matches(withText(containsString("2026-10-31"))));
+    onView(withId(R.id.tkCustom)).perform(scrollTo(),click());
+    assertEquals(0,app.attendanceMutations.get());
+    onView(withId(R.id.tkApply)).perform(scrollTo(),click());
+    StaffUiTest.retry(()->onView(withId(R.id.tkProgress)).check(matches(withEffectiveVisibility(Visibility.GONE))));
+    onView(withId(R.id.tkPrevious)).check(matches(not(isEnabled())));
+    onView(withId(R.id.tkNext)).check(matches(not(isEnabled())));
+    onView(withId(R.id.tkRefresh)).perform(scrollTo(),click());
+    StaffUiTest.retry(()->onView(withId(R.id.tkProgress)).check(matches(withEffectiveVisibility(Visibility.GONE))));
     assertEquals(0,app.attendanceMutations.get());
   }
 }

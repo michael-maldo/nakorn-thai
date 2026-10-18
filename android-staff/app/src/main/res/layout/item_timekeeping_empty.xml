@@ -1,0 +1,4 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:orientation="vertical" android:padding="24dp" android:layout_width="match_parent" android:layout_height="wrap_content">
+<TextView style="@style/TkHeading" android:gravity="center" android:text="@string/tk_empty_title"/>
+<TextView style="@style/TkMuted" android:gravity="center" android:text="@string/tk_empty_body"/>
+</LinearLayout>

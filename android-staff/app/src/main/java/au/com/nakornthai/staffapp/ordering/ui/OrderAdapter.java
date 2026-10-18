@@ -50,19 +50,20 @@ public final class OrderAdapter extends ListAdapter<Order, OrderAdapter.Holder> 
   public void onBindViewHolder(Holder holder, int position) {
     Order order = getItem(position);
     ItemOrderBinding b = holder.binding;
-    b.cardTitle.setText("#" + order.reference);
-    b.cardTimes.setText(
-        "Placed "
-            + OrderPresentation.time(order.createdAt)
-            + "\nPickup "
-            + OrderPresentation.time(order.estimatedReadyAt));
+    android.content.Context context=b.getRoot().getContext();
+    b.cardTitle.setText(context.getString(au.com.nakornthai.staffapp.R.string.dashboard_order_reference,order.reference));
+    int status=au.com.nakornthai.staffapp.shared.dashboard.DashboardPresentation.statusIndex(order.status);
+    b.cardStatus.setText(status<0?order.status:context.getString(au.com.nakornthai.staffapp.shared.dashboard.QueueSummaries.LABELS[status]));
+    if(status>=0)b.cardStatus.setBackgroundResource(au.com.nakornthai.staffapp.shared.dashboard.QueueSummaries.SURFACES[status]);
+    b.cardTimes.setText(context.getString(au.com.nakornthai.staffapp.R.string.dashboard_order_times,
+        OrderPresentation.time(order.createdAt),OrderPresentation.time(order.estimatedReadyAt)));
     b.cardBody.setText(OrderPresentation.items(order));
     b.cardPayment.setVisibility(kitchen ? View.GONE : View.VISIBLE);
     b.cardPayment.setText(kitchen ? "" : OrderPresentation.payment(order));
     b.getRoot().setOnClickListener(v -> open.accept(order.id));
     b.getRoot()
         .setContentDescription(
-            "Order " + order.reference + ", " + order.status + ". View details and actions.");
+            context.getString(au.com.nakornthai.staffapp.R.string.dashboard_order_accessibility,order.reference,order.status));
   }
 
   static final class Holder extends RecyclerView.ViewHolder {

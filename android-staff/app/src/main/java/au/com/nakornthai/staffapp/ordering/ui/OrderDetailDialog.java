@@ -74,7 +74,7 @@ public final class OrderDetailDialog extends DialogFragment {
   }
 
   private void add(DialogOrderBinding binding, String operation, Order order, boolean enabled) {
-    Button button = new com.google.android.material.button.MaterialButton(requireContext());
+    Button button = (Button)getLayoutInflater().inflate(au.com.nakornthai.staffapp.R.layout.item_dashboard_action,binding.actions,false);
     button.setText(OrderPresentation.action(operation));
     button.setEnabled(enabled);
     button.setOnClickListener(

@@ -12,6 +12,7 @@ import java.util.*;
 import java.util.concurrent.Executor;
 
 public final class TimekeepingViewModel extends ViewModel {
+  public enum Notice { INFO, LOADING, SUCCESS, ERROR }
   public static final class Draft {
     public Entry existing;
     public String staffId, in = "", out = "", reason = "";
@@ -20,7 +21,10 @@ public final class TimekeepingViewModel extends ViewModel {
   }
   public static final class State {
     public final boolean admin, busy, fresh, uncertain;
+    public final boolean filtersPending;
     public final String message, from, to, selectedStaff;
+    public final String rangePreset;
+    public final Notice notice;
     public final ZoneId zone;
     public final List<Session.User> staff;
     public final List<Entry> open;
@@ -32,10 +36,17 @@ public final class TimekeepingViewModel extends ViewModel {
     State(TimekeepingViewModel v) {
       admin = v.admin(); busy = v.working; fresh = v.fresh; uncertain = v.uncertain;
       message = v.message; from = v.fromDate; to = v.toDate; selectedStaff = v.staffId;
+      rangePreset = v.rangePreset; notice = v.notice;
+      filtersPending = v.sheet != null && (!Objects.equals(v.fromDate, v.appliedFrom)
+          || !Objects.equals(v.toDate, v.appliedTo) || !Objects.equals(v.staffId, v.appliedStaff));
       zone = v.zone; staff = new ArrayList<>(v.staff); open = new ArrayList<>(v.open);
       sheet = v.sheet; audit = v.audit; auditId = v.auditId; pending = v.pending; draft = v.draft;
     }
     public boolean canWrite() { return admin && !busy && fresh && !uncertain; }
+    public boolean activeSelected() { return selectedStaff != null && staff.stream().anyMatch(u -> u.enabled && selectedStaff.equals(u.id)); }
+    public boolean selectedOpen() { return TimekeepingPresentation.clockedIn(selectedStaff, open); }
+    public boolean canClockIn() { return canWrite() && pending == null && activeSelected() && !selectedOpen(); }
+    public boolean canClockOut() { return canWrite() && pending == null && activeSelected() && selectedOpen(); }
   }
   private final IdentityRepository identity;
   private final TimekeepingRepository repository;
@@ -46,6 +57,10 @@ public final class TimekeepingViewModel extends ViewModel {
   private long owner = -1;
   private boolean working, fresh, uncertain, closed;
   private String message = "Loading attendance…";
+  private Notice notice = Notice.LOADING;
+  private String rangePreset = "TODAY";
+  private LocalDate serverDay;
+  private String appliedFrom, appliedTo, appliedStaff;
   public String fromDate = "", toDate = "", staffId;
   private ZoneId zone;
   private List<Session.User> staff = new ArrayList<>();
@@ -72,12 +87,33 @@ public final class TimekeepingViewModel extends ViewModel {
     sheet = null; audit = null; auditId = null; pending = null; draft = null;
     staff = new ArrayList<>(); open = new ArrayList<>(); zone = null;
     fromDate = ""; toDate = ""; staffId = null;
+    serverDay = null; rangePreset = "TODAY"; notice = Notice.LOADING;
+    appliedFrom = null; appliedTo = null; appliedStaff = null;
     message = identity.current() == null ? "Please sign in again." : "Loading attendance…";
     publish();
     if (identity.current() != null) refresh(0);
   }
   private boolean owns(long expected) { return !closed && owner == expected && identity.generation() == expected && identity.current() != null; }
-  public synchronized void error(String text) { message = text; if (draft != null) draft.error = text; publish(); }
+  public synchronized void error(String text) { message = text; notice = Notice.ERROR; if (draft != null) draft.error = text; publish(); }
+  public synchronized void selectStaff(String selected) {
+    if (working || Objects.equals(staffId, selected)) return;
+    staffId = selected; pending = null; draft = null; publish();
+  }
+  /** Prepares filters only. Apply/Refresh remain the only read triggers. */
+  public synchronized void selectRange(String preset) {
+    if (working || serverDay == null) return;
+    if (!"CUSTOM".equals(preset)) {
+      LocalDate[] dates = TimekeepingPresentation.range(preset, serverDay);
+      fromDate = dates[0].toString(); toDate = dates[1].toString();
+    }
+    rangePreset = preset; pending = null; draft = null; publish();
+  }
+  public synchronized void customDate(boolean start, String date) {
+    if (working) return;
+    LocalDate.parse(date);
+    if (start) fromDate = date; else toDate = date;
+    rangePreset = "CUSTOM"; pending = null; draft = null; publish();
+  }
   public synchronized void filter(String from, String to, String staff) {
     if (working) return;
     try { AttendanceTime.range(from, to); }
@@ -91,6 +127,7 @@ public final class TimekeepingViewModel extends ViewModel {
   public synchronized void refresh(int page) {
     if (working || closed || identity.current() == null || page < 0) return;
     long expected = owner; working = true; pending = null; draft = null; audit = null; auditId = null; fresh = false;
+    notice = Notice.LOADING;
     String from = fromDate, to = toDate, staffFilter = staffId;
     publish();
     executor.execute(() -> {
@@ -113,12 +150,16 @@ public final class TimekeepingViewModel extends ViewModel {
     synchronized (this) {
       if (!owns(expected)) return;
       zone = restaurantZone; fromDate = from; toDate = to; staff = users; sheet = next; open = opens;
+      serverDay = Instant.parse(restaurant.evaluatedAt).atZone(restaurantZone).toLocalDate();
+      appliedFrom = from; appliedTo = to; appliedStaff = staffFilter;
+      this.notice = notice.startsWith("Confirmed by server") ? Notice.SUCCESS : Notice.INFO;
       working = false; fresh = true; uncertain = false; message = notice; audit = null; auditId = null; publish();
     }
   }
   private synchronized void failed(long expected, Exception e) {
     if (!owns(expected)) return;
     working = false; fresh = false; pending = null;
+    notice = Notice.ERROR;
     uncertain |= e instanceof ApiFailure && (((ApiFailure) e).uncertain || ((ApiFailure) e).status >= 500);
     message = e.getMessage() == null ? "Connection interrupted. Refresh to check attendance." : e.getMessage();
     if (e instanceof ApiFailure && ((ApiFailure) e).status == 409)
@@ -140,6 +181,9 @@ public final class TimekeepingViewModel extends ViewModel {
   public synchronized void cancel() { if (!working) { pending = null; draft = null; publish(); } }
   public synchronized void reviewLive(String operation, String staffSelection) {
     if (!writable()) return;
+    boolean active = staffSelection != null && staff.stream().anyMatch(u -> u.enabled && staffSelection.equals(u.id));
+    boolean isOpen = TimekeepingPresentation.clockedIn(staffSelection, open);
+    if (!active || ("clock-in".equals(operation) && isOpen) || ("clock-out".equals(operation) && !isOpen)) return;
     try { pending = AttendanceCommand.live(operation, staffSelection); draft = null; publish(); }
     catch (IllegalArgumentException e) { error(e.getMessage()); }
   }
@@ -153,7 +197,7 @@ public final class TimekeepingViewModel extends ViewModel {
     AttendanceCommand command = pending; pending = null;
     long expected = owner; working = true; fresh = false;
     String from = fromDate, to = toDate, staffFilter = staffId;
-    message = "Submitting attendance once…"; publish();
+    message = "Submitting attendance once…"; notice = Notice.LOADING; publish();
     executor.execute(() -> {
       Entry saved;
       try { saved = repository.mutate(expected, command); }
@@ -164,7 +208,7 @@ public final class TimekeepingViewModel extends ViewModel {
         draft = null;
         notice = "Confirmed by server: " + command.operation + " · " + AttendanceTime.display(saved.clockIn, zone)
             + " → " + AttendanceTime.display(saved.clockOut, zone);
-        message = notice; publish();
+        message = notice; this.notice = Notice.SUCCESS; publish();
       }
       try { load(expected, from, to, staffFilter, 0, notice); }
       catch (Exception e) { failed(expected, new java.io.IOException(notice + "\nAttendance refresh failed. Refresh to load the latest list.")); }

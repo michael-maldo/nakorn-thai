@@ -1,0 +1,1 @@
+<TextView xmlns:android="http://schemas.android.com/apk/res/android" android:id="@android:id/text1" style="@style/TkText" android:padding="12dp" android:drawableEnd="@drawable/tk_expand" android:drawablePadding="8dp" android:minHeight="48dp" android:gravity="center_vertical"/>

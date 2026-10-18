@@ -23,7 +23,9 @@ public final class MainActivity extends AppCompatActivity {
   private NavController navigation;
   private AuthViewModel auth;
   private OrdersViewModel orders;
-  private boolean expanded = true, authenticated, narrow;
+  private boolean expanded = true, authenticated, narrow, compact;
+  private int availableWidth;
+  private int unacknowledged;
   private long heard;
   private ToneGenerator tone;
 
@@ -60,17 +62,21 @@ public final class MainActivity extends AppCompatActivity {
         });
     binding.drawerToggle.setOnClickListener(
         v -> binding.drawer.openDrawer(binding.overlayNavigation));
-    binding.sidebarOrders.setOnClickListener(v -> navigate(R.id.ordersFragment));
-    binding.overlayOrders.setOnClickListener(v -> navigate(R.id.ordersFragment));
-    binding.sidebarReservations.setOnClickListener(v -> navigate(R.id.reservationsFragment));
-    binding.overlayReservations.setOnClickListener(v -> navigate(R.id.reservationsFragment));
-    binding.sidebarOrders.setTooltipText("Orders");
-    binding.sidebarReservations.setTooltipText("Reservations");
+    bindNavigation(binding.sidebarOrders,binding.overlayOrders,R.id.ordersFragment);
+    bindNavigation(binding.sidebarReservations,binding.overlayReservations,R.id.reservationsFragment);
+    bindNavigation(binding.sidebarTimekeeping,binding.overlayTimekeeping,R.id.timekeepingFragment);
+    bindNavigation(binding.sidebarAnalytics,binding.overlayAnalytics,R.id.analyticsFragment);
+    bindNavigation(binding.sidebarPrinters,binding.overlayPrinters,R.id.printerManagementFragment);
+    binding.sidebarManage.setOnClickListener(v -> showManage());
+    binding.overlayManage.setOnClickListener(v -> showManage());
+    binding.orderAlerts.setOnClickListener(v -> {
+      if (getSupportFragmentManager().findFragmentByTag("orderAlerts") == null)
+        new au.com.nakornthai.staffapp.ordering.ui.OrderAlertsDialog().show(getSupportFragmentManager(),"orderAlerts");
+    });
     binding.footer.setOnItemSelectedListener(
         item -> {
           if (item.getItemId() == R.id.manage) {
-            if (getSupportFragmentManager().findFragmentByTag("manage") == null)
-              new ManageSheet().show(getSupportFragmentManager(), "manage");
+            showManage();
             return false;
           }
           navigate(item.getItemId() == R.id.home ? R.id.ordersFragment : R.id.analyticsFragment);
@@ -91,10 +97,12 @@ public final class MainActivity extends AppCompatActivity {
                 footerParams.width = footerWidth;
                 binding.footer.setLayoutParams(footerParams);
               }
-              boolean small = width / getResources().getDisplayMetrics().density < 840;
-              if (small != narrow) {
-                narrow = small;
-                renderShell();
+              float density=getResources().getDisplayMetrics().density;
+              float font=getResources().getConfiguration().fontScale;
+              boolean small=!au.com.nakornthai.staffapp.shared.dashboard.DashboardPresentation.permanentNavigation(width/density,font);
+              boolean shortWindow=au.com.nakornthai.staffapp.shared.dashboard.DashboardPresentation.compact((b-t)/density,font);
+              if (small!=narrow || shortWindow!=compact || width!=availableWidth) {
+                narrow=small;compact=shortWindow;availableWidth=width;renderShell();
               }
             });
     auth.state.observe(
@@ -111,7 +119,9 @@ public final class MainActivity extends AppCompatActivity {
               || navigation.getCurrentDestination().getId() == R.id.loginFragment)
             resetTo(R.id.ordersFragment);
           binding.identityLabel.setText(
-              authenticated ? state.session.user.username + "\n" + state.session.user.role : "");
+              authenticated ? getString(R.string.dashboard_identity,state.session.user.username,state.session.user.role) : "");
+          binding.topIdentity.setText(binding.identityLabel.getText());
+          binding.drawerIdentity.setText(binding.identityLabel.getText());
           renderShell();
         });
     orders.state.observe(
@@ -134,8 +144,8 @@ public final class MainActivity extends AppCompatActivity {
                           + au.com.nakornthai.staffapp.ordering.ui.OrderPresentation.time(
                               java.time.Instant.ofEpochMilli(state.lastSync).toString())
                           + " (Melbourne)"));
-          binding.alertBar.setVisibility(
-              authenticated && state.unacknowledged > 0 ? View.VISIBLE : View.GONE);
+          unacknowledged=state.unacknowledged;
+          renderAlerts();
           binding.alertText.setText(
               state.unacknowledged
                   + " new pending order(s). Acknowledging does not accept an order.");
@@ -194,63 +204,73 @@ public final class MainActivity extends AppCompatActivity {
     auth.logout();
   }
 
-  private void renderShell() {
-    if (binding == null) return;
-    binding.footer.setVisibility(authenticated ? View.VISIBLE : View.GONE);
-    binding.footerDivider.setVisibility(authenticated ? View.VISIBLE : View.GONE);
-    binding.shellConnection.setVisibility(authenticated ? View.VISIBLE : View.GONE);
-    binding.sidebar.setVisibility(authenticated && !narrow ? View.VISIBLE : View.GONE);
-    binding.drawerToggle.setVisibility(authenticated && narrow ? View.VISIBLE : View.GONE);
-    binding.drawer.setDrawerLockMode(
-        authenticated && narrow
-            ? DrawerLayout.LOCK_MODE_UNLOCKED
-            : DrawerLayout.LOCK_MODE_LOCKED_CLOSED);
-    ViewGroup.LayoutParams params = binding.sidebar.getLayoutParams();
-    params.width =
-        getResources()
-            .getDimensionPixelSize(
-                expanded ? R.dimen.sidebar_expanded_width : R.dimen.sidebar_collapsed_width);
-    binding.sidebar.setLayoutParams(params);
-    binding.brand.setVisibility(expanded ? View.VISIBLE : View.GONE);
-    binding.identityLabel.setVisibility(expanded ? View.VISIBLE : View.GONE);
-    binding.sidebarToggle.setContentDescription(
-        expanded ? "Collapse navigation" : "Expand navigation");
-    binding.sidebarToggle.setTooltipText(expanded ? "Collapse navigation" : "Expand navigation");
-    binding.sidebarOrders.setText(expanded ? "Orders" : "");
-    binding.sidebarReservations.setText(expanded ? "Reservations" : "");
-    int padding = (int) ((expanded ? 12 : 8) * getResources().getDisplayMetrics().density);
-    binding.sidebarOrders.setPadding(padding, 0, padding, 0);
-    binding.sidebarReservations.setPadding(padding, 0, padding, 0);
-    binding.sidebarOrders.setIconPadding(expanded ? padding : 0);
-    binding.sidebarReservations.setIconPadding(expanded ? padding : 0);
-
-    int destination =
-        navigation.getCurrentDestination() == null ? 0 : navigation.getCurrentDestination().getId();
-    selected(binding.sidebarOrders, destination == R.id.ordersFragment);
-    selected(binding.sidebarReservations, destination == R.id.reservationsFragment);
-    selected(binding.overlayOrders, destination == R.id.ordersFragment);
-    selected(binding.overlayReservations, destination == R.id.reservationsFragment);
-    binding.footer.getMenu().setGroupCheckable(0, false, false);
-    for (int i = 0; i < binding.footer.getMenu().size(); i++) {
-      android.view.MenuItem item = binding.footer.getMenu().getItem(i);
-      item.setCheckable(true);
-      item.setChecked(
-          (item.getItemId() == R.id.home && destination == R.id.ordersFragment)
-              || (item.getItemId() == R.id.analyticsAction
-                  && destination == R.id.analyticsFragment));
-    }
-    if (!authenticated) binding.alertBar.setVisibility(View.GONE);
+  private void bindNavigation(MaterialButton rail, MaterialButton drawer, int destination) {
+    rail.setOnClickListener(v -> navigate(destination));drawer.setOnClickListener(v -> navigate(destination));
   }
-
-  private void selected(MaterialButton button, boolean value) {
-    button.setSelected(value);
-    button.setAlpha(1f);
-    button.setStrokeWidth(0);
-    button.setContentDescription(
-        (button == binding.sidebarOrders || button == binding.overlayOrders
-                ? "Orders"
-                : "Reservations")
-            + (value ? ", selected" : ""));
+  private void showManage() {
+    if (!authenticated) return;
+    binding.drawer.closeDrawers();
+    if (getSupportFragmentManager().findFragmentByTag("manage")==null)
+      new ManageSheet().show(getSupportFragmentManager(),"manage");
+  }
+  private void renderAlerts() {
+    binding.alertBar.setVisibility(authenticated && unacknowledged>0 && !compact ? View.VISIBLE : View.GONE);
+    binding.orderAlerts.setText(unacknowledged>0?String.valueOf(unacknowledged):"");
+    binding.orderAlerts.setContentDescription(getString(R.string.dashboard_notifications,unacknowledged));
+    binding.orderAlerts.setEnabled(authenticated);
+  }
+  private void renderShell() {
+    if(binding==null)return;
+    binding.dashboardTopBar.setVisibility(authenticated?View.VISIBLE:View.GONE);
+    binding.dashboardTopBar.setMinimumHeight((int)((compact?48:64)*getResources().getDisplayMetrics().density));
+    binding.topIdentity.setVisibility(!narrow && !compact?View.VISIBLE:View.GONE);
+    binding.footer.setVisibility(authenticated?View.VISIBLE:View.GONE);
+    binding.footerDivider.setVisibility(authenticated?View.VISIBLE:View.GONE);
+    binding.shellConnection.setVisibility(authenticated && !compact?View.VISIBLE:View.GONE);
+    binding.footer.setLabelVisibilityMode(compact?com.google.android.material.navigation.NavigationBarView.LABEL_VISIBILITY_UNLABELED:com.google.android.material.navigation.NavigationBarView.LABEL_VISIBILITY_LABELED);
+    ViewGroup.LayoutParams footerParams=binding.footer.getLayoutParams();
+    int footerHeight=compact?(int)(56*getResources().getDisplayMetrics().density):ViewGroup.LayoutParams.WRAP_CONTENT;
+    if(footerParams.height!=footerHeight){footerParams.height=footerHeight;binding.footer.setLayoutParams(footerParams);}
+    binding.sidebar.setVisibility(authenticated && !narrow?View.VISIBLE:View.GONE);
+    binding.sidebarToggle.setVisibility(authenticated && !narrow?View.VISIBLE:View.GONE);
+    binding.drawerToggle.setVisibility(authenticated && narrow?View.VISIBLE:View.GONE);
+    binding.drawer.setDrawerLockMode(authenticated && narrow?DrawerLayout.LOCK_MODE_UNLOCKED:DrawerLayout.LOCK_MODE_LOCKED_CLOSED);
+    ViewGroup.LayoutParams params=binding.sidebar.getLayoutParams();
+    int railWidth=getResources().getDimensionPixelSize(expanded?R.dimen.sidebar_expanded_width:R.dimen.sidebar_collapsed_width);
+    if(params.width!=railWidth){params.width=railWidth;binding.sidebar.setLayoutParams(params);}
+    ViewGroup.LayoutParams overlay=binding.overlayNavigation.getLayoutParams();
+    int drawerWidth=Math.min((int)(288*getResources().getDisplayMetrics().density),Math.max(0,availableWidth));
+    if(drawerWidth>0 && overlay.width!=drawerWidth){overlay.width=drawerWidth;binding.overlayNavigation.setLayoutParams(overlay);}
+    binding.brand.setVisibility(expanded?View.VISIBLE:View.GONE);
+    binding.identityLabel.setVisibility(expanded?View.VISIBLE:View.GONE);
+    binding.sidebarToggle.setContentDescription(getString(expanded?R.string.dashboard_collapse:R.string.dashboard_expand));
+    binding.sidebarToggle.setTooltipText(binding.sidebarToggle.getContentDescription());
+    boolean admin=au.com.nakornthai.staffapp.printing.ui.PrinterManagementViewModel.isAdmin(graph().identity.current());
+    binding.sidebarPrinters.setVisibility(admin?View.VISIBLE:View.GONE);binding.overlayPrinters.setVisibility(admin?View.VISIBLE:View.GONE);
+    String timekeeping=au.com.nakornthai.staffapp.timekeeping.data.TimekeepingRepository.title(graph().identity.current());
+    int current=navigation.getCurrentDestination()==null?0:navigation.getCurrentDestination().getId();
+    navStyle(binding.sidebarOrders,binding.overlayOrders,getString(R.string.orders),R.id.ordersFragment,current);
+    navStyle(binding.sidebarReservations,binding.overlayReservations,getString(R.string.reservations),R.id.reservationsFragment,current);
+    navStyle(binding.sidebarTimekeeping,binding.overlayTimekeeping,timekeeping,R.id.timekeepingFragment,current);
+    navStyle(binding.sidebarAnalytics,binding.overlayAnalytics,getString(R.string.analytics),R.id.analyticsFragment,current);
+    navStyle(binding.sidebarPrinters,binding.overlayPrinters,getString(R.string.printers_title),R.id.printerManagementFragment,current);
+    navStyle(binding.sidebarManage,binding.overlayManage,getString(R.string.manage),0,current);
+    binding.footer.getMenu().setGroupCheckable(0,false,false);
+    for(int i=0;i<binding.footer.getMenu().size();i++) {
+      android.view.MenuItem item=binding.footer.getMenu().getItem(i);item.setCheckable(true);
+      item.setChecked((item.getItemId()==R.id.home && current==R.id.ordersFragment)||(item.getItemId()==R.id.analyticsAction && current==R.id.analyticsFragment));
+    }
+    renderAlerts();
+  }
+  private void navStyle(MaterialButton rail,MaterialButton overlay,String label,int destination,int current) {
+    boolean selected=destination!=0 && destination==current;
+    rail.setText(expanded?label:"");overlay.setText(label);
+    int padding=(int)((expanded?12:8)*getResources().getDisplayMetrics().density);
+    rail.setPadding(padding,0,padding,0);rail.setIconPadding(expanded?padding:0);
+    for(MaterialButton button:new MaterialButton[]{rail,overlay}) {
+      button.setSelected(selected);button.setStrokeWidth(0);button.setTooltipText(label);
+      button.setContentDescription(selected?getString(R.string.dashboard_selected,label):label);
+    }
   }
 
   @Override

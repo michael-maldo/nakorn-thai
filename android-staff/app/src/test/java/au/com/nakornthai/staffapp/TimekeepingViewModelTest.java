@@ -40,9 +40,9 @@ public class TimekeepingViewModelTest {
   }
   @Test public void uncertainWritesBlockReplayUntilExplicitReadRefresh() throws Exception {
     when(repository.mutate(eq(9L),any())).thenThrow(new ApiFailure(0,"Outcome unknown. Refresh and inspect attendance.",true));
-    vm.reviewLive("clock-out","staff"); vm.confirm(); run();
+    vm.reviewLive("clock-in","staff"); vm.confirm(); run();
     assertTrue(vm.state.getValue().uncertain); assertFalse(vm.state.getValue().canWrite());
-    vm.reviewLive("clock-out","staff"); assertFalse(vm.confirm()); verify(repository,times(1)).mutate(eq(9L),any());
+    vm.reviewLive("clock-in","staff"); assertFalse(vm.confirm()); verify(repository,times(1)).mutate(eq(9L),any());
     vm.refresh(0);run(); assertFalse(vm.state.getValue().uncertain); assertTrue(vm.state.getValue().canWrite());
   }
   @Test public void staffHaveReadOnlyStateAndNeverLoadUsersOrOpenAdminData() throws Exception {
@@ -76,5 +76,41 @@ public class TimekeepingViewModelTest {
     vm.draft.out="2026-10-18T02:00:00+11:00";vm.draft.reason="Historical";vm.reviewDraft();
     assertNotNull(vm.state.getValue().pending);vm.refresh(0);run();
     assertNull(vm.draft);assertNull(vm.state.getValue().pending);
+  }
+  @Test public void liveControlsRequireSelectionAndFreshAuthoritativeOpenSnapshot() throws Exception {
+    assertFalse(vm.state.getValue().canClockIn());assertFalse(vm.state.getValue().canClockOut());
+    vm.selectStaff("staff");assertTrue(vm.state.getValue().canClockIn());assertFalse(vm.state.getValue().canClockOut());
+    Entry open=new Entry();open.staffUserId="staff";open.open=true;
+    when(repository.openShifts(9L)).thenReturn(List.of(open));vm.refresh(0);
+    assertFalse(vm.state.getValue().canClockIn());assertFalse(vm.state.getValue().canClockOut());
+    run();assertFalse(vm.state.getValue().canClockIn());assertTrue(vm.state.getValue().canClockOut());
+    vm.reviewLive("clock-in","staff");assertNull(vm.state.getValue().pending);
+    vm.reviewLive("clock-out","staff");assertNotNull(vm.state.getValue().pending);
+    vm.cancel();when(repository.restaurant(9L)).thenThrow(new java.io.IOException("Offline"));
+    vm.refresh(0);run();assertFalse(vm.state.getValue().canClockIn());assertFalse(vm.state.getValue().canClockOut());
+    assertEquals(TimekeepingViewModel.Notice.ERROR,vm.state.getValue().notice);
+  }
+  @Test public void quickRangesAndEmployeeChangesOnlyPrepareFilters() throws Exception {
+    clearInvocations(repository);vm.selectStaff("staff");
+    assertTrue(vm.state.getValue().filtersPending);
+    vm.selectRange("WEEK");assertEquals("2026-10-12",vm.fromDate);assertEquals("2026-10-18",vm.toDate);
+    vm.selectRange("MONTH");assertEquals("2026-10-01",vm.fromDate);assertEquals("2026-10-31",vm.toDate);
+    vm.customDate(true,"2026-10-10");assertEquals("CUSTOM",vm.state.getValue().rangePreset);
+    assertTrue(jobs.isEmpty());verifyNoInteractions(repository);
+    vm.filter(vm.fromDate,vm.toDate,vm.staffId);run();
+    assertFalse(vm.state.getValue().filtersPending);
+    verify(repository).sheet(9L,"staff","2026-10-09T13:00:00Z","2026-10-31T13:00:00Z",0);
+    verify(repository,never()).mutate(anyLong(),any());
+  }
+  @Test public void pagingAndRefreshRemainReadsAndKeepStaffFilter() throws Exception {
+    vm.selectStaff("staff");clearInvocations(repository);vm.refresh(2);run();
+    verify(repository).sheet(9L,"staff","2026-10-17T13:00:00Z","2026-10-18T13:00:00Z",2);
+    vm.refresh(0);run();verify(repository).sheet(9L,"staff","2026-10-17T13:00:00Z","2026-10-18T13:00:00Z",0);
+    verify(repository,never()).mutate(anyLong(),any());
+  }
+  @Test public void switchingEmployeeInvalidatesReviewedCommandWithoutSubmitting() throws Exception {
+    vm.selectStaff("staff");vm.reviewLive("clock-in","staff");assertNotNull(vm.state.getValue().pending);
+    vm.selectStaff(null);assertNull(vm.state.getValue().pending);assertFalse(vm.confirm());
+    verify(repository,never()).mutate(anyLong(),any());
   }
 }

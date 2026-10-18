@@ -70,13 +70,14 @@ public final class WindowInsetsTest {
         if (layout == R.layout.fragment_timekeeping) {
           scroll.findViewById(R.id.tkEditor).setVisibility(android.view.View.VISIBLE);
           scroll.findViewById(R.id.tkConfirmation).setVisibility(android.view.View.VISIBLE);
+          scroll.findViewById(R.id.tkManualCard).setVisibility(android.view.View.VISIBLE);
         }
         scroll.measure(android.view.View.MeasureSpec.makeMeasureSpec(width, android.view.View.MeasureSpec.EXACTLY),
             android.view.View.MeasureSpec.makeMeasureSpec(height, android.view.View.MeasureSpec.EXACTLY));
         scroll.layout(0, 0, width, height);
         assertTrue(scroll.canScrollVertically(1));
         android.view.View action = scroll.findViewById(
-            layout == R.layout.sheet_manage ? R.id.manageSignOut : layout == R.layout.fragment_printers ? R.id.cancelPrinter : R.id.tkNext);
+            layout == R.layout.sheet_manage ? R.id.manageSignOut : layout == R.layout.fragment_printers ? R.id.cancelPrinter : R.id.tkManual);
         android.graphics.Rect rect = new android.graphics.Rect(0, 0, action.getWidth(), action.getHeight());
         scroll.offsetDescendantRectToMyCoords(action, rect);
         scroll.scrollTo(0, Math.max(0, rect.bottom - height));

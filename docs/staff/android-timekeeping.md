@@ -1,5 +1,105 @@
 # Android staff timekeeping — Phase B
 
+## Timekeeping dashboard redesign
+
+The current screen follows the supplied approved mockup while keeping the existing
+navigation shell. ADMIN sees **Staff Timekeeping** with the requested subtitle and
+a compact, server-configured restaurant timezone. Staff retain **My Timesheet**.
+
+- White rounded cards sit on the existing light-grey surface, using Nakorn Thai deep
+  green for primary actions and mint for the staff card, selected filters and completed
+  status. Blue marks open shifts; loading, success and error banners are distinct.
+- The top card follows **Select Staff → Time In / Time Out → Review Shifts**. No
+  employee selected means both live controls are disabled. A fresh server open-shift
+  snapshot enables exactly Time In or Time Out. Busy/stale/uncertain data disables
+  both. Choosing another staff member cancels any reviewed command without a write.
+- Date Range offers Today, This Week (Monday–Sunday), This Month and Custom, based
+  on the last restaurant server evaluation date. These are inclusive local dates.
+  Preparing a range never submits attendance or automatically fetches records.
+  Apply/Refresh are explicit reads. Paging is disabled until changed filters are
+  applied, with a visible hint; backend full-shift total semantics remain unchanged.
+- Staff Shifts uses aligned columns (Staff, Clock In, Clock Out, Duration, Status,
+  Actions) at wide content widths, and labelled stacked cards when narrower. Every
+  record uses one accessible overflow control for Correct Attendance / View Audit
+  History. Non-admin records have no action control. The cross-date open-shift
+  overview is retained in a compact expandable section.
+- Historical entry is a separate compact card with **Add Entry**. The existing
+  inline reason/offset-aware form and explicit confirmation remain inside the scroll
+  owner. Audit history is still per record; no aggregate-audit endpoint is invented.
+- A short Information section explains permissions, overlaps and immutable audit
+  corrections. Existing Manage actions and other screens were not altered.
+
+### Responsive approach
+
+Responsiveness uses **measured timekeeping content width**, not tablet identity,
+orientation or a fixed device size. At 840dp of effective content width the shift
+list becomes a table. Below that it uses cards. At 480dp the live action buttons
+and date controls sit side by side; below that they stack. Both thresholds account
+for increased font scaling, favoring cards/stacked controls for readability. Date
+chips wrap naturally. No nested scrolling list or horizontal compressed table is
+introduced; the bounded backend page is inflated into the existing vertical scroll.
+The original single inset owner, IME union handling and navigation are untouched.
+
+### Redesign files and purpose
+
+Relative to `android-staff/app/src/`:
+
+| Files | Purpose |
+| --- | --- |
+| `main/java/.../timekeeping/ui/TimekeepingFragment.java` | Smaller rendering sections, viewport adaptation, live-state binding, date presets and resource-based text |
+| `main/java/.../timekeeping/ui/AttendanceRows.java` | Shared XML-backed table/card rendering and contextual overflow menus |
+| `main/java/.../timekeeping/ui/TimekeepingPresentation.java` | Pure viewport, timestamp, open-status and inclusive-preset decisions |
+| `main/java/.../timekeeping/ui/TimekeepingViewModel.java` | Selected employee/live-control state, staged ranges, pending-filter paging guard and notice classification; existing repository mutations unchanged |
+| `main/res/layout/fragment_timekeeping.xml` | Dashboard cards, header, filters, totals, compact manual entry and guidance |
+| `main/res/layout/item_timekeeping_{shift_row,shift_card,staff,empty,note}.xml` | Reusable rows/cards, selector, empty state and audit/open-shift text |
+| `main/res/menu/timekeeping_shift.xml` | Per-record Correct Attendance / View Audit History actions |
+| `main/res/values/timekeeping_{strings,styles,colors}.xml` | Visible text, reusable typography/buttons/cards and semantic colors |
+| `main/res/color/tk_chip_background.xml`, `main/res/drawable/tk_*.xml` | Selected filter colors, rounded status/banner surfaces and native vector icons |
+| `test/java/.../TimekeepingPresentationTest.java` | Content width/font scaling, preset boundaries and local/DST display |
+| `test/java/.../TimekeepingViewModelTest.java` | Employee/live states, stale snapshots, no-write filter changes, pagination and invalidated confirmations |
+| `androidTest/java/.../TimekeepingUiTest.java` | Updated overflow/manual/live flows, role visibility and staged date filters |
+| `androidTest/java/.../WindowInsetsTest.java` | Historical-entry action remains reachable in reduced-height/enlarged-font content |
+| `androidTest/java/.../timekeeping/ui/TimekeepingLayoutTest.java` | Inflated table/card, empty/read-only and accessible overflow checks across width/font combinations |
+| `docs/staff/android-timekeeping.md` (repository root) | Current design, changed files, verification and remaining device checks |
+
+Here `...` is `au/com/nakornthai/staffapp`. Retrofit declarations, request/response
+models, repository CSRF/JWT/retry behavior, backend code, migrations, React, printer
+code and deployment configuration are unchanged. There are no added dependencies.
+
+### Redesign verification results
+
+Executed with Java 21 and the configured SDK 35:
+
+```text
+./gradlew --offline testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest
+BUILD SUCCESSFUL
+JVM: 74 tests, 0 failures, 0 errors, 0 skipped
+Lint: 0 errors, 62 warnings across the application
+```
+
+The total includes eight additional JVM tests for this redesign: four presentation
+and four ViewModel cases, alongside the existing API-contract, session, order-monitor,
+workflow and printer tests. Existing uncertain-response coverage was updated to use
+a currently valid live action under the new state-dependent controls. The redesigned
+UI workflows, new table/card layout tests and reduced-height/inset tests compiled
+into the instrumentation APK. **Instrumentation was not executed**: the configured
+SDK's `adb devices -l` reported no connected device/emulator. There is no claim of
+screenshot or physical-device verification. `git diff --check` also passed.
+
+Artifacts remain `android-staff/app/build/outputs/apk/debug/app-debug.apk` and
+`android-staff/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk`.
+The debug build uses the existing default emulator origin (`http://10.0.2.2:8080/`);
+use the existing approved `apiBaseUrl` build configuration for physical-device/VPS
+integration. No origin, deployment or release configuration was changed, and nothing
+was installed, deployed, published, committed or pushed.
+
+Before rollout, run instrumentation on a Samsung tablet and visually compare against
+the supplied mockup. Check actual portrait/landscape content widths, live-button
+state after selecting/changing staff and after a second administrator's concurrent
+change, row overflow menus, 200% font scaling, split-screen/reduced-height windows,
+keyboard-open correction forms and gesture/three-button system bars. Existing
+navigation, order alerts and physical printer behavior still require device checks.
+
 ## Architecture
 
 The native Java/XML feature lives under
@@ -26,7 +126,8 @@ fence queued operations and results after logout, account or role changes.
 
 The activity's existing `WindowInsetsSupport` remains the single inset owner for
 its window. This feature does not add a second inset listener. Its page is one
-NestedScrollView with full-width controls and minimum 48dp action/input targets.
+NestedScrollView with responsive cards, compact secondary controls and minimum
+48dp interactive targets.
 Forms, validation messages, confirmations and paging live in the scrollable page;
 there is no fixed-height custom form dialog. Platform date/time pickers use their
 normal system window fitting and are dismissed when the fragment view is destroyed.
@@ -62,16 +163,17 @@ A 401 from CSRF or the submitted write clears the session and returns to sign-in
 2. Select an active staff account. Choose **Time In** or **Time Out**, review the
    target account and operation, then choose **Confirm attendance change**. Only
    the server response establishes success and attendance timestamps/status.
-3. Choose **Manual historical entry**, enter or pick both timestamps, and enter a
+3. In **Manual / Historical Entry**, choose **Add Entry**, enter or pick both timestamps, and enter a
    reason. Include the following calendar date for an overnight shift. Review the
    normalized times in restaurant time, then confirm. Manual entries require an end.
-4. Choose **Correct attendance** on a listed row. Existing times and version are
+4. Open a shift row/card overflow menu and choose **Correct Attendance**. Existing times and version are
    captured; the reason starts blank. The confirmation shows previous and proposed
    values. A correction may explicitly leave/reopen a shift, subject to backend
    overlap constraints. Employee identity and creation metadata are not editable.
-5. Choose **View audit history** to inspect the acting administrator and before/after
+5. Choose **View Audit History** in that same overflow menu to inspect the acting administrator and before/after
    times and versions. Audit history and attendance lists have independent paging.
-6. Use native From/Through date pickers, Today, Apply or Refresh. Dates are inclusive
+6. Use Today, This Week, This Month or Custom and the native From/Through date
+   pickers. These prepare the range only; Apply loads it. Refresh reloads page zero. Dates are inclusive
    in the UI and converted to `[start midnight, midnight after Through)` instants.
    All matching completed shifts contribute their full durations, even when they
    cross the range boundary. Page size is 25, using backend deterministic sorting.
@@ -180,7 +282,7 @@ can temporarily affect the overview until refreshed. No automatic polling or off
 attendance mutation queue was added. The UI is English, matching existing screens;
 lint may report translation/style warnings. No deployment, commit or push is included.
 
-## Executed results
+## Phase B baseline verification (before the UI redesign)
 
 Final validation completed successfully on Java 21 using the existing Android SDK
 (compile/target SDK 35):

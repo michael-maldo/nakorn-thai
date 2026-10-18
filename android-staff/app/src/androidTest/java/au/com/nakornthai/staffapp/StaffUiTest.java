@@ -79,11 +79,11 @@ public class StaffUiTest {
   @Test
   public void footerAndManageShareDestinationsWithoutRestartingBoard() {
     onView(withId(R.id.analyticsAction)).perform(click());
-    waitText("Analytics — Coming Soon");
+    waitVisible(R.id.analyticsTitle);
     onView(withId(R.id.home)).check(matches(not(isSelected())));
     onView(withId(R.id.manage)).perform(click());
     onView(withId(R.id.manageReservations)).perform(scrollTo(), click());
-    waitText("Reservations — Coming Soon");
+    waitVisible(R.id.reservationsTitle);
     onView(withId(R.id.footer)).check(matches(isDisplayed()));
     onView(withId(R.id.home)).perform(click());
     waitText("#TEST0001");
@@ -99,10 +99,10 @@ public class StaffUiTest {
     onView(withId(R.id.manage)).perform(click());
     onView(withId(R.id.manageAnalytics)).perform(scrollTo(), click());
     scenario.recreate();
-    waitText("Analytics — Coming Soon");
+    waitVisible(R.id.analyticsTitle);
     scenario.onActivity(
         activity -> activity.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT));
-    waitText("Analytics — Coming Soon");
+    waitVisible(R.id.analyticsTitle);
     onView(withId(R.id.footer)).check(matches(isDisplayed()));
   }
 
@@ -162,7 +162,7 @@ public class StaffUiTest {
       onView(withId(R.id.drawerToggle)).perform(click());
       onView(withId(R.id.overlayReservations)).perform(click());
     }
-    waitText("Reservations — Coming Soon");
+    waitVisible(R.id.reservationsTitle);
     scenario.onActivity(
         activity -> {
           android.graphics.Rect content = new android.graphics.Rect(),
@@ -210,8 +210,7 @@ public class StaffUiTest {
                     R.id.orderListReady
                   };
                   boolean wide =
-                      workspace.getWidth() / activity.getResources().getDisplayMetrics().density
-                          >= 800;
+                      au.com.nakornthai.staffapp.shared.dashboard.DashboardPresentation.wideQueues(workspace.getWidth() / activity.getResources().getDisplayMetrics().density, activity.getResources().getConfiguration().fontScale);
                   int visible = 0, previousRight = -1, firstWidth = -1, firstTop = -1;
                   for (int id : lists) {
                     android.view.View list = activity.findViewById(id);

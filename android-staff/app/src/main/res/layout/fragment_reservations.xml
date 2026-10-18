@@ -1,0 +1,11 @@
+<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto" android:layout_width="match_parent" android:layout_height="match_parent" android:background="@color/staff_board" android:fillViewport="true"><LinearLayout style="@style/DashboardBody"><TextView android:id="@+id/reservationsTitle" style="@style/DashboardTitle" android:text="@string/dashboard_reservations_title" android:drawableStart="@drawable/ic_reservations" android:drawablePadding="12dp"/>
+<TextView style="@style/DashboardMuted" android:text="@string/dashboard_reservations_subtitle" android:paddingVertical="12dp"/>
+<com.google.android.material.card.MaterialCardView style="@style/DashboardCard"><LinearLayout style="@style/DashboardBody">
+<TextView style="@style/DashboardHeading" android:text="@string/dashboard_reservations_status"/>
+<TextView style="@style/DashboardText" android:text="@string/dashboard_reservations_body"/>
+</LinearLayout></com.google.android.material.card.MaterialCardView>
+<com.google.android.material.card.MaterialCardView style="@style/DashboardCard"><LinearLayout style="@style/DashboardBody">
+<TextView style="@style/DashboardHeading" android:text="@string/dashboard_reservations_guidance"/>
+<TextView style="@style/DashboardMuted" android:text="@string/dashboard_reservations_guidance_body"/>
+<com.google.android.material.button.MaterialButton android:id="@+id/reservationOrders" style="@style/DashboardOutline" android:text="@string/dashboard_view_orders" app:icon="@drawable/ic_orders"/>
+</LinearLayout></com.google.android.material.card.MaterialCardView></LinearLayout></androidx.core.widget.NestedScrollView>

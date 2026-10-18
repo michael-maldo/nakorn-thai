@@ -292,10 +292,9 @@ public final class PrinterManagementFragment extends Fragment {
     }
     boolean busy = Boolean.TRUE.equals(vm.busy.getValue());
     for (PrinterProfile p : list) {
-      LinearLayout row = new LinearLayout(requireContext());
-      row.setOrientation(LinearLayout.VERTICAL);
-      row.setPadding(0, 16, 0, 24);
-      TextView info = new TextView(requireContext());
+      View profile = getLayoutInflater().inflate(R.layout.item_dashboard_printer,b.printerList,false);
+      LinearLayout row = profile.findViewById(R.id.profileActions);
+      TextView info = profile.findViewById(R.id.profileInfo);
       String stamp =
           p.diagnosticAt == 0
               ? "Never"
@@ -320,7 +319,7 @@ public final class PrinterManagementFragment extends Fragment {
               + p.lastDiagnostic
               + "\n"
               + stamp);
-      row.addView(info);
+
       button(row, "Edit", busy, () -> edit(p));
       button(
           row,
@@ -360,13 +359,13 @@ public final class PrinterManagementFragment extends Fragment {
                   .setNegativeButton("Cancel", null)
                   .setPositiveButton("Remove", (d, w) -> vm.save(p, true))
                   .show());
-      b.printerList.addView(row);
+      b.printerList.addView(profile);
     }
   }
 
   private void button(LinearLayout row, String title, boolean disabled, Runnable action) {
     com.google.android.material.button.MaterialButton button =
-        new com.google.android.material.button.MaterialButton(requireContext());
+        (com.google.android.material.button.MaterialButton)getLayoutInflater().inflate(R.layout.item_dashboard_action,row,false);
     button.setText(title);
     button.setMinHeight((int) (48 * getResources().getDisplayMetrics().density));
     button.setEnabled(!disabled);
@@ -374,7 +373,7 @@ public final class PrinterManagementFragment extends Fragment {
         v -> {
           if (vm.admin()) action.run();
         });
-    row.addView(button, new LinearLayout.LayoutParams(-1, -2));
+    row.addView(button, new LinearLayout.LayoutParams(-2, -2));
   }
 
   private void diagnose(PrinterProfile p, boolean print) {

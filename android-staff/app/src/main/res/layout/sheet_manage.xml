@@ -1,15 +1,19 @@
 <?xml version="1.0" ?>
-<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/manageScroll" android:layout_width="match_parent"
     android:layout_height="wrap_content" android:fillViewport="true">
 <LinearLayout android:orientation="vertical" android:padding="24dp" android:layout_width="match_parent" android:layout_height="wrap_content">
     <TextView android:text="@string/manage" android:textStyle="bold" android:textSize="22sp" android:layout_width="match_parent" android:layout_height="wrap_content"/>
-    <Button android:id="@+id/manageOrders" android:text="@string/orders" android:layout_width="match_parent" android:layout_height="wrap_content"/>
-    <Button android:id="@+id/manageReservations" android:text="@string/reservations" android:layout_width="match_parent" android:layout_height="wrap_content"/>
-    <Button android:id="@+id/manageAnalytics" android:text="@string/analytics" android:layout_width="match_parent" android:layout_height="wrap_content"/>
-    <Button android:id="@+id/managePrinters" android:text="@string/printers_title" android:layout_width="match_parent" android:layout_height="wrap_content"/>
-    <Button android:id="@+id/manageTimekeeping" android:text="@string/timekeeping_title" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="48dp"/>
-    <Button android:id="@+id/manageSignOut" android:text="@string/label_sign_out" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+    <TextView style="@style/DashboardMuted" android:text="@string/dashboard_manage_subtitle" android:paddingBottom="12dp"/>
+    <TextView style="@style/DashboardHeading" android:text="@string/dashboard_manage_work" android:layout_marginTop="12dp"/>
+    <com.google.android.material.button.MaterialButton style="@style/DashboardManageAction" android:id="@+id/manageOrders" app:icon="@drawable/ic_orders" android:text="@string/orders" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+    <com.google.android.material.button.MaterialButton style="@style/DashboardManageAction" android:id="@+id/manageReservations" app:icon="@drawable/ic_reservations" android:text="@string/reservations" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+    <com.google.android.material.button.MaterialButton style="@style/DashboardManageAction" android:id="@+id/manageAnalytics" app:icon="@drawable/ic_analytics" android:text="@string/analytics" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+    <TextView style="@style/DashboardHeading" android:text="@string/dashboard_manage_tools" android:layout_marginTop="12dp"/>
+    <com.google.android.material.button.MaterialButton style="@style/DashboardManageAction" android:id="@+id/managePrinters" app:icon="@drawable/ic_dashboard_printer" android:text="@string/printers_title" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+    <com.google.android.material.button.MaterialButton style="@style/DashboardManageAction" android:id="@+id/manageTimekeeping" app:icon="@drawable/tk_clock" android:text="@string/timekeeping_title" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="48dp"/>
+    <TextView style="@style/DashboardHeading" android:text="@string/dashboard_manage_session" android:layout_marginTop="12dp"/>
+    <com.google.android.material.button.MaterialButton style="@style/DashboardManageAction" android:id="@+id/manageSignOut" app:icon="@drawable/ic_dashboard_logout" android:text="@string/label_sign_out" android:layout_width="match_parent" android:layout_height="wrap_content"/>
 </LinearLayout>
 
 </androidx.core.widget.NestedScrollView>

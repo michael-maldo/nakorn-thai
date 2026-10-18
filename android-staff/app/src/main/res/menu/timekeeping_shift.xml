@@ -1,0 +1,4 @@
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+<item android:id="@+id/tkCorrectAttendance" android:title="@string/tk_correct_action"/>
+<item android:id="@+id/tkViewAudit" android:title="@string/tk_audit_action"/>
+</menu>
