@@ -40,6 +40,28 @@ public class DashboardLayoutTest {
       }
     });
   }
+  @Test public void sharedMetricsSurviveRepeatedWideAndNarrowResizing() {
+    InstrumentationRegistry.getInstrumentation().runOnMainSync(()->{
+      Context context=new ContextThemeWrapper(InstrumentationRegistry.getInstrumentation().getTargetContext(),R.style.Theme_NakornStaff);
+      GridLayout grid=new GridLayout(context);
+      new QueueSummaries(grid,index->{});
+      View first=grid.getChildAt(0);
+      for(int dp:new int[]{1000,320,1000,320}) {
+        int width=(int)(dp*context.getResources().getDisplayMetrics().density);
+        for(int pass=0;pass<3;pass++) {
+          grid.measure(View.MeasureSpec.makeMeasureSpec(width,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(0,View.MeasureSpec.UNSPECIFIED));
+          grid.layout(0,0,width,grid.getMeasuredHeight());
+        }
+        assertEquals(dp==1000?4:2,grid.getColumnCount());
+        assertEquals(4,grid.getChildCount());assertSame(first,grid.getChildAt(0));
+        for(int i=0;i<4;i++) {
+          View card=grid.getChildAt(i);
+          assertTrue(card.getMeasuredWidth()>0);assertTrue(card.getRight()<=width);
+          assertTrue(card.isClickable());
+        }
+      }
+    });
+  }
   @Test public void reservationsAnalyticsAndManageFitShortLargeFontWindowsAndScroll() {
     InstrumentationRegistry.getInstrumentation().runOnMainSync(()->{
       Context base=InstrumentationRegistry.getInstrumentation().getTargetContext();

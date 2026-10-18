@@ -35,12 +35,17 @@ public final class QueueSummaries {
     if(width<=0)return;
     int next=DashboardPresentation.summaryColumns(width,grid.getResources().getConfiguration().fontScale);
     if(next==columnCount)return;
+    // Detach old specs before shrinking the column count (e.g. split-screen).
+    // GridLayout rejects a smaller count while children still reference column 3.
+    grid.removeAllViews();
     columnCount=next;grid.setColumnCount(next);
     for(int i=0;i<4;i++) {
-      GridLayout.LayoutParams p=new GridLayout.LayoutParams(GridLayout.spec(i/next),GridLayout.spec(i%next,Gravity.FILL,1f));
+      GridLayout.LayoutParams p=new GridLayout.LayoutParams(GridLayout.spec(i/next),GridLayout.spec(i%next,GridLayout.FILL,1f));
       p.width=0;p.height=-2;
       int margin=(int)(4*grid.getResources().getDisplayMetrics().density);p.setMargins(margin,margin,margin,margin);
-      cards[i].setLayoutParams(p);
+      // GridLayout.FILL is an Alignment; Gravity.FILL is an int and selects
+      // the overload whose second argument is a span (119 columns).
+      grid.addView(cards[i],p);
     }
   }
   public void render(BoardState state) {
