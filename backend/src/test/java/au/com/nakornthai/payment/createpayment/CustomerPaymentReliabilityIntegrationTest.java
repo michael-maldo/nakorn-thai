@@ -69,6 +69,41 @@ class CustomerPaymentReliabilityIntegrationTest {
  @Test void customerCheckCapturesAndVerifiesServerTotal() throws Exception {
   mvc.perform(post("/api/payments/"+id+"/check").with(csrf()).header("X-Order-Token",token)).andExpect(status().isOk()).andExpect(jsonPath("$.paid").value(true));assertPaid();
  }
+ Map<String,Object> customerPayment(){when(paypal.enabled()).thenReturn(true);return reconciliation.check(id,token,true,false);}
+ @Test void continuationRequiresAuthoritativeUnapprovedState(){
+  orderState="CREATED";var result=customerPayment();assertEquals(true,result.get("canResumeApproval"));assertEquals(false,result.get("canStartPayment"));
+  verify(paypal,never()).capture(anyString(),any());
+ }
+ @Test void approvedPaymentIsCapturedInsteadOfOfferingApprovalAgain(){
+  var result=customerPayment();assertEquals(true,result.get("paid"));assertEquals(false,result.get("canResumeApproval"));assertEquals(false,result.get("canStartPayment"));
+  verify(paypal,times(1)).capture(providerId,id);
+ }
+ @Test void uncertainCaptureCannotReuseAnOldApprovalUrl(){
+  orderState="CREATED";jdbc.update("UPDATE order_payment SET capture_attempted_at=CURRENT_TIMESTAMP,approval_url='https://www.sandbox.paypal.com/checkoutnow?token=old' WHERE order_id=?",id);
+  var result=customerPayment();assertEquals(false,result.get("canResumeApproval"));assertEquals(false,result.get("canStartPayment"));verify(paypal,never()).capture(anyString(),any());
+ }
+ @Test void activeLeaseCannotOfferContinuationWithoutProviderVerification(){
+  orderState="CREATED";jdbc.update("UPDATE order_payment SET lease_id=?,lease_until=CURRENT_TIMESTAMP+interval '2 minutes' WHERE order_id=?",UUID.randomUUID(),id);
+  assertEquals(false,customerPayment().get("canResumeApproval"));verify(paypal,never()).details(anyString());
+ }
+ @Test void heldOrOldCheckoutCannotOfferPaymentContinuation(){
+  orderState="CREATED";jdbc.update("UPDATE restaurant_order SET payment_review_required=true WHERE id=?",id);
+  assertEquals(false,customerPayment().get("canResumeApproval"));
+  jdbc.update("UPDATE restaurant_order SET payment_review_required=false,created_at=CURRENT_TIMESTAMP-interval '6 hours' WHERE id=?",id);
+  assertEquals(false,customerPayment().get("canResumeApproval"));
+ }
+ @Test void pendingCaptureIsNotAnApprovalInvitation(){
+  orderState="COMPLETED";captureState="PENDING";var result=customerPayment();assertEquals(false,result.get("paid"));assertEquals(false,result.get("canResumeApproval"));verify(paypal,never()).capture(anyString(),any());
+ }
+ @Test void safeSetupRetryUsesExistingOrderWithoutCreatingDuringStatusCheck(){
+  jdbc.update("UPDATE order_payment SET provider_order_id=NULL WHERE order_id=?",id);
+  var result=customerPayment();assertEquals(true,result.get("canStartPayment"));assertEquals(false,result.get("canResumeApproval"));
+  verify(paypal,never()).create(any(),anyLong());verify(paypal,never()).capture(anyString(),any());
+ }
+ @Test void staffStatusChecksNeverOfferCustomerCheckout(){
+  when(paypal.enabled()).thenReturn(true);orderState="CREATED";
+  var result=reconciliation.check(id,null,false,true);assertEquals(false,result.get("canResumeApproval"));assertEquals(false,result.get("canStartPayment"));verify(paypal,never()).capture(anyString(),any());
+ }
  @Test void cancelledApprovalNeverBecomesCashOrPaid(){orderState="CREATED";worker.runBatch();assertEquals("PENDING",payment("status"));assertEquals("PAYPAL",order("payment_method"));verify(paypal,never()).capture(anyString(),any());}
  @Test void browserClosedAfterApprovalWorkerCapturesWithoutCustomerToken(){worker.runBatch();assertPaid();assertEquals("NEW",order("status"));}
  @Test void crashAfterRemoteCaptureRecoveredAfterLeaseExpiryWithoutRecapture(){orderState="COMPLETED";jdbc.update("UPDATE order_payment SET lease_id=?,lease_until=?,capture_attempted_at=? WHERE order_id=?",UUID.randomUUID(),java.sql.Timestamp.from(Instant.now().minusSeconds(1)),java.sql.Timestamp.from(Instant.now().minusSeconds(180)),id);worker.runBatch();assertPaid();verify(paypal,never()).capture(anyString(),any());}

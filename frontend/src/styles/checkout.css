@@ -1,0 +1,56 @@
+/* Scoped customer checkout and receipt; staff and menu layouts keep their styles. */
+.customer-checkout { max-width: 1080px; padding-bottom: 7rem; }
+.checkout-heading { margin-bottom: 2rem; max-width: 650px; }
+.checkout-heading h1 { font: clamp(2rem, 4vw, 2.8rem)/1.15 var(--serif); margin: .5rem 0 .8rem; }
+.checkout-eyebrow { text-transform: uppercase; letter-spacing: .12em; color: var(--gold-dark); font-size: .75rem; font-weight: 700; }
+.checkout-heading > p:last-child, .checkout-muted { color: var(--muted); line-height: 1.6; }
+.checkout-layout { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(280px, 1fr); gap: 1.75rem; align-items: start; }
+.customer-checkout .order-panel { margin: 0; padding: clamp(1.25rem, 3vw, 2rem); min-width: 0; box-shadow: 0 8px 28px #1e1c1905; }
+.customer-checkout h2 { font: 1.5rem var(--serif); margin: 0 0 1.25rem; }
+.customer-checkout h3 { font-size: 1.1rem; margin-block: .6rem; }
+.customer-checkout p { line-height: 1.6; }
+.checkout-summary { grid-column: 2; grid-row: 1; }
+.checkout-details { grid-column: 1; grid-row: 1; }
+.checkout-item { padding-block: 1rem; border-bottom: 1px solid var(--line); }
+.checkout-item:first-of-type { padding-top: 0; }
+.checkout-item .checkout-line-summary > p { color: var(--muted); font-size: .9rem; }
+.checkout-total { display: flex; align-items: center; justify-content: space-between; gap: 1rem; font-size: 1.25rem; margin-block: 1.4rem; }
+.checkout-total small { font-size: .75rem; color: var(--muted); font-weight: normal; }
+.checkout-pickup { border-top: 1px solid var(--line); margin-top: 1.5rem; padding-top: 1.25rem; }
+.checkout-pickup p { color: var(--muted); }
+.customer-checkout .checkout-text-button { background: none; border: 0; padding: .5rem 0; color: var(--gold-dark); text-align: left; text-decoration: underline; font: inherit; font-size: .85rem; }
+.customer-checkout input:not([type=radio]), .customer-checkout textarea { width: 100%; min-width: 0; background: #fff; }
+.customer-checkout textarea { min-height: 90px; resize: vertical; }
+.checkout-payment { border: 0; padding: 0; margin: 1.5rem 0; min-width: 0; }
+.checkout-payment legend { font-weight: 700; margin-bottom: .5rem; }
+.customer-checkout .checkout-payment-choice { display: flex; flex-direction: row; align-items: center; gap: .9rem; border: 1px solid var(--line); border-radius: 6px; padding: 1rem; margin-block: .65rem; cursor: pointer; }
+.checkout-payment-choice:has(input:checked) { border-color: var(--gold); background: #b978130a; }
+.checkout-payment-choice input { accent-color: var(--gold-dark); width: 1.1rem; height: 1.1rem; flex: 0 0 auto; }
+.checkout-payment-choice small { display: block; margin-top: .3rem; color: var(--muted); line-height: 1.5; }
+.customer-checkout .checkout-submit { width: 100%; min-height: 48px; padding: 1rem; }
+.checkout-submit-note { font-size: .85rem; margin-bottom: 0; }
+.customer-checkout :is(button, input, textarea, a, summary):focus-visible { outline: 3px solid var(--plum); outline-offset: 3px; }
+.customer-checkout button:disabled { opacity: .6; cursor: wait; }
+.receipt-reference { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: .5rem; margin-bottom: 1.25rem; }
+.receipt-reference h2 { margin: 0; }
+.receipt-reference > span { font-size: .9rem; color: var(--muted); }
+.payment-status { border-radius: 6px; background: #b978130a; border: 1px solid var(--line); padding: clamp(1rem, 3vw, 1.5rem); margin-bottom: 2rem; overflow-wrap: anywhere; }
+.payment-status > :first-child { margin-top: 0; }
+.payment-status > :last-child { margin-bottom: 0; }
+.payment-status h3 { font-size: 1.35rem; }
+.payment-status-paid { background: #4f9b420c; border-color: #4f9b4260; }
+.payment-status-paid h3 { color: #2d6328; }
+.payment-status button { margin-top: .75rem; min-height: 44px; }
+.receipt-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2rem; }
+.receipt-tracking { border-top: 1px solid var(--line); padding-top: 1rem; margin-top: 1.5rem; overflow-wrap: anywhere; font-size: .9rem; }
+.receipt-tracking summary { cursor: pointer; color: var(--muted); }
+.checkout-links { display: flex; gap: 1.5rem; margin-top: 1.5rem; flex-wrap: wrap; }
+@media (max-width: 760px) {
+ .checkout-layout, .receipt-grid { grid-template-columns: minmax(0, 1fr); gap: 1.25rem; }
+ .checkout-summary, .checkout-details { grid-column: 1; grid-row: auto; }
+ .checkout-summary { order: -1; }
+ .checkout-heading { margin-bottom: 1.5rem; }
+ .customer-checkout .payment-status .button { width: 100%; }
+}
+/* Checkout already exposes the cart summary; avoid a competing fixed cart action. */
+.customer-checkout ~ .cart-dock { display: none; }

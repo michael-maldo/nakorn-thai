@@ -71,6 +71,26 @@ capture evidence can resolve the unresolved-approval hold and record PAID/CAPTUR
 new capture or provider order. Captured payments leave minute polling but retain daily financial
 checks for refunds; PAID is a historical capture fact, not a reason to stop all financial monitoring.
 
+## Customer checkout and receipt
+
+PayPal checkout saves the restaurant receipt before making one setup request and an
+authoritative status check. Only an explicitly permitted HTTPS PayPal approval URL triggers
+the automatic external redirect. Returning, refreshing or revisiting a receipt performs checks
+without automatically repeating setup. Browser verification makes at most five checks, with
+2/5/10/20-second backoff, before offering a manual status check; server reconciliation continues.
+
+Customer `/api/payments/{id}/check` responses add `canResumeApproval` and `canStartPayment`.
+The former requires a freshly verified CREATED/PAYER_ACTION_REQUIRED provider state; both
+require an open unpaid order within the existing five-hour window, enabled PayPal and no
+capture attempt, active lease, financial hold or refund obligation. `canStartPayment` permits
+an explicit retry of the same order's existing idempotent setup when no provider ID is recorded.
+No status check creates a provider order. Staff checks never grant either permission.
+Old approval URLs and callback token/PayerID parameters are never continuation permission.
+Clients without these flags fail closed. Deploy the additive backend contract before the new UI.
+
+Payment success uses verified backend paid facts; refund/review states take precedence over
+that historical capture. Restaurant acceptance and pickup progress are shown independently.
+
 ## Verified webhook inbox
 
 POST /api/payments/paypal/webhook is the only CSRF exception. All customer/staff writes keep

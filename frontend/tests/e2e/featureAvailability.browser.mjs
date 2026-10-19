@@ -37,6 +37,7 @@ const click = async text => {
 };
 function fixture() {
  window.sms=true;window.paypal=true;window.optionsFailure=false;window.delayStart=false;window.delayPayment=false;
+ const timeout=window.setTimeout;window.setTimeout=(fn,delay,...args)=>timeout(fn,[2000,5000,10000,20000].includes(delay)?50:delay,...args);
  window.requests=[];window.verificationUnavailable=false;window.verificationError='';window.paymentError='';window.paid=false;window.created=null;
  const menu={id:'c',slug:'pickup',name:'Pickup',availability:{available:true},categories:[],items:[{id:'d',name:'Curry',available:true,variations:[{id:'v',name:'Standard',priceMinor:1990,available:true}],optionGroups:[]}]};
  if(!sessionStorage.getItem('payment-test-initialized')){
@@ -75,10 +76,10 @@ function fixture() {
   if(url.startsWith('/api/staff/foh/orders'))return Response.json([window.created]);
   if(url.startsWith('/api/orders/'))return window.created?Response.json(window.created):Response.json({message:'Not found'},{status:404});
   if(url.startsWith('/api/payments/')){
-   if(window.delayPayment&&!url.endsWith('/check'))await new Promise(resolve=>window.resolvePayment=resolve);
+   if(window.delayPayment&&url.endsWith('/check'))await new Promise(resolve=>window.resolvePayment=resolve);
    if(window.paymentError)return Response.json({message:window.paymentError},{status:502});
    const method=window.created.paymentMethod;
-   return Response.json({method,status:window.paid?'PAID':'PENDING',paid:window.paid,totalMinor:1990,currency:'AUD',approvalUrl:method==='PAYPAL'?'https://www.sandbox.paypal.com/checkoutnow?token=PP':null,payid:method==='PAYID'?'merchant@example.com':null,accountName:'Test Restaurant',reference:window.created.id});
+   return Response.json({method,status:window.paid?'PAID':'PENDING',paid:window.paid,totalMinor:1990,currency:'AUD',canResumeApproval:window.paypal&&!window.paid,financialStatus:'UNCONFIRMED',refundStatus:'NONE',paymentReviewRequired:false,approvalUrl:method==='PAYPAL'?'https://www.sandbox.paypal.com/checkoutnow?token=PP':null,payid:method==='PAYID'?'merchant@example.com':null,accountName:'Test Restaurant',reference:window.created.id});
   }
   throw new Error('Unexpected API: '+url);
  };
@@ -92,17 +93,17 @@ try{
  await send('Page.enable');await send('Runtime.enable');
  await send('Page.addScriptToEvaluateOnNewDocument',{source:`(${fixture.toString()})()`});
  await send('Page.navigate',{url:`${base}#/checkout`});
- await waitFor("document.querySelector('option[value=PAYPAL]')");
+ await waitFor("document.querySelector('input[value=PAYPAL]')");
  assert.equal(await evaluate("window.requests.filter(r=>r.url==='/api/payments/options').length"),1);
- await evaluate("(()=>{const el=document.querySelector('select');Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value').set.call(el,'PAYPAL');el.dispatchEvent(new Event('change',{bubbles:true}));})()");
- await evaluate('window.paypal=false');await focus();await waitFor("!document.querySelector('option[value=PAYPAL]')");await waitFor("document.querySelector('select').value==='PAY_AT_RESTAURANT'");
- assert.equal(await evaluate("!!document.querySelector('option[value=PAYID]')"),true);
+ await evaluate("document.querySelector('input[value=PAYPAL]').click()");
+ await evaluate('window.paypal=false');await focus();await waitFor("!document.querySelector('input[value=PAYPAL]')");await waitFor("document.querySelector('input[value=PAY_AT_RESTAURANT]').checked");
+ assert.equal(await evaluate("!!document.querySelector('input[value=PAYID]')"),true);
  await input('[autocomplete=tel]','0412345678');await evaluate('window.delayStart=true');await click('Send verification code');await waitFor('window.resolveStart');
  await evaluate('window.sms=false');await focus();await waitFor("document.body.innerText.includes('SMS verification is currently unavailable')");
  await evaluate('window.resolveStart()');await settle();assert.equal(await evaluate("!!document.querySelector('[autocomplete=one-time-code]')"),false);
  await evaluate('window.sms=true;window.delayStart=false');await focus();await click('Send verification code');await waitFor("document.querySelector('[autocomplete=one-time-code]')");
  await evaluate('window.optionsFailure=true');await focus();await waitFor("document.body.innerText.includes('Options offline')");assert.equal(await evaluate("!!document.querySelector('[autocomplete=one-time-code]')"),false);
- await evaluate('window.optionsFailure=false;window.paypal=true');await focus();await waitFor("document.querySelector('option[value=PAYPAL]')");await waitFor("!document.body.innerText.includes('Options offline')");
+ await evaluate('window.optionsFailure=false;window.paypal=true');await focus();await waitFor("document.querySelector('input[value=PAYPAL]')");await waitFor("!document.body.innerText.includes('Options offline')");
  // Reservation disablement is explained and refresh failures recover without stale alerts.
  await evaluate("window.location.hash='/reservations'");await waitFor("document.querySelector('[name=party]')");
  await evaluate('window.sms=false');await focus();await waitFor("document.body.innerText.includes('Online table requests are currently unavailable')");
@@ -120,11 +121,13 @@ try{
  await evaluate("window.created={id:'11111111-1111-4111-8111-111111111111',reference:'TEST',paymentMethod:'PAYPAL',status:'NEW',totalMinor:1990,items:[]};sessionStorage.setItem('nakorn-pickup-receipt',JSON.stringify({requestId:window.created.id,trackingToken:'test'}));window.paypal=false;window.location.hash='/order-confirmation'");
  await waitFor("document.body.innerText.includes('This payment method is currently unavailable')");
  assert.equal(await evaluate("window.requests.filter(r=>r.url==='/api/payments/'+window.created.id).length"),0);
- await click('Confirm / check PayPal payment');await waitFor("window.requests.some(r=>r.url.endsWith('/check'))");
- await evaluate('window.paypal=true;window.delayPayment=true');await focus();await waitFor('window.resolvePayment');
+ await waitFor("document.body.innerText.includes(\"We're still checking your payment\")");
+ await evaluate('window.paypal=true;window.delayPayment=true');await focus();await click('Check payment status');await waitFor('window.resolvePayment');
  await evaluate('window.paypal=false');await focus();await waitFor("document.body.innerText.includes('This payment method is currently unavailable')");
- await evaluate('window.resolvePayment()');await settle();assert.equal(await evaluate("!!document.querySelector('a[href*=checkoutnow]')"),false);
- await evaluate('window.paypal=true;window.delayPayment=false');await focus();await waitFor("document.querySelector('a[href*=checkoutnow]')");
+ await evaluate('window.resolvePayment()');await settle();assert.equal(await evaluate("Array.from(document.querySelectorAll('button')).some(b=>b.textContent==='Continue to PayPal')"),false);
+ await evaluate('window.paypal=true;window.delayPayment=false');await focus();await waitFor("Array.from(document.querySelectorAll('button')).some(b=>['Check payment status','Continue to PayPal'].includes(b.textContent))");
+ if(await evaluate("Array.from(document.querySelectorAll('button')).some(b=>b.textContent==='Check payment status')"))await click('Check payment status');await waitFor("Array.from(document.querySelectorAll('button')).some(b=>b.textContent==='Continue to PayPal')");
+ assert.equal(await evaluate("window.requests.filter(r=>r.url==='/api/payments/'+window.created.id).length"),0);
  // Cash receipts do not subscribe to provider options.
  await evaluate("window.location.hash='/recover-order'");await waitFor("document.querySelector('select option[value=email]')");
  await evaluate("window.created.paymentMethod='PAY_AT_RESTAURANT';window.location.hash='/order-confirmation'");await waitFor("document.body.innerText.includes('Pay at the restaurant when collecting.')");

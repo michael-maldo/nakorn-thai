@@ -11,3 +11,18 @@ export function paypalReturnMode(location) {
 export function safeApprovalUrl(value) {
  try {const url=new URL(value);return url.protocol==='https:'&&!url.username&&!url.password&&['paypal.com','www.paypal.com','sandbox.paypal.com','www.sandbox.paypal.com'].includes(url.hostname)?url.href:null;}catch{return null;}
 }
+export const PAYPAL_CHECK_DELAYS=[0,2000,5000,10000,20000];
+export function resumableApproval(payment) {
+ return payment?.canResumeApproval===true&&!payment.paid&&!payment.paymentReviewRequired
+  &&payment.refundStatus==='NONE'&&payment.financialStatus==='UNCONFIRMED'
+  ? safeApprovalUrl(payment.approvalUrl) : null;
+}
+export function paypalView(order,payment,{busy=false,finished=false}={}) {
+ const refund=payment?.refundStatus&&payment.refundStatus!=='NONE'?payment.refundStatus:order.refundStatus;
+ if(refund&&refund!=='NONE')return 'refund';
+ if(order.paymentReviewRequired||payment?.paymentReviewRequired)return 'review';
+ if(order.paidAt||payment?.paid)return 'paid';
+ if(['CANCELLED','COMPLETED'].includes(order.status))return 'closed';
+ if(!busy&&(resumableApproval(payment)||payment?.canStartPayment===true))return 'approval';
+ return busy||!finished?'checking':'delayed';
+}

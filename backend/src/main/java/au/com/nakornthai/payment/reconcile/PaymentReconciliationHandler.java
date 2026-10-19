@@ -36,18 +36,32 @@ public class PaymentReconciliationHandler {
  record Claim(UUID id,UUID lease,String providerId,String identity,long total,Instant createdAt){}
  public Map<String,Object> check(UUID id,String token,boolean capture,boolean staff){
   transaction.executeWithoutResult(tx->{var o=em.find(OrderJpaEntity.class,id);if(staff){if(o==null)throw new ResponseStatusException(HttpStatus.NOT_FOUND);}else access.require(o,token);});
-  reconcile(id,capture,true);
+  String verifiedState=reconcileState(id,capture,true);
   return transaction.execute(tx->{var o=em.find(OrderJpaEntity.class,id);var p=em.find(OrderPaymentJpaEntity.class,id);
    var result=new HashMap<String,Object>();result.put("method",o.getPaymentMethod());result.put("paid",o.getPaidAt()!=null);
    result.put("status",o.getPaidAt()!=null?"PAID":"PENDING");result.put("currency","AUD");result.put("totalMinor",o.getTotalMinor());
    result.put("refundStatus",o.getRefundStatus());result.put("paymentReviewRequired",o.isPaymentReviewRequired());
    if(p!=null){result.put("approvalUrl",p.getApprovalUrl());result.put("financialStatus",p.getFinancialStatus());}
+   // An old approval URL is not permission to resume after an uncertain capture.
+   boolean eligible=!staff&&capture&&"PAYPAL".equals(o.getPaymentMethod())&&o.getPaidAt()==null
+    &&!Set.of("CANCELLED","COMPLETED").contains(o.getStatus())&&!o.isPaymentReviewRequired()
+    &&"NONE".equals(o.getRefundStatus())&&!o.getCreatedAt().isBefore(clock.instant().minusSeconds(5*3600))
+    &&paypal.enabled()&&(p==null||"PAYPAL".equals(p.getMethod())&&p.getCaptureAttemptedAt()==null
+      &&p.getReviewReason()==null&&"UNCONFIRMED".equals(p.getFinancialStatus())
+      &&(p.getLeaseUntil()==null||!p.getLeaseUntil().isAfter(clock.instant()))
+      &&(p.getProviderIdentity()==null||p.getProviderIdentity().equals(paypal.identity())));
+   result.put("canStartPayment",eligible&&(p==null||p.getProviderOrderId()==null));
+   result.put("canResumeApproval",eligible&&p!=null&&p.getProviderOrderId()!=null
+    &&Set.of("CREATED","PAYER_ACTION_REQUIRED").contains(Objects.toString(verifiedState,"")));
    if("PAYID".equals(o.getPaymentMethod())){var c=configuration.snapshot();result.put("payid",c.text("identifier"));result.put("accountName",c.text("accountName"));result.put("reference",id.toString());}
    return result;
   });
  }
  public boolean reconcile(UUID id,boolean allowCapture,boolean explicit){
-  Claim c=transaction.execute(tx->claim(id,explicit));if(c==null)return false;
+  return reconcileState(id,allowCapture,explicit)!=null;
+ }
+ private String reconcileState(UUID id,boolean allowCapture,boolean explicit){
+  Claim c=transaction.execute(tx->claim(id,explicit));if(c==null)return null;
   metrics.counter("nakorn.payment.reconciliation.attempts").increment();
   try{
    // Freeze credentials/environment for this entire operation, including capture and follow-up reads.
@@ -65,14 +79,14 @@ public class PaymentReconciliationHandler {
     authoritative=provider.captureDetails(capture.path("id").asText());
    final JsonNode found=capture, financial=authoritative;
    transaction.executeWithoutResult(tx->apply(c,found,financial));
-   return true;
+   return details.path("status").asText();
   }catch(Exception error){
    boolean mismatch=error instanceof ResponseStatusException r&&r.getStatusCode().value()==409;
    transaction.executeWithoutResult(tx->failed(c,mismatch?"PROVIDER_STATE_MISMATCH":"PROVIDER_UNAVAILABLE",mismatch));
    metrics.counter("nakorn.payment.reconciliation.failures").increment();
    log.warn("payment_reconciliation_failed order={} reason={}",id,mismatch?"validation":"provider_unavailable");
    if(explicit)throw error instanceof ResponseStatusException r?r:new ResponseStatusException(HttpStatus.BAD_GATEWAY,"Payment status unavailable; retry the same order");
-   return false;
+   return null;
   }
  }
  private Claim claim(UUID id,boolean explicit){
