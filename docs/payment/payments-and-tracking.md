@@ -49,7 +49,7 @@ unpaid locally until a later check confirms provider state.
 FOH can use **Check PayPal receipt** to reconcile an already-captured payment. It
 does not capture an approved payment on the customer's behalf. Customers use their
 private tracking token for creation/capture; staff checks require ADMIN/FOH JWTs.
-No webhook, dispute handling or automatic refunds are implemented in this version.
+Verified webhooks and scheduled reconciliation are implemented; see [Phase 1 reliability](customer-payment-reliability.md). Disputes require manual review; automatic refunds are not implemented.
 If a paid order is cancelled, process the refund in PayPal and coordinate with the
 customer. Cancellation does not claim that money was refunded.
 
@@ -224,7 +224,7 @@ PayID:
    BOH and guests must be denied; stale versions and reused bank receipts rejected.
 5. Reconcile any test funds/refunds directly with the bank and restaurant.
 
-Webhooks/refund handlers remain scaffolds: no unsigned webhook endpoint was added.
+PayPal webhooks now use signature verification and a durable inbox. Refund obligations and external refunds are tracked; refunds are not automatically issued. See [Phase 1 reliability](customer-payment-reliability.md).
 Browser/server checks and deliberate staff reconciliation are primary. Orders not
 revisited need staff PayPal receipt checking. Refunds, disputes and automatic bank
 feeds remain operational/manual responsibilities.

@@ -6,6 +6,7 @@ import { changeOrderStatus, getStaffOrders, getStaffOrder, verifyStaffPayment } 
 import { needsPayment, orderActions, orderStates } from '../model/orderModel';
 import { money } from '../model/cartReducer';
 import OrderItemOptions from '../components/OrderItemOptions';
+import PaymentReviewPanel from '../../payment/components/PaymentReviewPanel';
 
 import { createOrderDraft, orderDraftDirty, orderDraftConflict, orderDraftCommand, reconcileOrderQueue } from '../model/staffOrderDrafts';
 
@@ -33,6 +34,8 @@ export function StaffOrderCard({ order, role, busy, onAction, onPayment, drafts 
     {order.notes && <p className="staff-order-notes"><strong>Customer notes:</strong> {order.notes}</p>}
     {order.cancellationReason && <p>Cancellation: {order.cancellationReason}</p>}
     {front && <p>{money(order.totalMinor)} · {order.paymentMethod?.replaceAll('_', ' ')} · {order.paidAt ? 'Paid' : ['PAYPAL','PAYID'].includes(order.paymentMethod) ? 'Payment pending' : 'Unpaid'}</p>}
+    {front && order.paymentReviewRequired && <StaffNotice>Financial review required. A historical capture does not confirm that funds are still available.</StaffNotice>}
+    {front && order.refundStatus && order.refundStatus !== 'NONE' && <p>Refund obligation: {order.refundStatus.replaceAll('_', ' ')}. Original payment history is retained.</p>}
     {missing && <StaffNotice>This order is no longer in this queue. Unsaved drafts are retained, but cannot be submitted. <button type="button" onClick={() => onDiscard(order.id)}>Discard drafts for this order</button></StaffNotice>}
     {feedback && <StaffNotice variant={feedback.kind === 'error' ? 'error' : 'info'}>{feedback.text}</StaffNotice>}
     {awaitingReload && <StaffNotice variant="info">{awaitingReload === 'conflict' ? 'The server reports that this order changed.' : awaitingReload === 'checked' ? 'Payment check finished.' : 'This order was updated.'} Displayed details are from an earlier load; refresh the queue before another action.</StaffNotice>}
@@ -246,6 +249,7 @@ function OrdersWorkspace({ linked }) {
       <button type="button" disabled={read.status === 'loading' || !!Object.keys(savingIds).length} onClick={() => loadRef.current()}>Refresh</button>
     </div>
     <p>Refreshes every 15 seconds. Times shown in Melbourne time.</p>
+    {!kitchen && <PaymentReviewPanel key={authorization} authorization={authorization} />}
     {read.status === 'loading' && <StaffLoading>{read.loaded ? 'Refreshing orders… Displayed orders are from an earlier load.' : 'Loading orders…'}</StaffLoading>}
     {read.status === 'error' && <StaffNotice>{read.error} {read.loaded && 'Displayed orders are from an earlier load and may be out of date. '}Use Refresh to retry.</StaffNotice>}
     {Object.entries(feedback).filter(([id, message]) => message && !entries.some(entry => entry.order.id === id)).map(([id, message]) => <StaffNotice key={id} variant={message.kind === 'error' ? 'error' : 'info'}>{message.text}</StaffNotice>)}

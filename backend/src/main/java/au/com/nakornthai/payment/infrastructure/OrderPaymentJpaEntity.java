@@ -13,4 +13,13 @@ public class OrderPaymentJpaEntity {
  private String confirmationReference;
  private String confirmedBy;
  private Instant updatedAt=Instant.now();
+ private String providerIdentity;
+ private String financialStatus="UNCONFIRMED";
+ private Instant reconcileAfter=Instant.now();
+ private int reconcileFailures;
+ private int reconcileAttempts;
+ private String reviewReason;
+ private UUID leaseId;
+ private Instant leaseUntil;
+ private Instant captureAttemptedAt;
 }

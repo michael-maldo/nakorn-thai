@@ -29,3 +29,10 @@ test('online payments must be verified; pay at restaurant can be accepted unpaid
   assert.equal(needsPayment({ paymentMethod: 'PAYPAL' }), true);
   assert.equal(needsPayment({ paymentMethod: 'PAYID', paidAt: '2026-09-25T00:00:00Z' }), false);
 });
+test('historical capture does not permit acceptance after a financial hold or refund', () => {
+  const paid = { paymentMethod: 'PAYPAL', paidAt: '2026-10-19T00:00:00Z' };
+  assert.equal(needsPayment(paid), false);
+  assert.equal(needsPayment({ ...paid, paymentReviewRequired: true }), true);
+  assert.equal(needsPayment({ ...paid, refundStatus: 'COMPLETED' }), true);
+  assert.equal(needsPayment({ paymentMethod: 'PAY_AT_RESTAURANT', paymentReviewRequired: false }), false);
+});

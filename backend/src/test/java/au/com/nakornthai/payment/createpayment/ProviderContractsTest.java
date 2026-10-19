@@ -11,6 +11,25 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.*;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.*;
 class ProviderContractsTest {
+ @Test void webhookVerificationUsesPaypalVerificationEndpointAndConfiguredWebhookId() {
+  var builder=RestClient.builder().baseUrl("https://api-m.sandbox.paypal.com");var server=MockRestServiceServer.bindTo(builder).build();
+  var provider=new PayPalPaymentProvider(true,"sandbox","client","secret","http://localhost:5173/#/order-confirmation");
+  ReflectionTestUtils.setField(provider,"api",builder.build());ReflectionTestUtils.setField(provider,"webhookId","WH-CONFIG");
+  var headers=new HttpHeaders();for(String name:java.util.List.of("PAYPAL-AUTH-ALGO","PAYPAL-CERT-URL","PAYPAL-TRANSMISSION-ID","PAYPAL-TRANSMISSION-SIG","PAYPAL-TRANSMISSION-TIME"))headers.set(name,"test");
+  var event=new tools.jackson.databind.json.JsonMapper().valueToTree(java.util.Map.of("id","WH-EVENT"));
+  server.expect(requestTo("https://api-m.sandbox.paypal.com/v1/oauth2/token")).andRespond(withSuccess("{\"access_token\":\"access\"}",MediaType.APPLICATION_JSON));
+  server.expect(requestTo("https://api-m.sandbox.paypal.com/v1/notifications/verify-webhook-signature")).andExpect(header("Authorization","Bearer access")).andExpect(jsonPath("$.webhook_id").value("WH-CONFIG")).andExpect(jsonPath("$.webhook_event.id").value("WH-EVENT")).andExpect(jsonPath("$.transmission_sig").value("test")).andRespond(withSuccess("{\"verification_status\":\"SUCCESS\"}",MediaType.APPLICATION_JSON));
+  assertTrue(provider.verifyWebhook(headers,event));server.verify();
+ }
+ @Test void missingWebhookSignatureHeadersFailClosedWithoutNetwork() {
+  var provider=new PayPalPaymentProvider(true,"sandbox","client","secret","http://localhost:5173/#/order-confirmation");ReflectionTestUtils.setField(provider,"webhookId","WH-CONFIG");
+  assertFalse(provider.verifyWebhook(new HttpHeaders(),new tools.jackson.databind.json.JsonMapper().createObjectNode()));
+ }
+ @Test void unsuccessfulWebhookVerificationNeverAuthenticatesEvent() {
+  var builder=RestClient.builder().baseUrl("https://api-m.sandbox.paypal.com");var server=MockRestServiceServer.bindTo(builder).build();var provider=new PayPalPaymentProvider(true,"sandbox","client","secret","http://localhost:5173/#/order-confirmation");ReflectionTestUtils.setField(provider,"api",builder.build());ReflectionTestUtils.setField(provider,"webhookId","WH-CONFIG");
+  var headers=new HttpHeaders();for(String name:java.util.List.of("PAYPAL-AUTH-ALGO","PAYPAL-CERT-URL","PAYPAL-TRANSMISSION-ID","PAYPAL-TRANSMISSION-SIG","PAYPAL-TRANSMISSION-TIME"))headers.set(name,"test");
+  server.expect(requestTo("https://api-m.sandbox.paypal.com/v1/oauth2/token")).andRespond(withSuccess("{\"access_token\":\"access\"}",MediaType.APPLICATION_JSON));server.expect(requestTo("https://api-m.sandbox.paypal.com/v1/notifications/verify-webhook-signature")).andRespond(withSuccess("{\"verification_status\":\"FAILURE\"}",MediaType.APPLICATION_JSON));assertFalse(provider.verifyWebhook(headers,new tools.jackson.databind.json.JsonMapper().createObjectNode()));server.verify();
+ }
  @Test void paypalSerializesAuthoritativeAudOrderAndOAuth() {
   var builder=RestClient.builder().baseUrl("https://api-m.sandbox.paypal.com");var server=MockRestServiceServer.bindTo(builder).build();
   var provider=new PayPalPaymentProvider(true,"sandbox","client","secret","http://localhost:5173/#/order-confirmation");

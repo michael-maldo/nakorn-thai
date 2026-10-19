@@ -7,7 +7,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 class RuntimeAvailabilityTest {
- @Test void disabledPaypalCannotStartButExistingProviderOrderCanBeChecked() {
+ @Test void disabledPaypalCannotStartAndChecksDelegateToRecovery() {
   var em=org.mockito.Mockito.mock(jakarta.persistence.EntityManager.class);
   var access=org.mockito.Mockito.mock(au.com.nakornthai.ordering.infrastructure.OrderAccessService.class);
   var paypal=org.mockito.Mockito.mock(PayPalPaymentProvider.class);
@@ -18,11 +18,12 @@ class RuntimeAvailabilityTest {
   org.mockito.Mockito.when(em.find(au.com.nakornthai.ordering.infrastructure.OrderJpaEntity.class,id,jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)).thenReturn(order);
   org.mockito.Mockito.when(em.find(au.com.nakornthai.payment.infrastructure.OrderPaymentJpaEntity.class,id)).thenReturn(payment);
   assertEquals(503,assertThrows(ResponseStatusException.class,()->handler.start(id,"token","PAYPAL")).getStatusCode().value());
-  var details=new tools.jackson.databind.json.JsonMapper().valueToTree(Map.of("id","PP1","intent","CAPTURE","status","CREATED","purchase_units",List.of(Map.of("custom_id",id.toString(),"amount",Map.of("currency_code","AUD","value","1.00")))));
-  org.mockito.Mockito.when(paypal.details("PP1")).thenReturn(details);
+  var recovery=org.mockito.Mockito.mock(au.com.nakornthai.payment.reconcile.PaymentReconciliationHandler.class);
+  handler.configureReconciliation(recovery);
+  org.mockito.Mockito.when(recovery.check(id,"token",true,false)).thenReturn(Map.of("paid",false));
   assertEquals(false,handler.check(id,"token",true,false).get("paid"));
-  org.mockito.Mockito.verify(paypal).details("PP1");org.mockito.Mockito.verify(paypal,org.mockito.Mockito.never()).create(org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.anyLong());
-  org.mockito.Mockito.verify(paypal,org.mockito.Mockito.never()).capture(org.mockito.ArgumentMatchers.anyString(),org.mockito.ArgumentMatchers.any());
+  org.mockito.Mockito.verify(recovery).check(id,"token",true,false);
+
  }
 
  @Test void paypalTracksConfigurationEnablementAndLiveValidation(){

@@ -55,6 +55,8 @@ export default function PaymentForm({ order, receipt }) {
   if (order.paymentMethod === 'PAY_AT_RESTAURANT') return <p>{order.paidAt ? 'Payment recorded.' : order.status === 'CANCELLED' ? 'This order was cancelled.' : 'Pay at the restaurant when collecting.'}</p>;
   return <section aria-label="Order payment">
     <h3>{order.paymentMethod === 'PAYPAL' ? 'PayPal payment' : 'PayID bank transfer'}</h3>
+    {order.paymentReviewRequired && <p role="status">This payment needs restaurant review. Contact the restaurant before attempting another payment.</p>}
+    {order.refundStatus && order.refundStatus !== 'NONE' && <p>Refund status: {order.refundStatus.replaceAll('_', ' ')}. The original capture remains recorded.</p>}
     {optionsError&&<p role="alert" className="staff-error">{optionsError}</p>}
     {error && <p role="alert" className="staff-error">{error}</p>}
     {order.paidAt || payment?.paid ? <p role="status">Payment received: {money(order.totalMinor)}.</p> : <>

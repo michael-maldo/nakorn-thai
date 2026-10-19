@@ -9,6 +9,16 @@ import java.util.*;
 import org.junit.Test;
 
 public class OrderWorkflowTest {
+  @Test public void historicalPaymentDoesNotOverrideFinancialReview() {
+    Order paid = new Order("review", "REVIEW", "NEW", 0, "PAYPAL", "2026-10-19T00:00:00Z", java.util.Collections.emptyList());
+    assertFalse(paid.needsPayment());
+    paid.paymentReviewRequired = true;
+    assertTrue(paid.needsPayment());
+    paid.paymentReviewRequired = false;
+    paid.refundStatus = "COMPLETED";
+    assertTrue(paid.needsPayment());
+    assertTrue(au.com.nakornthai.staffapp.ordering.ui.OrderPresentation.payment(paid).contains("Refund: COMPLETED"));
+  }
   static Order order(String id, String state, long version) {
     return new Order(id, id, state, version, "PAY_AT_RESTAURANT", null, Collections.emptyList());
   }

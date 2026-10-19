@@ -50,7 +50,10 @@ public final class OrderPresentation {
             ? "Paid"
             : "PAY_AT_RESTAURANT".equals(order.paymentMethod)
                 ? "Payment due at handover"
-                : "Payment pending");
+                : "Payment pending")
+        + (order.paymentReviewRequired ? " · Financial review required" : "")
+        + (order.refundStatus != null && !"NONE".equals(order.refundStatus)
+            ? " · Refund: " + order.refundStatus.replace('_', ' ') : "");
   }
 
   public static String detail(Order order, String role) {

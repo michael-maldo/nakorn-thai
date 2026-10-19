@@ -13,6 +13,6 @@ public class OrderMapper {
                             i.getId(), i.getSnapshotVersion(), i.getCollectionId(), i.getCollectionName(), i.getCollectionSlug(),
                             i.getVariationBasePriceMinor(), i.getCollectionPriceOverrideMinor(),
                             i.getSelectedOptions().stream().map(o -> new CreateOrderResponse.SelectedOption(o.getOptionId(),
-                                    o.getOptionGroupName(), o.getOptionName(), o.getPriceDeltaMinor(), o.getQuantity())).toList())).toList(), order.getPaymentMethod());
+                                    o.getOptionGroupName(), o.getOptionName(), o.getPriceDeltaMinor(), o.getQuantity())).toList())).toList(), order.getPaymentMethod(), order.getRefundStatus(), order.isPaymentReviewRequired());
     }
 }
