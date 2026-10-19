@@ -69,6 +69,7 @@ function fixture() {
    window.created.paidAt=new Date().toISOString();window.created.version++;sessionStorage.setItem('payment-test-order',JSON.stringify(window.created));return Response.json({paid:true});
   }
   if(url.startsWith('/api/staff/foh/orders'))return Response.json([window.created]);
+  if(url==='/api/staff/payments/review')return Response.json({orders:[{id:window.created.id,status:'CANCELLED',payment_method:'PAYPAL',refund_status:'REQUIRED',payment_review_required:true,review_reason:'PROVIDER_UNAVAILABLE'}],webhookEvents:[]});
   if(url.startsWith('/api/orders/'))return window.created?Response.json(window.created):Response.json({message:'Not found'},{status:404});
   if(url.startsWith('/api/payments/')){
    if(window.paymentError)return Response.json({message:window.paymentError},{status:502});
@@ -158,5 +159,8 @@ try{
  const command=await evaluate("window.requests.find(r=>r.url.endsWith('/payid-confirm')).body");
  assert.deepEqual(command,{version:0,bankReference:'BANK-TEST-123',bankReceiptChecked:true});
  await waitFor("Array.from(document.querySelectorAll('button')).some(b=>b.textContent==='Accept order'&&!b.disabled)");
+ await click('Review payment and refund obligations');
+ await waitFor("document.querySelector('[aria-label=\"Payment and refund review\"]').innerText.includes('REQUIRED')");
+ assert.equal(await evaluate("document.querySelector('[aria-label=\"Payment and refund review\"]').innerText.includes('PROVIDER_UNAVAILABLE')"),true);
  assert.deepEqual(errors,[]);console.log('Payments browser: checkout selection, automatic initiation, approval URL, cancel/return checking, safe retry, paid state, PayID refresh and pay-at-restaurant passed.');
 }finally{await send('Page.close');ws.close();}

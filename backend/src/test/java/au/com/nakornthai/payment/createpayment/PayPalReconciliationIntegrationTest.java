@@ -49,8 +49,10 @@ class PayPalReconciliationIntegrationTest {
  final String token="a".repeat(64);
 
  @BeforeEach void fixture() {
+  when(paypal.session()).thenReturn(paypal);
   id=UUID.randomUUID();providerId="PP"+id.toString().replace("-","");reference="CAP"+id.toString().replace("-","");
   jdbc.update("INSERT INTO restaurant_order(id,tracking_hash,request_hash,customer_name,phone,notes,total_minor,payment_method,created_at,updated_at) VALUES (?,?,?,'Test Customer','0400000000','',1990,'PAYPAL',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)",id,CreateOrderHandler.hash(token),"b".repeat(64));
+  when(paypal.captureDetails(anyString())).thenAnswer(call->json.valueToTree(Map.of("id",reference,"final_capture",true,"status","COMPLETED","amount",Map.of("currency_code","AUD","value","19.90"),"supplementary_data",Map.of("related_ids",Map.of("order_id",providerId)))));
   jdbc.update("INSERT INTO order_payment(order_id,method,provider_order_id,status,updated_at) VALUES (?,'PAYPAL',?,'PENDING',CURRENT_TIMESTAMP)",id,providerId);
  }
  @AfterEach void cleanup() {
@@ -76,7 +78,7 @@ class PayPalReconciliationIntegrationTest {
   assertEquals(1,jdbc.queryForObject("SELECT count(*) FROM order_payment WHERE confirmation_reference=?",Integer.class,reference));
  }
 
- @Test void concurrentChecksSerializeOnPostgresOrderLockAndCaptureOnce() throws Exception {
+ @Test void concurrentChecksUseDurableLeaseAndCaptureOnceWithoutHoldingDatabaseLock() throws Exception {
   var captured=new AtomicBoolean();
   var captures=new AtomicInteger();
   var blockerPid=new AtomicInteger();
@@ -84,8 +86,7 @@ class PayPalReconciliationIntegrationTest {
   var releaseCapture=new CountDownLatch(1);
   when(paypal.details(providerId)).thenAnswer(call->details(captured.get()));
   when(paypal.capture(providerId,id)).thenAnswer(call->{
-   // EntityManager is bound to this request's actual handler transaction.
-   blockerPid.set(((Number)em.createNativeQuery("SELECT pg_backend_pid()",Integer.class).getSingleResult()).intValue());
+   assertFalse(org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive(),"Provider I/O must not retain a database transaction");
    captures.incrementAndGet();captureEntered.countDown();
    assertTrue(releaseCapture.await(10,TimeUnit.SECONDS),"Test did not release capture");
    captured.set(true);return details(true);
@@ -97,26 +98,16 @@ class PayPalReconciliationIntegrationTest {
    assertTrue(captureEntered.await(10,TimeUnit.SECONDS),"First request never entered capture");
    Future<JsonNode> second=pool.submit(this::check);
 
-   // Third connection observes PostgreSQL, not Mockito timing. The second
-   // request must be waiting on the first request's restaurant_order row lock.
-   Integer waitingPid=null;
-   long deadline=System.nanoTime()+Duration.ofSeconds(5).toNanos();
-   while(waitingPid==null && System.nanoTime()<deadline) {
-    var waiters=jdbc.queryForList("SELECT pid FROM pg_stat_activity WHERE ?=ANY(pg_blocking_pids(pid)) AND wait_event_type='Lock' AND query ILIKE '%restaurant_order%'",Integer.class,blockerPid.get());
-    if(!waiters.isEmpty())waitingPid=waiters.getFirst();
-    else Thread.sleep(25);
-   }
-   assertNotNull(waitingPid,"Second check did not block on the real PostgreSQL order lock");
-   assertNotEquals(blockerPid.get(),waitingPid.intValue(),"Checks must use independent database sessions");
-   assertFalse(first.isDone());assertFalse(second.isDone());
-   assertEquals(1,captures.get(),"Blocked request must not enter capture");
+   // The second request acquires the order lock and sees the durable lease while
+   // the first request is in provider I/O. No database lock spans that network call.
+   JsonNode secondResult=second.get(5,TimeUnit.SECONDS);
+   assertFalse(secondResult.path("paid").asBoolean());
+   assertFalse(first.isDone());assertEquals(1,captures.get());
 
    releaseCapture.countDown();
    JsonNode firstResult=first.get(10,TimeUnit.SECONDS);
-   JsonNode secondResult=second.get(10,TimeUnit.SECONDS);
-   assertTrue(firstResult.path("paid").asBoolean());assertTrue(secondResult.path("paid").asBoolean());
+   assertTrue(firstResult.path("paid").asBoolean());
    assertEquals("PAID",firstResult.path("status").asText());
-   assertEquals(firstResult,secondResult);
    assertEquals(1,captures.get());
    verify(paypal,times(1)).capture(providerId,id);
    assertPaidWithoutDuplicates();

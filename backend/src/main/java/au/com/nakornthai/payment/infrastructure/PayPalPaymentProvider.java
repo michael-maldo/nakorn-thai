@@ -20,6 +20,35 @@ public class PayPalPaymentProvider {
  private final String clientId,secret,returnUrl;
  private final boolean enabled;
  private final Set<String> approvalHosts;
+ @Value("${PAYPAL_WEBHOOK_ID:}") private String webhookId="";
+ public String identity() {
+  if(configuration!=null){var c=configuration.snapshot();return au.com.nakornthai.ordering.createorder.CreateOrderHandler.hash(c.text("environment")+":"+c.text("clientId"));}
+  return au.com.nakornthai.ordering.createorder.CreateOrderHandler.hash(apiHost()+":"+clientId);
+ }
+ private String apiHost(){return approvalHosts.contains("paypal.com")?"live":"sandbox";}
+ /** PayPal performs signature/certificate verification. Never fetch the supplied certificate URL ourselves. */
+ public boolean verifyWebhook(HttpHeaders headers,JsonNode event) {
+  if(webhookId.isBlank())throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,"PayPal webhook verification is not configured");
+  var body=new HashMap<String,Object>();
+  for(var entry:Map.of("auth_algo","PAYPAL-AUTH-ALGO","cert_url","PAYPAL-CERT-URL","transmission_id","PAYPAL-TRANSMISSION-ID","transmission_sig","PAYPAL-TRANSMISSION-SIG","transmission_time","PAYPAL-TRANSMISSION-TIME").entrySet()){
+   String value=headers.getFirst(entry.getValue());
+   if(value==null||value.isBlank()||value.length()>4096)return false;
+   body.put(entry.getKey(),value);
+  }
+  body.put("webhook_id",webhookId);body.put("webhook_event",event);
+  var provider=configuration==null?this:configured(true);
+  try {var result=provider.api.post().uri("/v1/notifications/verify-webhook-signature").headers(h->h.setBearerAuth(provider.token())).contentType(MediaType.APPLICATION_JSON).body(body).retrieve().body(JsonNode.class);
+   return result!=null&&"SUCCESS".equals(result.path("verification_status").asText());
+  }catch(Exception e){throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,"PayPal webhook verification unavailable");}
+ }
+ public JsonNode captureDetails(String id){return resource("/v2/payments/captures/{id}",id);}
+ public JsonNode refundDetails(String id){return resource("/v2/payments/refunds/{id}",id);}
+ private JsonNode resource(String path,String id){
+  if(configuration!=null)return configured(true).resource(path,id);
+  if(id==null||!id.matches("[A-Za-z0-9]{1,100}"))throw mismatch("Invalid provider identifier");
+  try{return api.get().uri(path,id).headers(h->h.setBearerAuth(token())).retrieve().body(JsonNode.class);}
+  catch(Exception e){throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,"PayPal financial status unavailable");}
+ }
  public PayPalPaymentProvider(@Value("${PAYPAL_ENABLED:false}") boolean enabled,@Value("${PAYPAL_ENV:sandbox}") String environment,
    @Value("${PAYPAL_CLIENT_ID:}") String clientId,@Value("${PAYPAL_CLIENT_SECRET:}") String secret,
    @Value("${PAYPAL_RETURN_URL:http://localhost:5173/#/order-confirmation}") String returnUrl) {
@@ -34,6 +63,7 @@ public class PayPalPaymentProvider {
  }
  public boolean enabled(){if(configuration==null)return enabled;var c=configuration.snapshot();return c.flag("paypalEnabled")&&c.configured("PAYPAL")&&(!c.text("environment").equals("live")||!c.flag("paypalDashboardManaged")||c.flag("paypalValidated"));}
  public void testConnection(){if(configuration!=null){configured(true).testConnection();return;}token();}
+ public PayPalPaymentProvider session(){return configuration==null?this:configured(true);}
  public boolean validApprovalUrl(String value) {
   if(configuration!=null){var c=configuration.snapshot();try{var uri=java.net.URI.create(value);var hosts=c.text("environment").equals("live")?Set.of("paypal.com","www.paypal.com"):Set.of("sandbox.paypal.com","www.sandbox.paypal.com");return "https".equals(uri.getScheme())&&uri.getUserInfo()==null&&uri.getPort()==-1&&hosts.contains(uri.getHost());}catch(Exception e){return false;}}
   if(value==null)return false;
@@ -70,7 +100,7 @@ public class PayPalPaymentProvider {
   if(!units.isArray() || units.size()!=1 || !orderId.toString().equals(units.get(0).path("custom_id").asText()))throw mismatch("Payment order mismatch");
   validateAmount(units.get(0).path("amount"),total);
  }
- private static void validateAmount(JsonNode amount,long total) {
+ public static void validateAmount(JsonNode amount,long total) {
   try {
    if(!"AUD".equals(amount.path("currency_code").asText()) || !amount.path("value").asText().matches("[0-9]+[.][0-9]{2}") || new BigDecimal(amount.path("value").asText()).compareTo(BigDecimal.valueOf(total,2))!=0)throw mismatch("Payment amount mismatch");
   }catch(NumberFormatException e){throw mismatch("Payment amount mismatch");}

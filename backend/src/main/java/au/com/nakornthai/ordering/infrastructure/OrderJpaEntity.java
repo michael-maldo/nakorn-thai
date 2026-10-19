@@ -21,6 +21,8 @@ public class OrderJpaEntity {
     @Column(length=254) private String email;
     private boolean phoneVerified;
     private Instant paidAt;
+    private String refundStatus = "NONE";
+    private boolean paymentReviewRequired;
     private Instant estimatedReadyAt;
     @Column(length=500) private String cancellationReason;
     @Column(nullable=false) private Instant createdAt;

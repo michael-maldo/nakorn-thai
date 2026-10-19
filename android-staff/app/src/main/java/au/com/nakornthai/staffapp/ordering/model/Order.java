@@ -4,6 +4,8 @@ import java.util.*;
 
 /** Server snapshots. UI never edits these objects or rebuilds them from the current menu. */
 public final class Order {
+  public String refundStatus;
+  public boolean paymentReviewRequired;
   public final String id,
       reference,
       status,
@@ -58,7 +60,8 @@ public final class Order {
   }
 
   public boolean needsPayment() {
-    return paidAt == null && !"PAY_AT_RESTAURANT".equals(paymentMethod);
+    return !"PAY_AT_RESTAURANT".equals(paymentMethod)
+        && (paidAt == null || paymentReviewRequired || refundStatus != null && !"NONE".equals(refundStatus));
   }
 
   public List<String> actions(String role) {

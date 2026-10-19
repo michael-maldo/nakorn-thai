@@ -18,6 +18,7 @@ public class SecurityConfig {
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http, JwtAuthenticationFilter jwtFilter) throws Exception {
         return http
+                .csrf(csrf -> csrf.ignoringRequestMatchers(request -> "POST".equals(request.getMethod()) && (request.getContextPath()+"/api/payments/paypal/webhook").equals(request.getRequestURI())))
                 .authorizeHttpRequests(authorize -> authorize
                         .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/menu/homepage", "/api/menu/collections", "/api/menu/collections/*/items",
@@ -29,6 +30,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/orders/contact-verifications/options").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/orders/contact-verifications", "/api/orders/contact-verifications/*/verify").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/payments/options", "/api/order-verification/options").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/payments/paypal/webhook").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/payments/*", "/api/payments/*/check", "/api/order-verification/start", "/api/order-verification/check").permitAll()
                         .requestMatchers("/api/staff/payments/**").hasAnyRole("ADMIN", "FOH")
                         .requestMatchers(HttpMethod.GET, "/api/functions/csrf").permitAll()

@@ -41,17 +41,21 @@ public class ChangeOrderStatusHandler {
         };
         if (!next.contains(command.status())) throw new ResponseStatusException(HttpStatus.CONFLICT,"Invalid order transition");
         if ("ACCEPTED".equals(command.status())) {
-            if(!order.getPaymentMethod().equals("PAY_AT_RESTAURANT") && order.getPaidAt()==null)throw new ResponseStatusException(HttpStatus.CONFLICT,"Verify payment before accepting this order");
+            if(!order.getPaymentMethod().equals("PAY_AT_RESTAURANT") && (order.getPaidAt()==null || order.isPaymentReviewRequired() || !"NONE".equals(order.getRefundStatus())))throw new ResponseStatusException(HttpStatus.CONFLICT,"Verify payment before accepting this order");
             if (command.pickupMinutes()==null) throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Enter estimated pickup minutes");
             order.setEstimatedReadyAt(Instant.now().plusSeconds(command.pickupMinutes()*60L));
         }
         if ("CANCELLED".equals(command.status())) {
             if (command.reason()==null || command.reason().isBlank()) throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Enter a cancellation reason");
+            var payment=em.find(au.com.nakornthai.payment.infrastructure.OrderPaymentJpaEntity.class,id);
+            if(payment!=null&&payment.getLeaseUntil()!=null&&payment.getLeaseUntil().isAfter(Instant.now())&&payment.getCaptureAttemptedAt()!=null)
+                throw new ResponseStatusException(HttpStatus.CONFLICT,"Payment is being reconciled; refresh before cancelling");
             order.setCancellationReason(command.reason().trim());
+            if(order.getPaidAt()!=null&&"NONE".equals(order.getRefundStatus()))order.setRefundStatus("REQUIRED");
         }
         if ("COMPLETED".equals(command.status())) {
             if (!command.paymentCollected()) throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Confirm payment was collected");
-            if(order.getPaidAt()==null && !order.getPaymentMethod().equals("PAY_AT_RESTAURANT"))throw new ResponseStatusException(HttpStatus.CONFLICT,"Verify online or bank payment before handover");
+            if(!order.getPaymentMethod().equals("PAY_AT_RESTAURANT") && (order.getPaidAt()==null || order.isPaymentReviewRequired() || !"NONE".equals(order.getRefundStatus())))throw new ResponseStatusException(HttpStatus.CONFLICT,"Verify online or bank payment before handover");
             if(order.getPaidAt()==null)order.setPaidAt(Instant.now());
         }
         order.setStatus(command.status()); order.setUpdatedAt(Instant.now());

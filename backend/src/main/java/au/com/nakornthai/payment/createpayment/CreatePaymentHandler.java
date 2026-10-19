@@ -13,6 +13,8 @@ import java.time.Instant;
 public class CreatePaymentHandler {
  private final EntityManager em;private final OrderAccessService access;private final PayPalPaymentProvider paypal;
  private final io.micrometer.core.instrument.MeterRegistry metrics;
+ private au.com.nakornthai.payment.reconcile.PaymentReconciliationHandler reconciliation;
+ @org.springframework.beans.factory.annotation.Autowired public void configureReconciliation(au.com.nakornthai.payment.reconcile.PaymentReconciliationHandler value){this.reconciliation=value;}
  private final String payid,name;private final boolean payidEnabled;
  private au.com.nakornthai.restaurant.configuration.RuntimeConfiguration configuration;
 
@@ -44,6 +46,8 @@ public class CreatePaymentHandler {
   if(method.equals("PAYPAL") && payment.getProviderOrderId()==null) {
    // Order creation survives a process crash that rolls back the first provider attempt.
    if(payment.getUpdatedAt().isBefore(Instant.now().minusSeconds(5*3600)) || order.getCreatedAt().isBefore(Instant.now().minusSeconds(5*3600)))throw new ResponseStatusException(HttpStatus.CONFLICT,"Payment setup needs restaurant review; do not create another order");
+   if(payment.getProviderIdentity()==null)payment.setProviderIdentity(paypal.identity());
+   if(!java.util.Objects.equals(payment.getProviderIdentity(),paypal.identity()))throw new ResponseStatusException(HttpStatus.CONFLICT,"PayPal account changed; contact the restaurant");
    var response=paypal.create(id,order.getTotalMinor());
    if(response==null)throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,"PayPal approval unavailable");
    String providerId=response.path("id").asText();String approve=null;
@@ -55,20 +59,8 @@ public class CreatePaymentHandler {
   }
   return view(order,payment);
  }
- @Transactional public Map<String,Object> check(UUID id,String token,boolean capture,boolean staff) {
-  var order=em.find(OrderJpaEntity.class,id,LockModeType.PESSIMISTIC_WRITE);
-  if(staff){if(order==null)throw new ResponseStatusException(HttpStatus.NOT_FOUND);}else access.require(order,token);
-  var p=em.find(OrderPaymentJpaEntity.class,id);
-  if(p!=null && p.getMethod().equals("PAYPAL") && !p.getStatus().equals("PAID")) {
-   if(p.getProviderOrderId()==null)return view(order,p);
-   var details=paypal.details(p.getProviderOrderId());
-   PayPalPaymentProvider.validateOrder(details,p.getProviderOrderId(),id,order.getTotalMinor());
-   if(capture && "APPROVED".equals(details.path("status").asText()) && !Set.of("CANCELLED","COMPLETED").contains(order.getStatus())){ paypal.capture(p.getProviderOrderId(),id); details=paypal.details(p.getProviderOrderId());
-    PayPalPaymentProvider.validateOrder(details,p.getProviderOrderId(),id,order.getTotalMinor()); }
-   String reference=PayPalPaymentProvider.validatedCapture(details,id,order.getTotalMinor());
-   if(reference!=null)record(order,p,reference,"PAYPAL");
-  }
-  return view(order,p);
+ public Map<String,Object> check(UUID id,String token,boolean capture,boolean staff) {
+  return reconciliation.check(id,token,capture,staff);
  }
  @Transactional public Map<String,Object> confirmPayid(UUID id,long version,String reference,String actor) {
   var order=em.find(OrderJpaEntity.class,id,LockModeType.PESSIMISTIC_WRITE);if(order==null)throw new ResponseStatusException(HttpStatus.NOT_FOUND);

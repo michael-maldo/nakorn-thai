@@ -13,4 +13,4 @@ export function orderActions(role, status) {
   if (front && ['NEW', 'ACCEPTED', 'PREPARING', 'READY'].includes(status)) actions.push('CANCELLED');
   return actions;
 }
-export const needsPayment = order => !order.paidAt && order.paymentMethod !== 'PAY_AT_RESTAURANT';
+export const needsPayment = order => order.paymentMethod !== 'PAY_AT_RESTAURANT' && (!order.paidAt || order.paymentReviewRequired || !!order.refundStatus && order.refundStatus !== 'NONE');
