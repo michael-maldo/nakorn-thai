@@ -78,6 +78,74 @@ class CustomerPaymentReliabilityIntegrationTest {
  @Test void unverifiableWebhookIsRetryableAndNotAcknowledged() throws Exception {when(paypal.verifyWebhook(any(),any())).thenThrow(new ResponseStatusException(HttpStatus.BAD_GATEWAY));mvc.perform(post("/api/payments/paypal/webhook").contentType("application/json").content("{}")).andExpect(status().isBadGateway());}
  @Test void timeoutBackoffThenLookupRecoversWithoutRecapture(){doAnswer(call->{orderState="COMPLETED";throw new ResponseStatusException(HttpStatus.BAD_GATEWAY);}).when(paypal).capture(providerId,id);worker.runBatch();assertEquals("PENDING",payment("status"));assertEquals(1,jdbc.queryForObject("SELECT reconcile_failures FROM order_payment WHERE order_id=?",Integer.class,id));worker.runBatch();verify(paypal,times(1)).capture(providerId,id);due();worker.runBatch();assertPaid();verify(paypal,times(1)).capture(providerId,id);}
  @Test void failuresAreBoundedAndBecomeReview(){when(paypal.details(providerId)).thenThrow(new ResponseStatusException(HttpStatus.BAD_GATEWAY));for(int i=0;i<8;i++){due();worker.runBatch();}assertEquals("PROVIDER_UNAVAILABLE",payment("review_reason"));due();worker.runBatch();verify(paypal,times(8)).details(providerId);}
+ void stopAbandonedPolling(){
+  orderState="CREATED";
+  jdbc.update("UPDATE restaurant_order SET created_at=CURRENT_TIMESTAMP-interval '6 hours' WHERE id=?",id);
+  worker.runBatch();
+  assertEquals("APPROVAL_EXPIRED_OR_UNRESOLVED",payment("review_reason"));
+ }
+ @Test void abandonedCheckoutStopsPollingAfterWindowWithoutDeclaringFinancialFinality(){
+  jdbc.update("UPDATE order_payment SET reconcile_attempts=19 WHERE order_id=?",id);
+  stopAbandonedPolling();
+  assertEquals("20",payment("reconcile_attempts"));
+  due();worker.runBatch();worker.runBatch();
+  assertEquals("20",payment("reconcile_attempts"));
+  assertEquals("PENDING",payment("status"));assertEquals("UNCONFIRMED",payment("financial_status"));
+  assertEquals("PAYPAL",order("payment_method"));assertEquals("NEW",order("status"));
+  assertTrue(jdbc.queryForObject("SELECT payment_review_required FROM restaurant_order WHERE id=?",Boolean.class,id));
+  assertNull(jdbc.queryForObject("SELECT paid_at FROM restaurant_order WHERE id=?",Object.class,id));
+  verify(paypal,times(1)).details(providerId);verify(paypal,never()).capture(anyString(),any());verify(paypal,never()).create(any(),anyLong());
+ }
+ @Test void healthyUnapprovedLookupsCountAsAttemptsButNotFailures(){
+  orderState="CREATED";worker.runBatch();due();worker.runBatch();
+  assertEquals("2",payment("reconcile_attempts"));assertEquals("0",payment("reconcile_failures"));
+  assertNull(payment("review_reason"));assertEquals("PENDING",payment("status"));
+  verify(paypal,never()).capture(anyString(),any());
+ }
+ @Test void transientLookupFailureBacksOffThenApprovedCheckoutCapturesOnce(){
+  when(paypal.details(providerId)).thenThrow(new ResponseStatusException(HttpStatus.BAD_GATEWAY));
+  worker.runBatch();worker.runBatch();
+  verify(paypal,times(1)).details(providerId);assertEquals("1",payment("reconcile_failures"));assertNull(payment("review_reason"));
+  doAnswer(call->details()).when(paypal).details(providerId);
+  due();worker.runBatch();worker.runBatch();
+  assertPaid();assertEquals("CAPTURED",payment("financial_status"));assertEquals("0",payment("reconcile_failures"));
+  verify(paypal,times(1)).capture(providerId,id);verify(paypal,never()).create(any(),anyLong());
+ }
+ @Test void oldUnknownCaptureOutcomeIsLookedUpRatherThanDiscardedAfterTimeout(){
+  jdbc.update("UPDATE restaurant_order SET created_at=CURRENT_TIMESTAMP-interval '6 hours' WHERE id=?",id);
+  jdbc.update("UPDATE order_payment SET capture_attempted_at=CURRENT_TIMESTAMP-interval '6 hours' WHERE order_id=?",id);
+  when(paypal.details(providerId)).thenThrow(new ResponseStatusException(HttpStatus.BAD_GATEWAY));
+  worker.runBatch();assertNull(payment("review_reason"));assertEquals("1",payment("reconcile_failures"));
+  orderState="COMPLETED";doAnswer(call->details()).when(paypal).details(providerId);
+  due();worker.runBatch();assertPaid();assertEquals("CAPTURED",payment("financial_status"));
+  verify(paypal,never()).capture(anyString(),any());verify(paypal,never()).create(any(),anyLong());
+ }
+ @Test void lateApprovalWebhookDoesNotBypassExpiredCapturePolicy() throws Exception {
+  stopAbandonedPolling();orderState="APPROVED";
+  event("late-approval","CHECKOUT.ORDER.APPROVED",providerId);assertTrue(inbox.processOne());
+  assertEquals("PENDING",payment("status"));assertNotNull(payment("review_reason"));
+  assertNotNull(jdbc.queryForObject("SELECT processed_at FROM paypal_webhook_event WHERE event_id=?",Object.class,eventPrefix+"late-approval"));
+  verify(paypal,times(2)).details(providerId);verify(paypal,never()).capture(anyString(),any());
+ }
+ @Test void lateVerifiedCaptureWebhookResolvesStoppedPollingWithoutDuplicateEffects() throws Exception {
+  stopAbandonedPolling();orderState="COMPLETED";
+  event("late-capture","CHECKOUT.ORDER.COMPLETED",providerId);event("late-capture","CHECKOUT.ORDER.COMPLETED",providerId);
+  assertTrue(inbox.processOne());assertFalse(inbox.processOne());
+  assertPaid();assertEquals("CAPTURED",payment("financial_status"));assertNull(payment("review_reason"));
+  assertFalse(jdbc.queryForObject("SELECT payment_review_required FROM restaurant_order WHERE id=?",Boolean.class,id));
+  event("late-capture-resource","PAYMENT.CAPTURE.COMPLETED",reference);assertTrue(inbox.processOne());
+  assertEquals(1,jdbc.queryForObject("SELECT count(*) FROM payment_audit WHERE order_id=? AND action='CAPTURE_VERIFIED'",Integer.class,id));
+  assertEquals(1,jdbc.queryForObject("SELECT count(*) FROM order_payment WHERE order_id=?",Integer.class,id));
+  verify(paypal,never()).capture(anyString(),any());verify(paypal,never()).create(any(),anyLong());
+ }
+ @Test void capturedPaymentLeavesMinutePollingButRetainsDailyFinancialReconciliation(){
+  worker.runBatch();assertPaid();
+  assertTrue(jdbc.queryForObject("SELECT reconcile_after>CURRENT_TIMESTAMP+interval '23 hours' FROM order_payment WHERE order_id=?",Boolean.class,id));
+  worker.runBatch();assertEquals("1",payment("reconcile_attempts"));
+  due();worker.runBatch();assertPaid();assertEquals("CAPTURED",payment("financial_status"));
+  assertEquals("2",payment("reconcile_attempts"));verify(paypal,times(1)).capture(providerId,id);
+  verify(paypal,times(1)).captureDetails(reference);verify(paypal,never()).create(any(),anyLong());
+ }
  @Test void ambiguousCreateIsNeverReplacedByWorker(){jdbc.update("UPDATE order_payment SET provider_order_id=NULL WHERE order_id=?",id);jdbc.update("UPDATE restaurant_order SET created_at=CURRENT_TIMESTAMP-interval '6 hours' WHERE id=?",id);worker.runBatch();assertEquals("UNRESOLVED_PROVIDER_CREATION",payment("review_reason"));verify(paypal,never()).create(any(),anyLong());}
  @Test void fullRefundBeforeCaptureNotificationPreservesCaptureAndRefund() throws Exception {
   orderState="COMPLETED";captureState="REFUNDED";String refundId="RF"+id.toString().replace("-","");when(paypal.refundDetails(refundId)).thenAnswer(call->refund(refundId,"19.90"));

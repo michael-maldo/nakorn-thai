@@ -56,6 +56,21 @@ The worker never creates provider orders. An ambiguous create remains the same f
 the existing customer retry uses its original create key within its existing five-hour window.
 There is no silent replacement after that window. A missing provider ID eventually requires review.
 
+Abandoned checkout polling is already bounded by the five-hour restaurant-order age window,
+not by `reconcile_attempts`. That counter includes successful pending lookups as well as failed
+provider calls; `reconcile_failures` counts consecutive failures and resets on a successful lookup.
+The first successful unresolved lookup after the window sets
+`review_reason=APPROVAL_EXPIRED_OR_UNRESOLVED` and a financial hold, excluding the payment
+from subsequent scheduled polling. This preserves PENDING/UNCONFIRMED and the PAYPAL method:
+local age is not proof that money can never arrive. A failed lookup follows the failure backoff
+and review policy instead; the worker does not infer an abandoned checkout from an outage.
+
+Verified late webhooks and authorized explicit status checks can still reconcile held payments.
+A late approval alone cannot bypass the capture-age/review safeguards. Authoritative completed
+capture evidence can resolve the unresolved-approval hold and record PAID/CAPTURED without a
+new capture or provider order. Captured payments leave minute polling but retain daily financial
+checks for refunds; PAID is a historical capture fact, not a reason to stop all financial monitoring.
+
 ## Verified webhook inbox
 
 POST /api/payments/paypal/webhook is the only CSRF exception. All customer/staff writes keep

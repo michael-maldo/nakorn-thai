@@ -44,10 +44,11 @@ function fixture() {
   sessionStorage.setItem('nakorn-pickup-cart',JSON.stringify({version:2,lines:[{collectionId:'c',collectionSlug:'pickup',collectionName:'Pickup',dishId:'d',dishName:'Curry',variationId:'v',variationName:'Standard',basePriceMinor:1990,unitPriceMinor:1990,selectedOptions:[],quantity:1}]}));
  }
  window.created=JSON.parse(sessionStorage.getItem('payment-test-order')||'null');
+ window.paid=!!window.created?.paidAt;
  const realFetch=window.fetch;
  window.fetch=async(url,options={})=>{
   if(!String(url).startsWith('/api'))return realFetch(url,options);
-  window.requests.push({url,body:options.body?JSON.parse(options.body):null});
+  window.requests.push({url,body:options.body?JSON.parse(options.body):null,orderToken:options.headers?.['X-Order-Token']});
   if(url.endsWith('/csrf'))return Response.json({headerName:'X-CSRF-TOKEN',token:'test'});
   if(url==='/api/identity/refresh')return sessionStorage.getItem('payment-test-staff')?Response.json(staffSessionFixture({role:'FOH'})):new Response(null,{status:401});
   if(url==='/api/orders/contact-verifications/options')return Response.json({sms:true,email:false});
@@ -127,6 +128,53 @@ try{
  await send('Page.navigate',{url:`${base}?paypal=return#/order-confirmation`});await waitFor("window.requests.some(r=>r.url.endsWith('/check'))");
  await evaluate("window.paid=true");await click('Confirm / check PayPal payment');await waitFor("document.body.innerText.includes('Payment received: $19.90')");
 
+ // Exercise actual router mounting, not just parsing the callback marker.
+ const savedReceipt=await evaluate("JSON.parse(sessionStorage.getItem('nakorn-pickup-receipt'))");
+ const providerParameters='token=4D100105X1957711S&PayerID=3AEHFAN7TUYQ6';
+ await send('Page.navigate',{url:`${base}?paymentCase=callback-reset#/menu`});
+ await waitFor("document.querySelector('h1')?.textContent==='Our menu'");
+ for (const callback of [
+  `?paypal=return#/order-confirmation&${providerParameters}`,
+  `?paypal=cancel#/order-confirmation&${providerParameters}`,
+  '#/order-confirmation',
+  `?paypal=return&${providerParameters}#/order-confirmation`,
+  `#/order-confirmation?paypal=return&${providerParameters}`,
+ ]) {
+  await send('Page.navigate',{url:`${base}${callback}`});
+  await waitFor("document.querySelector('h1')?.textContent==='Your pickup order'");
+  await waitFor("window.requests.some(r=>r.url.endsWith('/check'))");
+  if(callback.includes('paypal=cancel'))await waitFor("document.body.innerText.includes('approval was cancelled')");
+  assert.equal(await evaluate("document.body.innerText.includes('Payment received:')"),false);
+  const requests=await evaluate('window.requests');
+  assert.equal(requests.some(r=>r.url==='/api/orders'&&r.body),false);
+  const paymentWrites=requests.filter(r=>r.url.startsWith('/api/payments/')&&r.body);
+  assert.ok(paymentWrites.length>0);
+  assert.ok(paymentWrites.every(r=>[ `/api/payments/${savedReceipt.requestId}`, `/api/payments/${savedReceipt.requestId}/check` ].includes(r.url)&&r.orderToken===savedReceipt.trackingToken));
+  assert.ok(requests.some(r=>r.url===`/api/orders/${savedReceipt.requestId}`&&r.orderToken===savedReceipt.trackingToken));
+ }
+ // A provider token cannot recover/authorize a restaurant order without its receipt.
+ await evaluate("sessionStorage.removeItem('nakorn-pickup-receipt');sessionStorage.removeItem('nakorn-pending-pickup')");
+ await send('Page.navigate',{url:`${base}?paypal=return#/order-confirmation&${providerParameters}`});
+ await waitFor("document.body.innerText.includes('No order receipt is available in this browser tab.')");
+ assert.equal(await evaluate("window.requests.some(r=>r.url.startsWith('/api/payments/'))"),false);
+ assert.equal(await evaluate("window.requests.some(r=>r.url.startsWith('/api/orders/')&&r.orderToken)"),false);
+
+ // Capture completed independently before return: navigation/reload only reads the receipt.
+ await evaluate(`sessionStorage.setItem('nakorn-pickup-receipt',${JSON.stringify(JSON.stringify(savedReceipt))});window.created.paidAt=new Date().toISOString();sessionStorage.setItem('payment-test-order',JSON.stringify(window.created))`);
+ await send('Page.reload');
+ await waitFor("document.body.innerText.includes('Payment received: $19.90')");
+ for (const target of ['#/menu', `#/order-confirmation&${providerParameters}`]) {
+  await evaluate(`window.location.hash=${JSON.stringify(target)}`);
+  await waitFor(`window.location.hash===${JSON.stringify(target)}`);
+  if(target==='#/menu')await waitFor("!document.body.innerText.includes('Your pickup order')");
+  else await waitFor("document.body.innerText.includes('Payment received: $19.90')");
+ }
+ assert.equal(await evaluate("window.requests.some(r=>r.url.startsWith('/api/payments/'))"),false);
+ assert.equal(await evaluate("window.requests.some(r=>r.url==='/api/orders'&&r.body)"),false);
+ await send('Page.reload');await waitFor("document.body.innerText.includes('Payment received: $19.90')");
+ assert.equal(await evaluate("window.requests.some(r=>r.url.startsWith('/api/payments/'))"),false);
+ assert.equal(await evaluate("window.requests.some(r=>r.url==='/api/orders'&&r.body)"),false);
+
  for(const method of ['PAYID','PAY_AT_RESTAURANT']){
   await evaluate(`sessionStorage.setItem('nakorn-pickup-cart',${JSON.stringify(savedCart)});sessionStorage.removeItem('payment-test-order');sessionStorage.removeItem('nakorn-pickup-receipt')`);
   await send('Page.navigate',{url:`${base}?paymentCase=${method}#/checkout`});await waitFor("document.querySelector('select option[value=PAYID]')");
@@ -162,5 +210,5 @@ try{
  await click('Review payment and refund obligations');
  await waitFor("document.querySelector('[aria-label=\"Payment and refund review\"]').innerText.includes('REQUIRED')");
  assert.equal(await evaluate("document.querySelector('[aria-label=\"Payment and refund review\"]').innerText.includes('PROVIDER_UNAVAILABLE')"),true);
- assert.deepEqual(errors,[]);console.log('Payments browser: checkout selection, automatic initiation, approval URL, cancel/return checking, safe retry, paid state, PayID refresh and pay-at-restaurant passed.');
+ assert.deepEqual(errors,[]);console.log('Payments browser: checkout, malformed/normal return and cancel routing, saved-token isolation, missing receipt, already-captured repeated navigation, PayID and pay-at-restaurant passed.');
 }finally{await send('Page.close');ws.close();}

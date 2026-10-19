@@ -17,6 +17,7 @@ import ProtectedRoute from '../domains/identity/components/ProtectedRoute';
 import UsersPage from '../domains/identity/pages/UsersPage';
 import CheckoutPage from '../domains/ordering/pages/CheckoutPage';
 import OrderConfirmationPage from '../domains/ordering/pages/OrderConfirmationPage';
+import { normalizePayPalReturnHash } from '../domains/payment/model/paymentModel';
 import { useEffect, useState } from 'react';
 import MenuPage from '../domains/menu/pages/MenuPage';
 import HomePage from '../website/pages/HomePage';
@@ -24,7 +25,7 @@ import StaffMenuPage from '../domains/staff/pages/StaffMenuPage';
 
 export default function AppRouter() {
   const [location, setLocation] = useState(window.location.hash);
-  const hash=location.split('?')[0], linked=orderLink(location);
+  const hash=normalizePayPalReturnHash(location).split('?')[0], linked=orderLink(location);
   useEffect(() => {
     let currentUrl = window.location.href;
     let approvedUrl = null;
