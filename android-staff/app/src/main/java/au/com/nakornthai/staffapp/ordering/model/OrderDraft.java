@@ -3,6 +3,9 @@ package au.com.nakornthai.staffapp.ordering.model;
 import java.util.*;
 
 public final class OrderDraft {
+  public static boolean retainedOperation(String operation) {
+    return "CANCELLED".equals(operation) || "PAYID".equals(operation);
+  }
   public final String orderId, orderReference, operation;
   public final long version;
   public String pickupMinutes = "20", reason = "", bankReference = "";

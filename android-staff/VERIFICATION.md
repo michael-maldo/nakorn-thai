@@ -204,3 +204,99 @@ Reports: `app/build/reports/tests/testDebugUnitTest/index.html` and
 verified; instrumentation execution and physical Samsung UI behavior are not.
 `./gradlew connectedDebugAndroidTest --console=plain` was also attempted and stopped
 with `DeviceException: No connected devices!`; no instrumentation tests executed.
+
+## Order workflow refinement — 20 October 2026
+
+Implemented entirely within `android-staff/`. No backend, React, payment processing,
+endpoint, permission, dependency or production configuration changes.
+
+### Investigation and existing contracts
+
+- `ordering/ui/OrderActionDialog.java` previously requested a retained draft for every
+  operation and always showed Confirm / Discard draft / Keep draft and close.
+  `OrdersViewModel.draft` stored every status operation in the shared status slot.
+- The dialog copied `BoardState.notice`, a queue-wide value from `OrderMonitor.mutate`,
+  into its own feedback. Successful polling did not clear the successful update notice.
+- Backend `ordering/changestatus/ChangeOrderStatusHandler.java:26` onwards supports
+  ADMIN/FOH cancellation from NEW, ACCEPTED, PREPARING and READY through the existing
+  versioned `PATCH /api/staff/orders/{id}/status`. BOH only performs kitchen transitions.
+  A reason is mandatory (maximum 500 characters in `ChangeOrderStatusCommand`).
+  Cancellation blocks an active capture lease, preserves capture history, creates REQUIRED
+  refund obligations for paid orders, records an order event and queues cancellation
+  notifications where applicable. The handler does not issue refunds or adjust stock.
+- Android already exposed CANCELLED as a routine detail button. React's
+  `frontend/src/domains/ordering/pages/OrdersAdminPage.jsx:65` uses the same status
+  contract, requires a reason and warns that paid cancellation does not refund payment.
+
+### Final behavior and files
+
+Paths below are relative to `app/src/`; Java packages are under
+`au/com/nakornthai/staffapp/`.
+
+| Files | Change |
+| --- | --- |
+| `main/java/.../ordering/model/OrderAction.java` (new) | One dialog's command, result, pending/finished state and dismissal guard |
+| `main/java/.../ordering/model/OrderDraft.java` | Retain only cancellation reasons and PayID bank-reference forms |
+| `main/java/.../ordering/ui/OrdersViewModel.java` | Temporary routine commands; operation tokens survive configuration recreation; scoped results, session ownership and confirmed terminal outcomes |
+| `main/java/.../ordering/ui/OrderActionDialog.java` | Routine Cancel / Confirm; Cancel never dispatches; scoped feedback; pending dismissal disabled; cancellation Keep Order / Cancel Order; complex forms retain Discard draft |
+| `main/java/.../ordering/ui/OrderDetailDialog.java` | Separate destructive cancellation section, role/status gating and acknowledged cancellation/handover outcomes after leaving the queue |
+| `main/java/.../ordering/ui/OrderPresentation.java` | Clear target names and explicit Cancel Order label |
+| `main/java/.../ordering/monitoring/OrderMonitor.java` | Clear successful notices after refresh; routine conflicts no longer instruct users to manage drafts |
+| `main/res/layout/dialog_order.xml`, `dialog_order_action.xml` | Separated cancellation control, existing scroll owners, 48dp acknowledgement target |
+| `main/res/values/order_workflow_strings.xml` (new) | Confirmation, dismissal, cancellation, refund follow-up and operation feedback text |
+| `test/java/.../OrderActionWorkflowTest.java` (new), `OrdersViewModelTest.java` | Scoped-operation regressions and retained-complex-form expectations |
+| `androidTest/java/.../StaffUiTest.java`, `OrderDialogLayoutTest.java` (new) | Dialog labels/dismissal, explicit cancellation, clean feedback and enlarged-text/short-viewport checks |
+
+Routine ACCEPTED/PREPARING/READY/COMPLETED confirmations and PayPal status checks do
+not enter retained draft storage. Pickup estimates and handover/payment acknowledgement
+remain required. Cancel closes an unsubmitted routine command; it never sends CANCELLED.
+Keep Order closes an explicit cancellation form without a mutation, retaining its reason.
+Only the separate confirmed Cancel Order action submits CANCELLED. No app action issues
+refunds or initiates customer PayPal payments.
+
+A dialog token reattaches to the same in-flight operation across Activity recreation.
+A new token starts with fresh feedback, including when it restores meaningful form input.
+The monitor still serializes writes, fences identity changes, invalidates uncertain commands,
+checks original versions and forces a server read before another mutation. No UI snapshot
+is optimistically advanced. Failed/uncertain commands are not automatically resubmitted.
+
+### Verification
+
+Executed from `android-staff/`:
+
+```sh
+JAVA_HOME=/usr/lib/jvm/java-21-temurin-jdk ./gradlew \
+  testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest --no-daemon
+```
+
+| Check | Result |
+| --- | --- |
+| JVM unit tests | PASS: 89 tests, 0 failures, 0 errors, 0 skipped; includes 10 new order-action cases |
+| Lint | PASS: 0 errors, 72 warnings total; warnings remain visible in the generated report |
+| Debug APK | PASS: `app/build/outputs/apk/debug/app-debug.apk` |
+| Instrumentation APK/compilation | PASS: includes four new interaction cases and one short-viewport/layout case |
+| Device/emulator inventory | `adb devices` returned no connected devices |
+| Instrumentation execution | NOT EXECUTED: no device/emulator; no device-level layout, recreation or interaction pass claimed |
+| Scope/diff checks | PASS: backend, React, workflow and infrastructure unchanged; whitespace checks pass |
+
+The initial JVM run failed because an old test expected routine acceptance to retain a
+status draft; it now verifies retained cancellation and PayID input instead. An initial
+instrumentation compilation also exposed ambiguous Espresso keyboard-helper imports;
+those were qualified and the final compilation passed. Neither initial failure is reported
+as a passing run.
+
+JVM coverage includes ordinary dismissal without writes, repeated confirm protection,
+loading/dismissal guards, successful refresh, failure/409 handling, late-response isolation,
+retained complex input, Keep Order versus explicit cancellation, role/session/version
+rejection, unpaid PayPal/financial holds, cash handover acknowledgement and server-provided
+refund obligations without locally claiming a refund. Existing API contract and other
+feature tests remain in the full JVM suite.
+
+Remaining acceptance: execute instrumentation on a working emulator and restaurant test
+tablet, including portrait/landscape, short viewport, keyboard, large text, TalkBack and
+in-flight rotation. Paid-cancellation JVM fixtures verify Android payload/presentation only;
+the backend policy was inspected, not re-executed or modified in this task. No live restaurant
+orders were mutated. APKs are build artifacts only; none was installed, published or distributed.
+
+Suggested commit: `refactor(android): simplify order status transition dialogs`.
+No commit, push or deployment has been performed.

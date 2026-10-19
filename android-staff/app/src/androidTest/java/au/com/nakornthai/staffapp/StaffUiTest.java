@@ -123,6 +123,69 @@ public class StaffUiTest {
     retry(() -> org.junit.Assert.assertEquals(before + 1, app.mutations.get()));
   }
 
+  @Test public void ordinaryCancelDismissesWithoutMutationOrDraftRestoration() {
+    onView(withText("#TEST0001")).perform(click());
+    onView(withText("Accept order")).perform(click());
+    waitVisible(R.id.actionInput);
+    onView(withId(R.id.discardDraft)).check(matches(withEffectiveVisibility(Visibility.GONE)));
+    onView(withId(R.id.closeAction)).check(matches(withText("Cancel")));
+    onView(withId(R.id.confirmAction)).check(matches(withText("Confirm")));
+    onView(withId(R.id.actionInput)).perform(replaceText("55"), androidx.test.espresso.action.ViewActions.closeSoftKeyboard());
+    int before = app.mutations.get();
+    onView(withId(R.id.closeAction)).perform(scrollTo(), click());
+    org.junit.Assert.assertEquals(before, app.mutations.get());
+    org.junit.Assert.assertEquals("NEW", app.status);
+    onView(withText("Accept order")).perform(click());
+    waitVisible(R.id.actionInput);
+    onView(withId(R.id.actionInput)).check(matches(withText("20")));
+    onView(withId(R.id.actionError)).check(matches(withText("")));
+  }
+
+  @Test public void explicitCancellationIsSeparateAndKeepOrderDoesNotSubmit() {
+    onView(withText("#TEST0001")).perform(click());
+    onView(withId(R.id.cancelOrderAction)).perform(scrollTo(), click());
+    waitVisible(R.id.actionInput);
+    onView(withId(R.id.confirmAction)).check(matches(withText("Cancel Order")));
+    onView(withId(R.id.closeAction)).check(matches(withText("Keep Order")));
+    onView(withId(R.id.actionInput)).perform(replaceText("Sold out"), androidx.test.espresso.action.ViewActions.closeSoftKeyboard());
+    int before = app.mutations.get();
+    onView(withId(R.id.closeAction)).perform(scrollTo(), click());
+    org.junit.Assert.assertEquals(before, app.mutations.get());
+    org.junit.Assert.assertEquals("NEW", app.status);
+    onView(withId(R.id.cancelOrderAction)).perform(scrollTo(), click());
+    waitVisible(R.id.actionInput);
+    onView(withId(R.id.actionInput)).check(matches(withText("Sold out")));
+    onView(withId(R.id.actionError)).check(matches(withText("")));
+    onView(withId(R.id.confirmAction)).perform(scrollTo(), click());
+    retry(() -> org.junit.Assert.assertEquals("CANCELLED", app.status));
+    org.junit.Assert.assertEquals(before + 1, app.mutations.get());
+  }
+
+  @Test public void validationFeedbackDoesNotLeakIntoNewRoutineDialog() {
+    onView(withText("#TEST0001")).perform(click());
+    onView(withText("Accept order")).perform(click());
+    waitVisible(R.id.actionInput);
+    onView(withId(R.id.actionInput)).perform(replaceText("4"), androidx.test.espresso.action.ViewActions.closeSoftKeyboard());
+    onView(withId(R.id.confirmAction)).perform(scrollTo(), click());
+    waitText("Pickup estimate must be 5–180 whole minutes.");
+    onView(withId(R.id.closeAction)).perform(scrollTo(), click());
+    onView(withText("Accept order")).perform(click());
+    waitVisible(R.id.actionInput);
+    onView(withId(R.id.actionError)).check(matches(withText("")));
+  }
+
+  @Test public void serverSuccessDoesNotPopulateNextOperationDialog() {
+    onView(withText("#TEST0001")).perform(click());
+    onView(withText("Accept order")).perform(click());
+    waitVisible(R.id.actionInput);
+    onView(withId(R.id.confirmAction)).perform(scrollTo(), click());
+    retry(() -> onView(withId(R.id.detailBody)).check(matches(withText(containsString("ACCEPTED")))));
+    onView(withId(R.id.cancelOrderAction)).perform(scrollTo(), click());
+    waitVisible(R.id.actionInput);
+    onView(withId(R.id.actionError)).check(matches(withText("")));
+    onView(withId(R.id.closeAction)).check(matches(withText("Keep Order")));
+  }
+
   @Test
   public void manageSignOutHidesFooter() {
     onView(withId(R.id.manage)).perform(click());

@@ -1,0 +1,23 @@
+<resources>
+    <string name="label_close">Close</string>
+    <string name="label_cancel">Cancel</string>
+    <string name="label_cancel_order">Cancel Order</string>
+    <string name="label_keep_order">Keep Order</string>
+    <string name="order_cancellation_section">Order cancellation</string>
+    <string name="order_cancelled_result">Order cancelled. If a payment was made, review its refund obligation with the restaurant. Cancellation does not issue a refund.</string>
+    <string name="order_completed_result">Handover confirmed. This order is no longer in the active queue.</string>
+    <string name="order_action_missing">Order is no longer in the queue. Refresh Orders.</string>
+    <string name="order_transition_description">Move order #%1$s to %2$s?</string>
+    <string name="order_cancel_description">Cancel order #%1$s? Enter a reason. Cancellation does not refund payment. Any refund obligation must be reviewed separately. Keep Order closes this dialog and retains your reason.</string>
+    <string name="order_payid_description">Order #%1$s: check the actual restaurant bank account before confirming receipt.</string>
+    <string name="order_paypal_description">Check the existing payment for order #%1$s. This does not start a customer payment.</string>
+    <string name="order_pickup_estimate">Pickup estimate (5–180 minutes)</string>
+    <string name="order_bank_reference">Bank transaction reference</string>
+    <string name="order_cancellation_reason">Cancellation reason</string>
+    <string name="order_bank_acknowledgement">I verified receipt of the full amount in the bank account.</string>
+    <string name="order_handover_acknowledgement">Payment is collected and the customer is receiving this order.</string>
+    <string name="order_saving_once">Saving once… Please wait for the server response.</string>
+    <string name="order_action_blocked">Action unavailable. Refresh Orders and check the latest status, payment and connection.</string>
+    <string name="order_draft_conflict">Order changed or the outcome is uncertain. Discard this draft and review the latest order.</string>
+    <string name="order_transition_conflict">Order changed or the outcome is uncertain. Close this dialog, refresh Orders and review the latest status.</string>
+</resources>

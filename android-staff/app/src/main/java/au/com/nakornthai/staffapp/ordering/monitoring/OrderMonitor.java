@@ -18,7 +18,7 @@ public final class OrderMonitor {
   private Consumer<BoardState> listener = state -> {};
   private List<Order> orders = Collections.emptyList();
   private ScheduledFuture<?> scheduled;
-  private boolean foreground, loading, busy, blocked, refreshAgain;
+  private boolean foreground, loading, busy, blocked, refreshAgain, successfulNotice;
   private long lastSync, alertSequence, epoch, principal = -1;
   private int failures;
   private String error, notice;
@@ -133,6 +133,7 @@ public final class OrderMonitor {
         error = null;
         failures = 0;
         blocked = false;
+        if (successfulNotice) notice = null;
         if (alerts.accept(next) && foreground) alertSequence++;
       } else {
         error = failure.getMessage();
@@ -185,8 +186,9 @@ public final class OrderMonitor {
             draft.invalidated = true;
             message =
                 failure instanceof ApiFailure && ((ApiFailure) failure).status == 409
-                    ? "Order changed on another terminal. Draft retained; discard it after"
-                        + " reloading."
+                    ? OrderDraft.retainedOperation(draft.operation)
+                        ? "Order changed on another terminal. Draft retained; discard it after reloading."
+                        : "Order changed on another terminal. Reload Orders and review the latest status."
                     : failure.getMessage();
           } catch (RuntimeException failure) {
             draft.invalidated = true;
@@ -199,6 +201,7 @@ public final class OrderMonitor {
             }
             busy = false;
             notice = message; // No further writes until a successful reconciliation.
+            successfulNotice = success;
             completion.accept(success);
             if (foreground && identity.current() != null) schedule(0);
             emit();

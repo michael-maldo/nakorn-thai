@@ -12,6 +12,8 @@ public final class OrdersViewModel extends ViewModel {
   private final au.com.nakornthai.staffapp.identity.data.IdentityRepository identity;
   private final au.com.nakornthai.staffapp.ordering.monitoring.OrderMonitor monitor;
   private final Map<String, OrderDraft> drafts = new java.util.concurrent.ConcurrentHashMap<>();
+  private final Map<String, OrderAction> actions = new java.util.concurrent.ConcurrentHashMap<>();
+  private final Map<String, String> confirmedOperations = new java.util.concurrent.ConcurrentHashMap<>();
   private long owner = -1;
 
   public OrdersViewModel(AppGraph graph) {
@@ -27,6 +29,8 @@ public final class OrdersViewModel extends ViewModel {
         value -> {
           if (owner != identity.generation()) {
             drafts.clear();
+            actions.clear();
+            confirmedOperations.clear();
             owner = identity.generation();
           }
           mutableState.postValue(value);
@@ -49,14 +53,57 @@ public final class OrdersViewModel extends ViewModel {
   }
 
   public OrderDraft draft(String id, String operation) {
-    String key = key(id, operation);
-    OrderDraft existing = drafts.get(key);
-    if (existing != null) return existing;
     Order order = order(id);
     if (order == null) return null;
+    if (!OrderDraft.retainedOperation(operation)) return new OrderDraft(order, operation);
+    String key = key(id, operation);
+    OrderDraft existing = drafts.get(key);
+    if (existing != null) return existing.operation.equals(operation) ? existing : null;
     OrderDraft draft = new OrderDraft(order, operation);
     drafts.put(key, draft);
     return draft;
+  }
+
+  public OrderAction action(String id, String operation, String token) {
+    OrderAction existing = actions.get(token);
+    if (existing != null) return existing;
+    OrderDraft draft = draft(id, operation);
+    if (draft == null) return null;
+    OrderAction action = new OrderAction(token, draft, identity.generation());
+    actions.put(token, action);
+    return action;
+  }
+
+  public boolean canSubmit(OrderAction action, BoardState state) {
+    if (action.owner != identity.generation() || action.closed || action.pending || action.finished
+        || !state.canWrite() || action.draft.conflict(state.find(action.draft.orderId))) return false;
+    Order order = state.find(action.draft.orderId);
+    String operation = action.draft.operation;
+    if ("PAYID".equals(operation) || "PAYPAL".equals(operation))
+      return ("ADMIN".equals(role()) || "FOH".equals(role())) && operation.equals(order.paymentMethod);
+    return order.actions(role()).contains(operation)
+        && !(order.needsPayment() && Arrays.asList("ACCEPTED", "COMPLETED").contains(operation));
+  }
+
+  public boolean submit(OrderAction action) {
+    if (actions.get(action.token) != action || !canSubmit(action, monitor.snapshot()) || !action.begin()) return false;
+    boolean accepted = monitor.mutate(action.draft, success -> {
+      action.complete(success, monitor.snapshot().notice);
+      if (success) {
+        confirmedOperations.put(action.draft.orderId, action.draft.operation);
+        discard(action.draft);
+      }
+    });
+    if (!accepted) action.pending = false;
+    return accepted;
+  }
+
+  public String confirmedOperation(String id) { return confirmedOperations.get(id); }
+
+  public boolean close(OrderAction action) {
+    if (!action.close()) return false;
+    actions.remove(action.token, action);
+    return true;
   }
 
   public void discard(OrderDraft draft) {

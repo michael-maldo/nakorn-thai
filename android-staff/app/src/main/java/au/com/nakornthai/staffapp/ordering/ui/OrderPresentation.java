@@ -85,13 +85,23 @@ public final class OrderPresentation {
       case "COMPLETED":
         return "Complete handover";
       case "CANCELLED":
-        return "Cancel order";
+        return "Cancel Order";
       case "PAYID":
         return "Confirm PayID receipt";
       case "PAYPAL":
         return "Check PayPal payment";
       default:
         return operation;
+    }
+  }
+
+  public static String target(String operation) {
+    switch (operation) {
+      case "ACCEPTED": return "Accepted";
+      case "PREPARING": return "Preparing";
+      case "READY": return "Ready";
+      case "COMPLETED": return "Completed";
+      default: return operation;
     }
   }
 }
