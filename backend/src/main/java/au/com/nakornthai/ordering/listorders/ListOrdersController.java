@@ -1,5 +1,4 @@
 package au.com.nakornthai.ordering.listorders;
-import au.com.nakornthai.ordering.createorder.CreateOrderResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
@@ -9,15 +8,15 @@ import java.util.*;
 public class ListOrdersController {
     private final ListOrdersHandler handler;
     @GetMapping("/api/staff/foh/orders")
-    ResponseEntity<List<CreateOrderResponse>> front(@RequestParam(defaultValue="false") boolean history) {
+    ResponseEntity<List<StaffOrderResponse>> front(@RequestParam(defaultValue="false") boolean history) {
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(handler.handle(false,history));
     }
     @GetMapping("/api/staff/kitchen/orders")
-    ResponseEntity<List<CreateOrderResponse>> kitchen() {
+    ResponseEntity<List<StaffOrderResponse>> kitchen() {
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(handler.handle(true,false));
     }
     @GetMapping("/api/staff/orders/{id}")
-    ResponseEntity<CreateOrderResponse> detail(@PathVariable UUID id,org.springframework.security.core.Authentication authentication){
+    ResponseEntity<StaffOrderResponse> detail(@PathVariable UUID id,org.springframework.security.core.Authentication authentication){
         boolean kitchen=authentication.getAuthorities().stream().anyMatch(a->a.getAuthority().equals("ROLE_BOH"));
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(handler.detail(id,kitchen));
     }

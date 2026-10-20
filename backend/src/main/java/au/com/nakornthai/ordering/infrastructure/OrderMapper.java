@@ -1,5 +1,6 @@
 package au.com.nakornthai.ordering.infrastructure;
 import au.com.nakornthai.ordering.createorder.CreateOrderResponse;
+import au.com.nakornthai.ordering.listorders.StaffOrderResponse;
 import org.springframework.stereotype.Component;
 @Component
 public class OrderMapper {
@@ -14,5 +15,36 @@ public class OrderMapper {
                             i.getVariationBasePriceMinor(), i.getCollectionPriceOverrideMinor(),
                             i.getSelectedOptions().stream().map(o -> new CreateOrderResponse.SelectedOption(o.getOptionId(),
                                     o.getOptionGroupName(), o.getOptionName(), o.getPriceDeltaMinor(), o.getQuantity())).toList())).toList(), order.getPaymentMethod(), order.getRefundStatus(), order.isPaymentReviewRequired());
+    }
+
+    public StaffOrderResponse mapStaff(OrderJpaEntity order, boolean privateContact) {
+        var publicView = map(order, privateContact);
+        var lines = publicView.items().stream().map(i -> new StaffOrderResponse.Line(
+                i.dishName(), i.variationName(), i.quantity(), i.unitPriceMinor(),
+                Math.multiplyExact(i.unitPriceMinor(), i.quantity()), i.id(), i.snapshotVersion(),
+                i.collectionId(), i.collectionName(), i.collectionSlug(), i.variationBasePriceMinor(),
+                i.collectionPriceOverrideMinor(), i.selectedOptions().stream().map(o ->
+                    new StaffOrderResponse.SelectedOption(o.optionId(), o.optionGroupName(),
+                        o.optionName(), o.priceDeltaMinor(), o.quantity())).toList())).toList();
+        long subtotal = lines.stream().mapToLong(StaffOrderResponse.Line::lineTotalMinor)
+                .reduce(0L, Math::addExact);
+        return new StaffOrderResponse(publicView.id(), publicView.reference(), publicView.status(),
+                publicView.totalMinor(), publicView.currency(), publicView.createdAt(),
+                publicView.estimatedReadyAt(), publicView.paidAt(), publicView.cancellationReason(),
+                privateContact ? order.getCustomerName() : null,
+                privateContact ? order.getPhone() : null,
+                privateContact ? order.getEmail() : null,
+                order.getFulfilment(), publicView.notes(), publicView.version(), lines,
+                publicView.paymentMethod(), paymentStatus(order), publicView.refundStatus(),
+                publicView.paymentReviewRequired(), subtotal);
+    }
+
+    private String paymentStatus(OrderJpaEntity order) {
+        if (order.isPaymentReviewRequired()) return "REVIEW_REQUIRED";
+        String refund = order.getRefundStatus();
+        if (refund != null && !"NONE".equals(refund)) return "REFUND_" + refund;
+        if (order.getPaidAt() != null && "NONE".equals(refund)) return "PAID";
+        if ("PAY_AT_RESTAURANT".equals(order.getPaymentMethod())) return "PAYMENT_DUE";
+        return "PENDING_UNVERIFIED";
     }
 }

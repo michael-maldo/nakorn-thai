@@ -137,13 +137,24 @@ class VerifiedOrderIntegrationTest {
   mvc.perform(get("/api/orders/"+id).header("X-Order-Token",grant)).andExpect(status().isNotFound());
  }
  @Test void staffDetailRequiresStaffRoleAndPreservesKitchenVisibility()throws Exception{
-  create(verified(),"0412345678",null,"PAY_AT_RESTAURANT").andExpect(status().isCreated());flush();
+  create(verified(),"0412345678",null,"PAY_AT_RESTAURANT").andExpect(status().isCreated())
+          .andExpect(jsonPath("$.email").doesNotExist()).andExpect(jsonPath("$.fulfilment").doesNotExist());flush();
+  jdbc.update("UPDATE restaurant_order SET email='guest@example.test' WHERE id=?",id);em.clear();
   mvc.perform(get("/api/staff/orders/"+id)).andExpect(status().isUnauthorized());
   mvc.perform(get("/api/staff/orders/"+id).with(user("guest").roles("CUSTOMER"))).andExpect(status().isForbidden());
-  for(String role:List.of("FOH","ADMIN"))mvc.perform(get("/api/staff/orders/"+id).with(user("staff").roles(role))).andExpect(status().isOk()).andExpect(jsonPath("$.customerName").value("Guest"));
+  for(String role:List.of("FOH","ADMIN"))mvc.perform(get("/api/staff/orders/"+id).with(user("staff").roles(role)))
+          .andExpect(status().isOk()).andExpect(jsonPath("$.customerName").value("Guest"))
+          .andExpect(jsonPath("$.phone").value("+61412345678"))
+          .andExpect(jsonPath("$.fulfilment").value("PICKUP"))
+          .andExpect(jsonPath("$.paymentStatus").value("PAYMENT_DUE"))
+          .andExpect(jsonPath("$.email").value("guest@example.test"))
+          .andExpect(jsonPath("$.items[0].lineTotalMinor").value(1990))
+          .andExpect(jsonPath("$.subtotalMinor").value(1990));
   mvc.perform(get("/api/staff/orders/"+id).with(user("kitchen").roles("BOH"))).andExpect(status().isNotFound());
   jdbc.update("UPDATE restaurant_order SET status='ACCEPTED' WHERE id=?",id);em.clear();
-  mvc.perform(get("/api/staff/orders/"+id).with(user("kitchen").roles("BOH"))).andExpect(status().isOk()).andExpect(jsonPath("$.customerName").doesNotExist()).andExpect(jsonPath("$.phone").doesNotExist());
+  mvc.perform(get("/api/staff/orders/"+id).with(user("kitchen").roles("BOH"))).andExpect(status().isOk())
+          .andExpect(jsonPath("$.customerName").doesNotExist()).andExpect(jsonPath("$.phone").doesNotExist())
+          .andExpect(jsonPath("$.email").doesNotExist()).andExpect(jsonPath("$.fulfilment").value("PICKUP"));
  }
  void flush(){em.flush();em.clear();}
  int jobs(String type){flush();return jdbc.queryForObject("SELECT count(*) FROM notification_delivery WHERE order_id=? AND type=?",Integer.class,id,type);}
