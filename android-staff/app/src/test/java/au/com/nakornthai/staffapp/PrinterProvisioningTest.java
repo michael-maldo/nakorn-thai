@@ -200,10 +200,13 @@ public class PrinterProvisioningTest {
 
       PrinterProfile kitchen = profile(); kitchen.driver = "escpos";
       kitchen.compatibilityConfirmed = true;
+      kitchen.timezone = "bad/time";
       repository.save(List.of(kitchen)); outcomes.clear();
-      assertTrue(service.print(null, "20", outcomes::add));
+      assertTrue(service.print(OrderWorkflowTest.order("a", "NEW", 1), "20", outcomes::add));
       assertTrue(outcomes.get(0).contains("failed"));
       assertEquals(0, opens.get());
+      kitchen.timezone = "Australia/Melbourne";
+      repository.save(List.of(kitchen));
       outcomes.clear();
       assertTrue(service.print(OrderWorkflowTest.order("a", "NEW", 1), "20", outcomes::add));
       assertEquals(1, writes.get());
