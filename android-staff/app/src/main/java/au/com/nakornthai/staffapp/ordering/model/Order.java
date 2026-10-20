@@ -18,6 +18,7 @@ public final class Order {
       phone,
       email,
       fulfilment,
+      paymentReference,
       notes,
       paymentMethod,
       paymentStatus;
@@ -48,6 +49,7 @@ public final class Order {
     phone = null;
     email = null;
     fulfilment = null;
+    paymentReference = null;
     notes = null;
     totalMinor = 0;
     subtotalMinor = null;

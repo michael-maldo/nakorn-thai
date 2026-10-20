@@ -94,7 +94,7 @@ public class ApiContractTest {
         "estimatedReadyAt":"2026-10-20T07:45:00Z","paidAt":"2026-10-20T07:26:00Z",
         "customerName":"Fixture Guest","phone":"+61400000000","email":"fixture@example.test",
         "fulfilment":"PICKUP","notes":"Napkins","version":4,"paymentMethod":"PAYPAL",
-        "paymentStatus":"PAID","refundStatus":"NONE","paymentReviewRequired":false,
+        "paymentStatus":"PAID","paymentReference":"CAPTURE-ABC123","refundStatus":"NONE","paymentReviewRequired":false,
         "items":[{"dishName":"Pad Thai","variationName":"Chicken","quantity":2,
         "unitPriceMinor":1650,"lineTotalMinor":3300,"selectedOptions":[]}]}]
         """);
@@ -102,6 +102,7 @@ public class ApiContractTest {
     assertEquals("fixture@example.test", order.email);
     assertEquals("PICKUP", order.fulfilment);
     assertEquals("PAID", order.paymentStatus);
+    assertEquals("CAPTURE-ABC123", order.paymentReference);
     assertEquals(Long.valueOf(3300), order.subtotalMinor);
     assertEquals(Long.valueOf(3300), order.items.get(0).lineTotalMinor);
     assertEquals("+61400000000", order.phone);
@@ -111,6 +112,7 @@ public class ApiContractTest {
     assertNull(optional.email);
     assertNull(optional.fulfilment);
     assertNull(optional.paymentStatus);
+    assertNull(optional.paymentReference);
     assertNull(optional.subtotalMinor);
   }
 

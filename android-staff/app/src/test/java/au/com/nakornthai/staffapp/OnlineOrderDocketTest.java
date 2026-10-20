@@ -4,6 +4,7 @@ import static org.junit.Assert.*;
 
 import au.com.nakornthai.staffapp.ordering.model.Order;
 import au.com.nakornthai.staffapp.printing.formatting.OnlineOrderDocketFormatter;
+import au.com.nakornthai.staffapp.printing.formatting.OrderDocketFormatter;
 import au.com.nakornthai.staffapp.printing.model.PrinterProfile;
 import com.google.gson.Gson;
 import java.nio.charset.StandardCharsets;
@@ -28,16 +29,17 @@ public class OnlineOrderDocketTest {
   private Order orderAt(String email, String status, String paymentStatus, String createdAt) {
     String method = "PAYMENT_DUE".equals(paymentStatus) ? "PAY_AT_RESTAURANT" : "PAYPAL";
     String emailJson = email == null ? "null" : new Gson().toJson(email);
+    String paymentReferenceJson = "PAID".equals(paymentStatus) ? "\"CAPTURE-ABC123\"" : "null";
     String json = """
         {"id":"order-id","reference":"NT-1043","status":"%s","totalMinor":3300,"subtotalMinor":3300,
         "currency":"AUD","createdAt":"2026-10-20T07:24:00Z","estimatedReadyAt":"2026-10-20T07:45:00Z",
         "paidAt":null,"customerName":"Sarah Mitchell","phone":"0412 345 678","email":%s,"fulfilment":"PICKUP",
-        "notes":"Please include extra napkins and chilli sauce.","version":2,"paymentMethod":"%s","paymentStatus":"%s",
+        "notes":"Please include extra napkins and chilli sauce.","version":2,"paymentMethod":"%s","paymentStatus":"%s","paymentReference":%s,
         "refundStatus":"NONE","paymentReviewRequired":false,"items":[
         {"dishName":"Pad Thai","variationName":"Chicken","quantity":2,"unitPriceMinor":1650,"lineTotalMinor":3300,
         "selectedOptions":[{"optionGroupName":"Protein","optionName":"Chicken","quantity":1,"priceDeltaMinor":0},
         {"optionGroupName":"Allergy note","optionName":"NO PEANUTS","quantity":1,"priceDeltaMinor":0}]}]}
-        """.formatted(status, emailJson, method, paymentStatus)
+        """.formatted(status, emailJson, method, paymentStatus, paymentReferenceJson)
             .replace("2026-10-20T07:24:00Z", createdAt);
     return new Gson().fromJson(json, Order.class);
   }
@@ -65,6 +67,7 @@ public class OnlineOrderDocketTest {
     assertTrue(docket.contains("Status : ACCEPTED"));
     assertTrue(docket.contains("PAYPAL ONLINE"));
     assertTrue(docket.contains("Status : PAID"));
+    assertTrue(docket.contains("Reference : CAPTURE-ABC123"));
     assertTrue(docket.contains("2 x Pad Thai"));
     assertTrue(docket.contains("Chicken"));
     assertTrue(docket.contains("NO PEANUTS"));
@@ -83,6 +86,7 @@ public class OnlineOrderDocketTest {
     assertNull(order.email);
     String docket = text(OnlineOrderDocketFormatter.format(profile(80), order, null));
     assertFalse(docket.contains("Email :"));
+    assertFalse(docket.contains("Reference :"));
     assertTrue(docket.contains("PAYPAL ONLINE"));
     assertTrue(docket.contains("PENDING UNVERIFIED"));
     assertTrue(docket.contains("Subtotal"));
@@ -121,5 +125,18 @@ public class OnlineOrderDocketTest {
         orderAt("", "ACCEPTED", "PAYMENT_DUE", "2026-07-20T01:00:00Z"), null));
     assertTrue(summer.contains("20 JAN 2026  12:00 PM"));
     assertTrue(winter.contains("20 JUL 2026  11:00 AM"));
+  }
+
+  @Test public void kitchenOnlyLayoutStillExcludesDetailedContactAndPaymentData() {
+    Order order = order("private@example.test", "ACCEPTED", "PAID");
+    byte[] bytes = OrderDocketFormatter.format(profile(58), order, "20");
+    String kitchen = new String(bytes, 0, bytes.length - CUT.length, StandardCharsets.US_ASCII);
+    assertTrue(kitchen.contains("NT-1043"));
+    assertTrue(kitchen.contains("2 x Pad Thai"));
+    assertFalse(kitchen.contains("Sarah Mitchell"));
+    assertFalse(kitchen.contains("0412 345 678"));
+    assertFalse(kitchen.contains("private@example.test"));
+    assertFalse(kitchen.contains("PAYPAL"));
+    assertFalse(kitchen.contains("CAPTURE-ABC123"));
   }
 }

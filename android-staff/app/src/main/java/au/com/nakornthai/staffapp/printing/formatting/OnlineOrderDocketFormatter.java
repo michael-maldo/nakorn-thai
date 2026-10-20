@@ -54,6 +54,7 @@ public final class OnlineOrderDocketFormatter {
     section(out, width, "PAYMENT INFORMATION");
     field(out, width, "Method", paymentMethod(order.paymentMethod));
     field(out, width, "Status", paymentStatus(order));
+    field(out, width, "Reference", order.paymentReference);
     field(out, width, "Currency", order.currency);
 
     section(out, width, "ORDER ITEMS");
