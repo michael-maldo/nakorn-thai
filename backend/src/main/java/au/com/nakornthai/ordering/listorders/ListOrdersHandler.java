@@ -1,5 +1,6 @@
 package au.com.nakornthai.ordering.listorders;
 import au.com.nakornthai.ordering.infrastructure.*;
+import au.com.nakornthai.payment.infrastructure.SpringDataOrderPaymentRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -9,13 +10,14 @@ import java.util.*;
 @Service @RequiredArgsConstructor
 public class ListOrdersHandler {
     private final SpringDataOrderRepository orders;
+    private final SpringDataOrderPaymentRepository payments;
     private final OrderMapper mapper;
     @Transactional(readOnly=true)
     public StaffOrderResponse detail(UUID id,boolean kitchen){
         var order=orders.findById(id).orElseThrow(()->new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND));
         if(kitchen&&!List.of("ACCEPTED","PREPARING","READY").contains(order.getStatus()))
             throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND);
-        return mapper.mapStaff(order,!kitchen);
+        return mapper.mapStaff(order,!kitchen,payments.findById(id).orElse(null));
     }
     @Transactional(readOnly=true)
     public List<StaffOrderResponse> handle(boolean kitchen, boolean history) {
@@ -24,6 +26,11 @@ public class ListOrdersHandler {
                 List.of("COMPLETED","CANCELLED"),Instant.now().minusSeconds(86400),page) :
                 orders.findByStatusInOrderByCreatedAtAsc(kitchen ? List.of("ACCEPTED","PREPARING","READY") :
                         List.of("NEW","ACCEPTED","PREPARING","READY"),page);
-        return result.stream().map(o -> mapper.mapStaff(o,!kitchen)).toList();
+        if (result.isEmpty()) return List.of();
+        var paymentByOrder = payments.findByOrderIdIn(result.stream().map(OrderJpaEntity::getId).toList())
+                .stream().collect(java.util.stream.Collectors.toMap(
+                        au.com.nakornthai.payment.infrastructure.OrderPaymentJpaEntity::getOrderId,
+                        payment -> payment));
+        return result.stream().map(o -> mapper.mapStaff(o,!kitchen,paymentByOrder.get(o.getId()))).toList();
     }
 }

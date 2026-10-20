@@ -1,6 +1,7 @@
 package au.com.nakornthai.ordering.infrastructure;
 import au.com.nakornthai.ordering.createorder.CreateOrderResponse;
 import au.com.nakornthai.ordering.listorders.StaffOrderResponse;
+import au.com.nakornthai.payment.infrastructure.OrderPaymentJpaEntity;
 import org.springframework.stereotype.Component;
 @Component
 public class OrderMapper {
@@ -18,6 +19,11 @@ public class OrderMapper {
     }
 
     public StaffOrderResponse mapStaff(OrderJpaEntity order, boolean privateContact) {
+        return mapStaff(order, privateContact, null);
+    }
+
+    public StaffOrderResponse mapStaff(OrderJpaEntity order, boolean privateContact,
+                                       OrderPaymentJpaEntity payment) {
         var publicView = map(order, privateContact);
         var lines = publicView.items().stream().map(i -> new StaffOrderResponse.Line(
                 i.dishName(), i.variationName(), i.quantity(), i.unitPriceMinor(),
@@ -35,8 +41,18 @@ public class OrderMapper {
                 privateContact ? order.getPhone() : null,
                 privateContact ? order.getEmail() : null,
                 order.getFulfilment(), publicView.notes(), publicView.version(), lines,
-                publicView.paymentMethod(), paymentStatus(order), publicView.refundStatus(),
+                publicView.paymentMethod(), paymentStatus(order),
+                safePaidReference(order, privateContact, payment), publicView.refundStatus(),
                 publicView.paymentReviewRequired(), subtotal);
+    }
+
+    private String safePaidReference(OrderJpaEntity order, boolean privateContact,
+                                     OrderPaymentJpaEntity payment) {
+        if (!privateContact || order.getPaidAt() == null || payment == null
+                || !order.getId().equals(payment.getOrderId())) return null;
+        String reference = payment.getConfirmationReference();
+        return reference != null && reference.matches("[A-Za-z0-9._/-]{1,100}")
+                ? reference : null;
     }
 
     private String paymentStatus(OrderJpaEntity order) {

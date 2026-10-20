@@ -24,6 +24,7 @@ public record StaffOrderResponse(
     List<Line> items,
     String paymentMethod,
     String paymentStatus,
+    String paymentReference,
     String refundStatus,
     boolean paymentReviewRequired,
     long subtotalMinor) {

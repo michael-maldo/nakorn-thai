@@ -6,6 +6,7 @@ import au.com.nakornthai.ordering.infrastructure.OrderItemJpaEntity;
 import au.com.nakornthai.ordering.infrastructure.OrderItemOptionJpaEntity;
 import au.com.nakornthai.ordering.infrastructure.OrderJpaEntity;
 import au.com.nakornthai.ordering.infrastructure.OrderMapper;
+import au.com.nakornthai.payment.infrastructure.OrderPaymentJpaEntity;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.List;
@@ -65,6 +66,20 @@ class OrderMapperStaffTest {
     order.setPaymentReviewRequired(false);
     order.setRefundStatus("REQUIRED");
     assertEquals("REFUND_REQUIRED", mapper.mapStaff(order, true).paymentStatus());
+  }
+
+  @Test void exposesOnlySafeConfirmedPaymentReferenceToFrontOfHouse() {
+    OrderJpaEntity order = order();
+    order.setPaymentMethod("PAYPAL");
+    order.setPaidAt(Instant.parse("2026-10-20T07:23:00Z"));
+    OrderPaymentJpaEntity payment = new OrderPaymentJpaEntity();
+    payment.setOrderId(order.getId());
+    payment.setMethod("PAYPAL");
+    payment.setConfirmationReference("CAPTURE-ABC123");
+    assertEquals("CAPTURE-ABC123", mapper.mapStaff(order, true, payment).paymentReference());
+    assertNull(mapper.mapStaff(order, false, payment).paymentReference());
+    payment.setConfirmationReference("authorization secret");
+    assertNull(mapper.mapStaff(order, true, payment).paymentReference());
   }
 
   @Test void existingPublicResponseStillContainsNoStaffFields() {

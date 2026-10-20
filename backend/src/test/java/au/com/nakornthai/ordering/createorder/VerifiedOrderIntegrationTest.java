@@ -156,6 +156,21 @@ class VerifiedOrderIntegrationTest {
           .andExpect(jsonPath("$.customerName").doesNotExist()).andExpect(jsonPath("$.phone").doesNotExist())
           .andExpect(jsonPath("$.email").doesNotExist()).andExpect(jsonPath("$.fulfilment").value("PICKUP"));
  }
+ @Test void paymentReferenceIsSanitizedAndScopedToAuthorizedFrontOfHouseStaff()throws Exception{
+  create(verified(),"0412345678","guest@example.test","PAYPAL").andExpect(status().isCreated())
+          .andExpect(jsonPath("$.paymentReference").doesNotExist());flush();
+  jdbc.update("UPDATE restaurant_order SET status='ACCEPTED',paid_at=CURRENT_TIMESTAMP WHERE id=?",id);
+  jdbc.update("INSERT INTO order_payment(order_id,method,status,confirmation_reference,updated_at) VALUES (?,'PAYPAL','PAID','CAPTURE-ABC123',CURRENT_TIMESTAMP)",id);
+  em.clear();
+  mvc.perform(get("/api/staff/orders/"+id).with(user("staff").roles("FOH")))
+          .andExpect(status().isOk()).andExpect(jsonPath("$.paymentStatus").value("PAID"))
+          .andExpect(jsonPath("$.paymentReference").value("CAPTURE-ABC123"));
+  mvc.perform(get("/api/staff/orders/"+id).with(user("kitchen").roles("BOH")))
+          .andExpect(status().isOk()).andExpect(jsonPath("$.paymentReference").doesNotExist());
+  mvc.perform(get("/api/orders/"+id).header("X-Order-Token",token))
+          .andExpect(status().isOk()).andExpect(jsonPath("$.paymentReference").doesNotExist())
+          .andExpect(jsonPath("$.email").doesNotExist());
+ }
  void flush(){em.flush();em.clear();}
  int jobs(String type){flush();return jdbc.queryForObject("SELECT count(*) FROM notification_delivery WHERE order_id=? AND type=?",Integer.class,id,type);}
  void transition(String role,String next,int expected) throws Exception {
