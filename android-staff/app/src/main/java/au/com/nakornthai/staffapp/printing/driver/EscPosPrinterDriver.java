@@ -7,10 +7,12 @@ public final class EscPosPrinterDriver implements PrinterDriver {
   public au.com.nakornthai.staffapp.printing.model.PrinterCapabilities capabilities() {
     return new au.com.nakornthai.staffapp.printing.model.PrinterCapabilities(
         true,
+        true,
         new int[] {58, 80},
         "US-ASCII",
-        "Driver-declared: ASCII text, 58/80 mm layout. Non-ASCII replaced with ?. Cutter, Thai text"
-            + " and status queries unsupported. No device-response verification.");
+        "Driver-declared: ASCII text, 58/80 mm layout and Epson GS V feed/partial-cut command. "
+            + "Non-ASCII replaced with ?. Thai text and status queries unsupported. "
+            + "No device-response verification.");
   }
 
   public String id() {

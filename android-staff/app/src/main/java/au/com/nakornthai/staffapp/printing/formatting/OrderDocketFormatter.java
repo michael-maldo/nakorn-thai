@@ -1,6 +1,7 @@
 package au.com.nakornthai.staffapp.printing.formatting;
 
 import au.com.nakornthai.staffapp.ordering.model.Order;
+import au.com.nakornthai.staffapp.printing.driver.EscPosPrinterDriver;
 import au.com.nakornthai.staffapp.printing.model.PrinterProfile;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
@@ -8,6 +9,11 @@ import java.util.*;
 
 /** Kitchen-only docket. Deliberately excludes payment and customer contact details. */
 public final class OrderDocketFormatter {
+  // Epson GS V 66 0: feed to the cutter position, then perform a partial cut.
+  private static final byte[] FEED_AND_PARTIAL_CUT = {
+    0x1d, 0x56, 0x42, 0x00
+  };
+
   private OrderDocketFormatter() {}
 
   public static byte[] format(PrinterProfile profile, Order order, String pickupMinutes) {
@@ -45,7 +51,13 @@ public final class OrderDocketFormatter {
         wrapped.append(c >= 32 && c <= 126 ? c : '?'); col++;
       }
     }
-    return wrapped.toString().getBytes(java.nio.charset.StandardCharsets.US_ASCII);
+    byte[] docket = wrapped.toString().getBytes(java.nio.charset.StandardCharsets.US_ASCII);
+    if (!new EscPosPrinterDriver().canPrint(profile))
+      throw new IllegalArgumentException(
+          "Paper cutting requires an enabled, compatibility-confirmed ESC/POS profile");
+    byte[] job = java.util.Arrays.copyOf(docket, docket.length + FEED_AND_PARTIAL_CUT.length);
+    System.arraycopy(FEED_AND_PARTIAL_CUT, 0, job, docket.length, FEED_AND_PARTIAL_CUT.length);
+    return job;
   }
 
   private static String time(String value, ZoneId zone) {

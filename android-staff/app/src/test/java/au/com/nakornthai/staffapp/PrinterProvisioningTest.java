@@ -109,7 +109,7 @@ public class PrinterProvisioningTest {
     assertFalse(registry.get(p.driver).canPrint(p));
     p.compatibilityConfirmed = true;
     assertTrue(registry.get(p.driver).canPrint(p));
-    assertFalse(registry.get(p.driver).capabilities().cut);
+    assertTrue(registry.get(p.driver).capabilities().cut);
     assertFalse(registry.get(p.driver).capabilities().thai);
     assertFalse(registry.get(p.driver).capabilities().statusQuery);
     p.type = "BLE";
@@ -138,6 +138,7 @@ public class PrinterProvisioningTest {
   @Test
   public void kitchenDocketIncludesOrderSnapshotAndExcludesCustomerAndPaymentData() {
     PrinterProfile p = profile(); p.paperWidth = 80;
+    p.driver = "escpos"; p.compatibilityConfirmed = true;
     Order order = new com.google.gson.Gson().fromJson(
         "{\"reference\":\"NT-42\",\"createdAt\":\"2026-01-01T00:00:00Z\","
             + "\"estimatedReadyAt\":\"2026-01-01T00:30:00Z\",\"customerName\":\"Private Name\","
@@ -145,7 +146,8 @@ public class PrinterProvisioningTest {
             + "\"items\":[{\"dishName\":\"Green curry\",\"variationName\":\"Large\",\"quantity\":2,"
             + "\"selectedOptions\":[{\"optionGroupName\":\"Protein\",\"optionName\":\"Tofu\",\"quantity\":1}]}]}",
         Order.class);
-    String docket = new String(OrderDocketFormatter.format(p, order, "20"),
+    byte[] output = OrderDocketFormatter.format(p, order, "20");
+    String docket = new String(Arrays.copyOf(output, output.length - 4),
         java.nio.charset.StandardCharsets.US_ASCII);
     assertTrue(docket.contains("NT-42"));
     assertTrue(docket.contains("01 Jan 2026 11:00"));
@@ -156,6 +158,22 @@ public class PrinterProvisioningTest {
     assertFalse(docket.contains("Private Name"));
     assertFalse(docket.contains("0412345678"));
     assertFalse(docket.contains("PAYPAL"));
+    assertArrayEquals(docket.getBytes(java.nio.charset.StandardCharsets.US_ASCII),
+        Arrays.copyOf(output, output.length - 4));
+    assertArrayEquals(new byte[] {0x1d, 0x56, 0x42, 0x00},
+        Arrays.copyOfRange(output, output.length - 4, output.length));
+  }
+
+  @Test
+  public void docketFormattingRejectsUnconfirmedEscPosProfileBeforeAddingCutBytes() {
+    PrinterProfile p = profile();
+    p.driver = "escpos";
+    Order order = OrderWorkflowTest.order("a", "NEW", 1);
+    assertThrows(IllegalArgumentException.class, () -> OrderDocketFormatter.format(p, order, "20"));
+    p.compatibilityConfirmed = true;
+    byte[] output = OrderDocketFormatter.format(p, order, "20");
+    assertArrayEquals(new byte[] {0x1d, 0x56, 0x42, 0x00},
+        Arrays.copyOfRange(output, output.length - 4, output.length));
   }
 
   @Test
@@ -166,10 +184,15 @@ public class PrinterProvisioningTest {
     try {
       List<String> outcomes = new ArrayList<>();
       java.util.concurrent.atomic.AtomicInteger writes = new java.util.concurrent.atomic.AtomicInteger();
+      java.util.concurrent.atomic.AtomicInteger opens = new java.util.concurrent.atomic.AtomicInteger();
+      java.util.concurrent.atomic.AtomicReference<byte[]> payload = new java.util.concurrent.atomic.AtomicReference<>();
       KitchenDocketService service = new KitchenDocketService(repository,
-          p -> new PrinterConnection() {
-            public void send(byte[] bytes) { writes.incrementAndGet(); }
+          p -> {
+            opens.incrementAndGet();
+            return new PrinterConnection() {
+            public void send(byte[] bytes) { writes.incrementAndGet(); payload.set(bytes.clone()); }
             public void close() {}
+            };
           }, Runnable::run, timer);
       assertTrue(service.print(OrderWorkflowTest.order("a", "NEW", 1), "20", outcomes::add));
       assertTrue(outcomes.get(0).contains("No enabled Kitchen printer"));
@@ -178,8 +201,15 @@ public class PrinterProvisioningTest {
       PrinterProfile kitchen = profile(); kitchen.driver = "escpos";
       kitchen.compatibilityConfirmed = true;
       repository.save(List.of(kitchen)); outcomes.clear();
+      assertTrue(service.print(null, "20", outcomes::add));
+      assertTrue(outcomes.get(0).contains("failed"));
+      assertEquals(0, opens.get());
+      outcomes.clear();
       assertTrue(service.print(OrderWorkflowTest.order("a", "NEW", 1), "20", outcomes::add));
       assertEquals(1, writes.get());
+      assertEquals(1, opens.get());
+      assertArrayEquals(new byte[] {0x1d, 0x56, 0x42, 0x00},
+          Arrays.copyOfRange(payload.get(), payload.get().length - 4, payload.get().length));
       assertTrue(outcomes.get(0).contains("not device-confirmed"));
       kitchen.type = "CLASSIC"; kitchen.endpoint = "00:11:22:33:44:55";
       repository.save(List.of(kitchen)); outcomes.clear();

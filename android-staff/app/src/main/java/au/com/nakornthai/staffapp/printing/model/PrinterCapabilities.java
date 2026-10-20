@@ -7,11 +7,16 @@ public final class PrinterCapabilities {
   public final int[] paperWidths;
 
   public PrinterCapabilities(boolean text, int[] widths, String encoding, String description) {
+    this(text, false, widths, encoding, description);
+  }
+
+  public PrinterCapabilities(
+      boolean text, boolean cut, int[] widths, String encoding, String description) {
     this.text = text;
     this.paperWidths = widths.clone();
     this.encoding = encoding;
     this.description = description;
-    cut = false;
+    this.cut = cut;
     statusQuery = false;
     thai = false;
   }
