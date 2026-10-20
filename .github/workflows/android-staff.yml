@@ -124,15 +124,15 @@ jobs:
           cat > release-notes.md <<'NOTES'
           ## Nakorn Thai Android staff app
 
-          This pre-release includes automatic kitchen docket printing after the server confirms order acceptance, plus a deliberate **Reprint kitchen docket** action from order details. Printer failures are reported separately from acceptance, and uncertain TCP sends are not retried automatically.
+          This pre-release keeps the kitchen-only docket as the backward-compatible default and adds an optional detailed online-order layout for a Kitchen printer profile. The detailed docket includes available authorized staff contact details, actual fulfillment, verified payment state, order items and authoritative item/order amounts. Select **Detailed online order** in Printer Management to try it on the configured Epson TM-m30II. Automatic printing still starts only after confirmed order acceptance; **Reprint** is deliberate, printer failure is reported separately, and uncertain TCP sends are not retried. Jobs end with feed and Epson partial cut.
 
           ### CI verification
 
-          GitHub Actions completed the Android JVM unit tests, Android lint, and debug APK build using the production API URL `https://nakorn-thai.tech-labs.dev/` before publishing this asset.
+          GitHub Actions completed the Android JVM unit tests, Android lint, and debug APK build using the production API URL `https://nakorn-thai.tech-labs.dev/` before publishing this asset. Tests cover detailed response deserialization, 58/80 mm formatting, long text, payment states, command ordering and cut bytes, profile defaults, kitchen layout regression, acceptance, reprint and uncertain sends.
 
           ### Hardware verification still required
 
-          Install on the restaurant Samsung tablet and verify actual order acceptance, docket contents and paper layout with the Epson TM-m30II over LAN/TCP. Check printer-offline, timeout, uncertain-send and deliberate reprint behavior. CI cannot confirm physical printer output.
+          Install on the restaurant Samsung tablet and verify actual order acceptance, detailed and kitchen docket contents, 58/80 mm readability and paper feed/partial cut with the Epson TM-m30II over LAN/TCP. Check printer-offline, timeout, uncertain-send and deliberate reprint behavior. CI cannot confirm physical printer output.
           NOTES
 
       - name: Publish pre-release

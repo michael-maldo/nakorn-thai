@@ -76,6 +76,18 @@ public class PrinterProvisioningTest {
   }
 
   @Test
+  public void existingPrinterProfilesDefaultToKitchenDocketLayout() {
+    PrinterProfile existing = profile();
+    com.google.gson.JsonObject json = com.google.gson.JsonParser.parseString(
+        new com.google.gson.Gson().toJson(existing)).getAsJsonObject();
+    json.remove("docketFormat");
+    Memory store = new Memory();
+    store.value = "{\"schemaVersion\":1,\"profiles\":[" + json + "]}";
+    PrinterProfile restored = new PrinterConfigurationRepository(store).load().get(0);
+    assertEquals("KITCHEN", restored.docketFormat);
+  }
+
+  @Test
   public void malformedAndFutureSchemasAreNotOverwritten() {
     for (String value : new String[] {"bad", "{\"schemaVersion\":99,\"profiles\":[]}"}) {
       Memory m = new Memory();
@@ -216,6 +228,48 @@ public class PrinterProvisioningTest {
       assertTrue(service.print(OrderWorkflowTest.order("a", "NEW", 1), "20", outcomes::add));
       assertTrue(outcomes.get(0).contains("LAN/TCP"));
       assertEquals(1, writes.get());
+    } finally { timer.shutdownNow(); }
+  }
+
+  @Test
+  public void configuredDetailedKitchenProfileUsesOneExistingTcpJob() {
+    Memory store = new Memory();
+    PrinterConfigurationRepository repository = new PrinterConfigurationRepository(store);
+    PrinterProfile kitchen = profile();
+    kitchen.driver = "escpos";
+    kitchen.compatibilityConfirmed = true;
+    kitchen.docketFormat = "DETAILED_ONLINE";
+    repository.save(List.of(kitchen));
+    ScheduledExecutorService timer = Executors.newSingleThreadScheduledExecutor();
+    java.util.concurrent.atomic.AtomicInteger opens = new java.util.concurrent.atomic.AtomicInteger();
+    java.util.concurrent.atomic.AtomicInteger sends = new java.util.concurrent.atomic.AtomicInteger();
+    java.util.concurrent.atomic.AtomicReference<byte[]> job = new java.util.concurrent.atomic.AtomicReference<>();
+    try {
+      KitchenDocketService service = new KitchenDocketService(repository, p -> {
+        opens.incrementAndGet();
+        return new PrinterConnection() {
+          public void send(byte[] bytes) { sends.incrementAndGet(); job.set(bytes.clone()); }
+          public void close() {}
+        };
+      }, Runnable::run, timer);
+      Order order = new com.google.gson.Gson().fromJson("""
+          {"id":"id","reference":"NT-9","status":"NEW","version":1,"currency":"AUD",
+          "createdAt":"2026-10-20T07:24:00Z","customerName":"Fixture","phone":"+61400000000",
+          "email":"fixture@example.test","fulfilment":"PICKUP","paymentMethod":"PAYPAL",
+          "paymentStatus":"PENDING_UNVERIFIED","subtotalMinor":1000,"totalMinor":1000,
+          "items":[{"dishName":"Pad Thai","quantity":1,"unitPriceMinor":1000,"lineTotalMinor":1000,"selectedOptions":[]}]}
+          """, Order.class);
+      List<String> outcome = new ArrayList<>();
+      assertTrue(service.print(order, "20", outcome::add));
+      assertEquals(1, opens.get());
+      assertEquals(1, sends.get());
+      String text = new String(job.get(), 0, job.get().length - 4, java.nio.charset.StandardCharsets.US_ASCII);
+      assertTrue(text.contains("fixture@example.test"));
+      assertTrue(text.contains("PENDING UNVERIFIED"));
+      assertTrue(text.contains("Status : ACCEPTED"));
+      assertArrayEquals(new byte[] {0x1d, 0x56, 0x42, 0x00},
+          Arrays.copyOfRange(job.get(), job.get().length - 4, job.get().length));
+      assertTrue(outcome.get(0).contains("not device-confirmed"));
     } finally { timer.shutdownNow(); }
   }
 

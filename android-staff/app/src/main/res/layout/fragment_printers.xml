@@ -29,6 +29,8 @@
           <TextView android:id="@+id/printerCapabilities" android:layout_width="match_parent" android:layout_height="wrap_content" />
           <EditText android:id="@+id/printerTimezone" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="48dp" android:hint="@string/printer_timezone" android:inputType="text" />
           <Spinner android:id="@+id/printerAssignment" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="48dp" android:contentDescription="@string/printer_assignment" />
+          <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/printer_docket_layout" android:textStyle="bold" style="@style/DashboardHeading" android:layout_marginTop="16dp" />
+          <Spinner android:id="@+id/printerDocketFormat" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="48dp" android:contentDescription="@string/printer_docket_layout" />
           <CheckBox android:id="@+id/printerEnabled" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/printer_enabled" android:minHeight="48dp" />
           <com.google.android.material.button.MaterialButton android:id="@+id/savePrinter" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/save_printer" style="@style/DashboardPrimary" />
           <com.google.android.material.button.MaterialButton android:id="@+id/cancelPrinter" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/cancel_printer" style="@style/DashboardOutline" />

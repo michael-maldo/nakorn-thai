@@ -1,4 +1,9 @@
 <resources>
+    <string name="printer_docket_layout">Kitchen docket layout (Kitchen only is the default)</string>
+    <string-array name="printer_docket_formats">
+        <item>Kitchen only (default)</item>
+        <item>Detailed online order</item>
+    </string-array>
     <string name="app_name">Nakorn Thai Staff</string>
     <string name="orders">Orders</string>
     <string name="reservations">Reservations</string>

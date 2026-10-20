@@ -84,6 +84,37 @@ public class ApiContractTest {
   }
 
   @Test
+  public void staffOrderContractDeserializesDetailedFieldsAndKeepsOptionalDataNullable() throws Exception {
+    login();
+    server.takeRequest();
+    server.takeRequest();
+    json("""
+        [{"id":"order-id","reference":"NT-1043","status":"ACCEPTED","totalMinor":3300,
+        "subtotalMinor":3300,"currency":"AUD","createdAt":"2026-10-20T07:24:00Z",
+        "estimatedReadyAt":"2026-10-20T07:45:00Z","paidAt":"2026-10-20T07:26:00Z",
+        "customerName":"Fixture Guest","phone":"+61400000000","email":"fixture@example.test",
+        "fulfilment":"PICKUP","notes":"Napkins","version":4,"paymentMethod":"PAYPAL",
+        "paymentStatus":"PAID","refundStatus":"NONE","paymentReviewRequired":false,
+        "items":[{"dishName":"Pad Thai","variationName":"Chicken","quantity":2,
+        "unitPriceMinor":1650,"lineTotalMinor":3300,"selectedOptions":[]}]}]
+        """);
+    Order order = orders.load().get(0);
+    assertEquals("fixture@example.test", order.email);
+    assertEquals("PICKUP", order.fulfilment);
+    assertEquals("PAID", order.paymentStatus);
+    assertEquals(Long.valueOf(3300), order.subtotalMinor);
+    assertEquals(Long.valueOf(3300), order.items.get(0).lineTotalMinor);
+    assertEquals("+61400000000", order.phone);
+
+    json("[{\"id\":\"minimal\",\"reference\":\"NT-2\",\"status\":\"NEW\",\"items\":[],\"version\":0}]");
+    Order optional = orders.load().get(0);
+    assertNull(optional.email);
+    assertNull(optional.fulfilment);
+    assertNull(optional.paymentStatus);
+    assertNull(optional.subtotalMinor);
+  }
+
+  @Test
   public void loginCsrfCookiesAnd204StatusContract() throws Exception {
     login();
     assertTrue(store.read().contains("nakorn_staff_refresh"));

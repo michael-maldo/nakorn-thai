@@ -11,6 +11,7 @@ public final class PrinterProfile {
       endpoint = "",
       driver = "unsupported",
       assignment = "Kitchen",
+      docketFormat = "KITCHEN",
       timezone = "Australia/Melbourne";
   public int port = 9100, paperWidth = 58;
   public boolean enabled = true, compatibilityConfirmed = false;
@@ -46,6 +47,8 @@ public final class PrinterProfile {
       throw new IllegalArgumentException("Select a Bluetooth device");
     if (!Arrays.asList("Kitchen", "FOH").contains(assignment))
       throw new IllegalArgumentException("Invalid assignment");
+    if (docketFormat == null || !Arrays.asList("KITCHEN", "DETAILED_ONLINE").contains(docketFormat))
+      throw new IllegalArgumentException("Invalid docket layout");
     if (driver == null || !driver.matches("[a-zA-Z0-9_-]{1,64}"))
       throw new IllegalArgumentException("Unknown driver");
     if (paperWidth != 58 && paperWidth != 80)

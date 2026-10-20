@@ -88,6 +88,7 @@ public final class PrinterManagementFragment extends Fragment {
     spinner(b.printerDriver, drivers.stream().map(PrinterDriver::label).toArray(String[]::new));
     spinner(b.printerPaper, new String[] {"58 mm — 32 columns", "80 mm — 48 columns"});
     spinner(b.printerAssignment, new String[] {"Kitchen", "FOH"});
+    spinner(b.printerDocketFormat, getResources().getStringArray(R.array.printer_docket_formats));
     b.printerTransport.setOnItemSelectedListener(
         selected(
             () -> {
@@ -217,6 +218,7 @@ public final class PrinterManagementFragment extends Fragment {
             .orElse(0));
     b.printerPaper.setSelection(p.paperWidth == 80 ? 1 : 0);
     b.printerAssignment.setSelection("FOH".equals(p.assignment) ? 1 : 0);
+    b.printerDocketFormat.setSelection("DETAILED_ONLINE".equals(p.docketFormat) ? 1 : 0);
     b.printerEnabled.setChecked(p.enabled);
     b.printerCompatible.setChecked(p.compatibilityConfirmed);
     b.printerIdentity.setText(
@@ -248,6 +250,7 @@ public final class PrinterManagementFragment extends Fragment {
     p.driver = drivers.get(b.printerDriver.getSelectedItemPosition()).id();
     p.paperWidth = b.printerPaper.getSelectedItemPosition() == 1 ? 80 : 58;
     p.assignment = b.printerAssignment.getSelectedItemPosition() == 1 ? "FOH" : "Kitchen";
+    p.docketFormat = b.printerDocketFormat.getSelectedItemPosition() == 1 ? "DETAILED_ONLINE" : "KITCHEN";
     p.enabled = b.printerEnabled.isChecked();
     p.compatibilityConfirmed = b.printerCompatible.isChecked();
   }

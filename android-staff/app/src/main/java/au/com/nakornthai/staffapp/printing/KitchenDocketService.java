@@ -5,6 +5,7 @@ import au.com.nakornthai.staffapp.printing.connection.*;
 import au.com.nakornthai.staffapp.printing.data.PrinterConfigurationRepository;
 import au.com.nakornthai.staffapp.printing.driver.*;
 import au.com.nakornthai.staffapp.printing.formatting.OrderDocketFormatter;
+import au.com.nakornthai.staffapp.printing.formatting.OnlineOrderDocketFormatter;
 import au.com.nakornthai.staffapp.printing.model.PrinterProfile;
 import java.net.*;
 import java.time.Instant;
@@ -38,7 +39,9 @@ public final class KitchenDocketService implements KitchenDocketPrinter {
           throw new IllegalStateException("Kitchen docket printing requires a LAN/TCP printer profile.");
         if (!(driver instanceof EscPosPrinterDriver) || !driver.canPrint(profile))
           throw new IllegalStateException("Kitchen printer is not enabled for confirmed ESC/POS printing.");
-        byte[] bytes = OrderDocketFormatter.format(profile, order, pickupMinutes);
+        byte[] bytes = "DETAILED_ONLINE".equals(profile.docketFormat)
+            ? OnlineOrderDocketFormatter.format(profile, order, pickupMinutes)
+            : OrderDocketFormatter.format(profile, order, pickupMinutes);
         try (PrinterConnection connection = connections.open(profile)) {
           ScheduledFuture<?> deadline = timer.schedule(() -> {
             try { connection.close(); } catch (Exception ignored) { }

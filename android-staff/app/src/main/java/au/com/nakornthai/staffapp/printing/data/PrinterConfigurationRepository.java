@@ -57,6 +57,7 @@ public final class PrinterConfigurationRepository {
             if (!e.getAsJsonObject().has(field) || e.getAsJsonObject().get(field).isJsonNull())
               throw new IllegalArgumentException("Missing profile field");
           PrinterProfile p = new Gson().fromJson(e, PrinterProfile.class);
+          if (p.docketFormat == null || p.docketFormat.trim().isEmpty()) p.docketFormat = "KITCHEN";
           p.validate();
           if (!ids.add(p.id)) throw new Exception();
           result.add(p);

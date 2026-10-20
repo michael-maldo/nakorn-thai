@@ -16,9 +16,13 @@ public final class Order {
       cancellationReason,
       customerName,
       phone,
+      email,
+      fulfilment,
       notes,
-      paymentMethod;
+      paymentMethod,
+      paymentStatus;
   public final long totalMinor, version;
+  public final Long subtotalMinor;
   public final List<Line> items;
 
   public Order(
@@ -42,14 +46,19 @@ public final class Order {
     cancellationReason = null;
     customerName = null;
     phone = null;
+    email = null;
+    fulfilment = null;
     notes = null;
     totalMinor = 0;
+    subtotalMinor = null;
+    paymentStatus = null;
   }
 
   public static final class Line {
     public String id, dishName, variationName;
     public int quantity;
     public long unitPriceMinor;
+    public Long lineTotalMinor;
     public List<Option> selectedOptions;
   }
 
