@@ -22,6 +22,7 @@ public final class OrdersFragment extends Fragment {
   private boolean wide;
   private Boolean compactHeader;
   private au.com.nakornthai.staffapp.shared.dashboard.QueueSummaries summaries;
+  private String printNotice = "";
 
   @Override
   public View onCreateView(LayoutInflater inflater, ViewGroup parent, Bundle saved) {
@@ -100,6 +101,10 @@ public final class OrdersFragment extends Fragment {
             new RetainedDraftsDialog().show(getParentFragmentManager(), "retainedDrafts");
         });
     vm.state.observe(getViewLifecycleOwner(), this::render);
+    vm.printingStatus.observe(getViewLifecycleOwner(), value -> {
+      printNotice = value == null ? "" : value;
+      if (vm.state.getValue() != null) render(vm.state.getValue());
+    });
   }
 
   private void layoutColumns() {
@@ -133,8 +138,13 @@ public final class OrdersFragment extends Fragment {
         (state.busy ? "Saving… " : "")
             + (state.error == null ? "" : state.error + " ")
             + (state.notice == null ? "" : state.notice)
+            + (printNotice.isEmpty() ? "" : " " + printNotice)
             + (state.blocked ? " Refresh required before another action." : ""));
-    binding.boardMessage.setBackgroundResource(state.error==null?R.drawable.tk_notice_info:R.drawable.tk_notice_error);
+    boolean printProblem = printNotice.contains("failed") || printNotice.contains("uncertain")
+        || printNotice.contains("unavailable") || printNotice.contains("No enabled")
+        || printNotice.contains("Multiple enabled") || printNotice.contains("not enabled");
+    binding.boardMessage.setBackgroundResource(state.error == null && !printProblem
+        ? R.drawable.tk_notice_info : R.drawable.tk_notice_error);
     binding.boardMessage.setVisibility(
         binding.boardMessage.getText().length() == 0 ? View.GONE : View.VISIBLE);
     summaries.render(state);
@@ -166,6 +176,7 @@ public final class OrdersFragment extends Fragment {
     columns.clear();
     adapters.clear();
     binding = null;
+    printNotice = "";
     summaries=null;compactHeader=null;
     super.onDestroyView();
   }

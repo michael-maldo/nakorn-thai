@@ -9,6 +9,9 @@ import au.com.nakornthai.staffapp.printing.diagnostics.*;
 import au.com.nakornthai.staffapp.printing.driver.*;
 import au.com.nakornthai.staffapp.printing.formatting.*;
 import au.com.nakornthai.staffapp.printing.model.*;
+import au.com.nakornthai.staffapp.printing.KitchenDocketService;
+import au.com.nakornthai.staffapp.printing.formatting.OrderDocketFormatter;
+import au.com.nakornthai.staffapp.ordering.model.Order;
 import au.com.nakornthai.staffapp.printing.ui.*;
 import java.io.*;
 import java.time.*;
@@ -130,6 +133,81 @@ public class PrinterProvisioningTest {
     for (String line : text.split("\n")) assertTrue(line.length() <= 32);
     p.paperWidth = 80;
     assertTrue(TestDocketFormatter.format(p, Instant.now()).contains("ABCDEFGHIJKLMNOPQRSTUVWXYZ"));
+  }
+
+  @Test
+  public void kitchenDocketIncludesOrderSnapshotAndExcludesCustomerAndPaymentData() {
+    PrinterProfile p = profile(); p.paperWidth = 80;
+    Order order = new com.google.gson.Gson().fromJson(
+        "{\"reference\":\"NT-42\",\"createdAt\":\"2026-01-01T00:00:00Z\","
+            + "\"estimatedReadyAt\":\"2026-01-01T00:30:00Z\",\"customerName\":\"Private Name\","
+            + "\"phone\":\"0412345678\",\"paymentMethod\":\"PAYPAL\",\"notes\":\"No nuts\","
+            + "\"items\":[{\"dishName\":\"Green curry\",\"variationName\":\"Large\",\"quantity\":2,"
+            + "\"selectedOptions\":[{\"optionGroupName\":\"Protein\",\"optionName\":\"Tofu\",\"quantity\":1}]}]}",
+        Order.class);
+    String docket = new String(OrderDocketFormatter.format(p, order, "20"),
+        java.nio.charset.StandardCharsets.US_ASCII);
+    assertTrue(docket.contains("NT-42"));
+    assertTrue(docket.contains("01 Jan 2026 11:00"));
+    assertTrue(docket.contains("Pickup estimate: 20 min"));
+    assertTrue(docket.contains("2 x Green curry / Large"));
+    assertTrue(docket.contains("1 x Tofu (Protein)"));
+    assertTrue(docket.contains("No nuts"));
+    assertFalse(docket.contains("Private Name"));
+    assertFalse(docket.contains("0412345678"));
+    assertFalse(docket.contains("PAYPAL"));
+  }
+
+  @Test
+  public void automaticDocketRequiresOneEnabledKitchenLanProfileAndDispatchesOnce() {
+    Memory store = new Memory();
+    PrinterConfigurationRepository repository = new PrinterConfigurationRepository(store);
+    ScheduledExecutorService timer = Executors.newSingleThreadScheduledExecutor();
+    try {
+      List<String> outcomes = new ArrayList<>();
+      java.util.concurrent.atomic.AtomicInteger writes = new java.util.concurrent.atomic.AtomicInteger();
+      KitchenDocketService service = new KitchenDocketService(repository,
+          p -> new PrinterConnection() {
+            public void send(byte[] bytes) { writes.incrementAndGet(); }
+            public void close() {}
+          }, Runnable::run, timer);
+      assertTrue(service.print(OrderWorkflowTest.order("a", "NEW", 1), "20", outcomes::add));
+      assertTrue(outcomes.get(0).contains("No enabled Kitchen printer"));
+      assertEquals(0, writes.get());
+
+      PrinterProfile kitchen = profile(); kitchen.driver = "escpos";
+      kitchen.compatibilityConfirmed = true;
+      repository.save(List.of(kitchen)); outcomes.clear();
+      assertTrue(service.print(OrderWorkflowTest.order("a", "NEW", 1), "20", outcomes::add));
+      assertEquals(1, writes.get());
+      assertTrue(outcomes.get(0).contains("not device-confirmed"));
+      kitchen.type = "CLASSIC"; kitchen.endpoint = "00:11:22:33:44:55";
+      repository.save(List.of(kitchen)); outcomes.clear();
+      assertTrue(service.print(OrderWorkflowTest.order("a", "NEW", 1), "20", outcomes::add));
+      assertTrue(outcomes.get(0).contains("LAN/TCP"));
+      assertEquals(1, writes.get());
+    } finally { timer.shutdownNow(); }
+  }
+
+  @Test
+  public void uncertainKitchenSendIsReportedWithoutRetry() {
+    Memory store = new Memory();
+    PrinterConfigurationRepository repository = new PrinterConfigurationRepository(store);
+    PrinterProfile kitchen = profile(); kitchen.driver = "escpos"; kitchen.compatibilityConfirmed = true;
+    repository.save(List.of(kitchen));
+    ScheduledExecutorService timer = Executors.newSingleThreadScheduledExecutor();
+    try {
+      java.util.concurrent.atomic.AtomicInteger writes = new java.util.concurrent.atomic.AtomicInteger();
+      List<String> outcomes = new ArrayList<>();
+      KitchenDocketService service = new KitchenDocketService(repository, p -> new PrinterConnection() {
+        public void send(byte[] bytes) throws IOException { writes.incrementAndGet(); throw new IOException("socket disconnected"); }
+        public void close() {}
+      }, Runnable::run, timer);
+      assertTrue(service.print(OrderWorkflowTest.order("a", "NEW", 1), "20", outcomes::add));
+      assertEquals(1, writes.get());
+      assertTrue(outcomes.get(0).contains("outcome uncertain"));
+      assertTrue(outcomes.get(0).contains("no automatic retry"));
+    } finally { timer.shutdownNow(); }
   }
 
   @Test

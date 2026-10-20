@@ -1,0 +1,150 @@
+name: Android staff build and pre-release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'android-staff/**'
+      - '.github/workflows/android-staff.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'android-staff/**'
+      - '.github/workflows/android-staff.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-staff-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Test, lint, and build debug APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Install Android SDK components
+        uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools platforms;android-35 build-tools;35.0.0'
+          accept-android-sdk-licenses: true
+
+      - name: Configure Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Run JVM tests, lint, and build APK
+        working-directory: android-staff
+        run: >-
+          ./gradlew --no-daemon clean testDebugUnitTest lintDebug assembleDebug
+          -PapiBaseUrl=https://nakorn-thai.tech-labs.dev/
+
+      - name: Verify APK exists
+        run: test -s android-staff/app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Upload verified debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: nakorn-thai-android-staff-debug
+          path: android-staff/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
+
+  publish-prerelease:
+    name: Publish verified Android pre-release
+    needs: verify
+    if: >-
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/main' &&
+      github.repository == 'michael-maldo/nakorn-thai'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Check out the verified commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Download verified debug APK
+        uses: actions/download-artifact@v4
+        with:
+          name: nakorn-thai-android-staff-debug
+          path: release-assets
+
+      - name: Select next unused Android v0.3 tag
+        id: tag
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          release_tags="$(gh api --paginate --jq '.[].tag_name' "repos/${GITHUB_REPOSITORY}/releases")"
+          ref_tags="$(gh api --paginate --jq '.[].ref | sub("^refs/tags/"; "")' \
+            "repos/${GITHUB_REPOSITORY}/git/matching-refs/tags/android-staff-v0.3.")"
+          remote_tags="$(git ls-remote --tags origin 'refs/tags/android-staff-v0.3.*' | \
+            awk '{sub("refs/tags/", "", $2); sub("\\^\\{\\}$", "", $2); print $2}')"
+          max=-1
+          while IFS= read -r tag; do
+            if [[ "$tag" =~ ^android-staff-v0\.3\.([0-9]+)$ ]]; then
+              number="${BASH_REMATCH[1]}"
+              if (( number > max )); then max="$number"; fi
+            fi
+          done < <(printf '%s\n%s\n%s\n' "$release_tags" "$ref_tags" "$remote_tags")
+          next=$((max + 1))
+          tag="android-staff-v0.3.${next}"
+          if gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${tag}" >/dev/null 2>&1; then
+            echo "Release already exists: ${tag}" >&2
+            exit 1
+          fi
+          if git ls-remote --exit-code --tags origin "refs/tags/${tag}" >/dev/null 2>&1; then
+            echo "Git tag already exists: ${tag}" >&2
+            exit 1
+          fi
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+
+      - name: Prepare release asset and notes
+        env:
+          RELEASE_TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          set -euo pipefail
+          mv release-assets/app-debug.apk "release-assets/nakorn-thai-staff-${RELEASE_TAG}-debug.apk"
+          cat > release-notes.md <<'NOTES'
+          ## Nakorn Thai Android staff app
+
+          This pre-release includes automatic kitchen docket printing after the server confirms order acceptance, plus a deliberate **Reprint kitchen docket** action from order details. Printer failures are reported separately from acceptance, and uncertain TCP sends are not retried automatically.
+
+          ### CI verification
+
+          GitHub Actions completed the Android JVM unit tests, Android lint, and debug APK build using the production API URL `https://nakorn-thai.tech-labs.dev/` before publishing this asset.
+
+          ### Hardware verification still required
+
+          Install on the restaurant Samsung tablet and verify actual order acceptance, docket contents and paper layout with the Epson TM-m30II over LAN/TCP. Check printer-offline, timeout, uncertain-send and deliberate reprint behavior. CI cannot confirm physical printer output.
+          NOTES
+
+      - name: Publish pre-release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          set -euo pipefail
+          gh release create "$RELEASE_TAG" \
+            "release-assets/nakorn-thai-staff-${RELEASE_TAG}-debug.apk" \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "Nakorn Thai Android ${RELEASE_TAG}" \
+            --notes-file release-notes.md \
+            --prerelease \
+            --target "$GITHUB_SHA"

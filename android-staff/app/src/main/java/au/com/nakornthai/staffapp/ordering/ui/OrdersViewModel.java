@@ -14,17 +14,31 @@ public final class OrdersViewModel extends ViewModel {
   private final Map<String, OrderDraft> drafts = new java.util.concurrent.ConcurrentHashMap<>();
   private final Map<String, OrderAction> actions = new java.util.concurrent.ConcurrentHashMap<>();
   private final Map<String, String> confirmedOperations = new java.util.concurrent.ConcurrentHashMap<>();
+  private final Set<String> acceptancePrints = java.util.concurrent.ConcurrentHashMap.newKeySet();
+  private final au.com.nakornthai.staffapp.printing.KitchenDocketPrinter docketPrinter;
+  public final MutableLiveData<String> printingStatus = new MutableLiveData<>();
   private long owner = -1;
 
   public OrdersViewModel(AppGraph graph) {
-    this(graph.monitor, graph.identity);
+    this(graph.monitor, graph.identity, graph.docketPrinter);
   }
 
   public OrdersViewModel(
       au.com.nakornthai.staffapp.ordering.monitoring.OrderMonitor monitor,
       au.com.nakornthai.staffapp.identity.data.IdentityRepository identity) {
+    this(monitor, identity, (order, pickupMinutes, result) -> {
+      result.accept("Kitchen printer unavailable: printing is not configured.");
+      return false;
+    });
+  }
+
+  public OrdersViewModel(
+      au.com.nakornthai.staffapp.ordering.monitoring.OrderMonitor monitor,
+      au.com.nakornthai.staffapp.identity.data.IdentityRepository identity,
+      au.com.nakornthai.staffapp.printing.KitchenDocketPrinter docketPrinter) {
     this.monitor = monitor;
     this.identity = identity;
+    this.docketPrinter = docketPrinter;
     monitor.setListener(
         value -> {
           if (owner != identity.generation()) {
@@ -91,6 +105,8 @@ public final class OrdersViewModel extends ViewModel {
       action.complete(success, monitor.snapshot().notice);
       if (success) {
         confirmedOperations.put(action.draft.orderId, action.draft.operation);
+        if ("ACCEPTED".equals(action.draft.operation))
+          printAcceptedOnce(action.draft.orderId, action.draft.pickupMinutes);
         discard(action.draft);
       }
     });
@@ -99,6 +115,31 @@ public final class OrdersViewModel extends ViewModel {
   }
 
   public String confirmedOperation(String id) { return confirmedOperations.get(id); }
+
+  private void printAcceptedOnce(String id, String pickupMinutes) {
+    if (!acceptancePrints.add(id)) return;
+    Order accepted = order(id);
+    if (accepted == null) accepted = monitor.snapshot().find(id);
+    if (accepted == null) {
+      printingStatus.postValue("Order accepted; kitchen docket could not be prepared. Use Reprint from order details.");
+      return;
+    }
+    requestPrint(accepted, pickupMinutes);
+  }
+
+  public boolean reprint(String id) {
+    Order current = order(id);
+    if (current == null || !("ACCEPTED".equals(current.status)
+        || "PREPARING".equals(current.status) || "READY".equals(current.status))) return false;
+    return requestPrint(current, null);
+  }
+
+  private boolean requestPrint(Order order, String pickupMinutes) {
+    printingStatus.postValue("Sending kitchen docket for #" + order.reference + "…");
+    boolean started = docketPrinter.print(order, pickupMinutes, result -> printingStatus.postValue(result));
+    if (!started) printingStatus.postValue("Kitchen printer is busy. Order acceptance remains saved; use Reprint when ready.");
+    return started;
+  }
 
   public boolean close(OrderAction action) {
     if (!action.close()) return false;

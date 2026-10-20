@@ -9,6 +9,7 @@ import au.com.nakornthai.staffapp.ordering.data.OrderRepository;
 import au.com.nakornthai.staffapp.ordering.model.*;
 import au.com.nakornthai.staffapp.ordering.monitoring.*;
 import au.com.nakornthai.staffapp.ordering.ui.*;
+import au.com.nakornthai.staffapp.printing.KitchenDocketPrinter;
 import au.com.nakornthai.staffapp.shared.network.ApiFailure;
 import java.util.*;
 import java.util.concurrent.*;
@@ -24,6 +25,8 @@ public class OrderActionWorkflowTest {
   OrdersViewModel vm;
   Session session;
   AtomicReference<Order> remote;
+  java.util.concurrent.atomic.AtomicInteger printCalls;
+  List<java.util.function.Consumer<String>> printResults;
 
   @Before public void setup() throws Exception {
     executor = Executors.newSingleThreadScheduledExecutor();
@@ -34,7 +37,12 @@ public class OrderActionWorkflowTest {
     remote = new AtomicReference<>(OrderWorkflowTest.order("a", "NEW", 7));
     when(repository.load()).thenAnswer(call -> List.of(remote.get()));
     monitor = new OrderMonitor(executor, repository, identity);
-    vm = new OrdersViewModel(monitor, identity);
+    printCalls = new java.util.concurrent.atomic.AtomicInteger();
+    printResults = new CopyOnWriteArrayList<>();
+    KitchenDocketPrinter printer = (order, pickup, result) -> {
+      printCalls.incrementAndGet(); printResults.add(result); return true;
+    };
+    vm = new OrdersViewModel(monitor, identity, printer);
     monitor.sessionChanged(); monitor.setForeground(true);
     await(() -> monitor.snapshot().canWrite());
   }
@@ -83,6 +91,42 @@ public class OrderActionWorkflowTest {
       assertFalse(vm.submit(action)); verify(repository, times(1)).mutate(action.draft, 1L);
       assertNull(open("PREPARING").feedback);
     } finally { release.countDown(); }
+  }
+
+  @Test public void acceptingPrintsOnceOnlyAfterSuccessAndPrintFailureDoesNotUndoAcceptance() throws Exception {
+    Order accepted = OrderWorkflowTest.order("a", "ACCEPTED", 8);
+    doAnswer(call -> { remote.set(accepted); return null; }).when(repository).mutate(any(), anyLong());
+    OrderAction action = open("ACCEPTED");
+    assertTrue(vm.submit(action));
+    await(() -> action.finished && monitor.snapshot().canWrite()
+        && "ACCEPTED".equals(vm.order("a").status));
+    assertTrue(action.succeeded);
+    assertEquals(1, printCalls.get());
+    assertEquals("ACCEPTED", vm.order("a").status);
+    printResults.get(0).accept("Kitchen docket failed. Order acceptance remains saved.");
+    printResults.get(0).accept("late duplicate callback");
+    await(() -> vm.printingStatus.getValue() != null
+        && vm.printingStatus.getValue().contains("late duplicate"));
+    assertEquals("ACCEPTED", vm.order("a").status);
+    assertTrue(action.succeeded);
+    assertEquals(1, printCalls.get());
+    verify(repository, times(1)).mutate(action.draft, 1L);
+  }
+
+  @Test public void failedAcceptanceDoesNotPrintAndReprintRequiresExplicitStaffCall() throws Exception {
+    doThrow(new ApiFailure(409, "Version conflict")).when(repository).mutate(any(), anyLong());
+    OrderAction failed = open("ACCEPTED");
+    assertTrue(vm.submit(failed));
+    await(() -> failed.finished && monitor.snapshot().canWrite());
+    assertFalse(failed.succeeded);
+    assertEquals(0, printCalls.get());
+
+    remote.set(OrderWorkflowTest.order("a", "ACCEPTED", 8)); monitor.refresh();
+    await(() -> monitor.snapshot().canWrite() && "ACCEPTED".equals(vm.order("a").status));
+    assertEquals(0, printCalls.get());
+    assertTrue(vm.reprint("a"));
+    assertEquals(1, printCalls.get());
+    assertFalse(vm.reprint("missing"));
   }
 
   @Test public void conflictKeepsCurrentOperationErrorButNewDialogDoesNotInheritIt() throws Exception {

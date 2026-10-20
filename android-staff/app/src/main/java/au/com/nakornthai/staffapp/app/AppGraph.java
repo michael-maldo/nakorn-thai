@@ -18,10 +18,16 @@ public final class AppGraph {
   public final IdentityRepository identity;
   public final OrderMonitor monitor;
   public final OrderRepository orders;
+  public au.com.nakornthai.staffapp.printing.KitchenDocketPrinter docketPrinter;
   public final au.com.nakornthai.staffapp.timekeeping.data.TimekeepingRepository timekeeping;
 
   public AppGraph(Context context) {
     this(BuildConfig.API_BASE_URL, new KeystoreCredentialStore(context));
+    ScheduledExecutorService printerTimer = Executors.newSingleThreadScheduledExecutor();
+    docketPrinter = new au.com.nakornthai.staffapp.printing.KitchenDocketService(
+        new au.com.nakornthai.staffapp.printing.data.PrinterConfigurationRepository(context),
+        new au.com.nakornthai.staffapp.printing.connection.AndroidPrinterConnections(context, printerTimer),
+        Executors.newSingleThreadExecutor(), printerTimer);
   }
 
   public AppGraph(String baseUrl, CredentialStore storage) {
@@ -51,6 +57,7 @@ public final class AppGraph {
             .build()
             .create(StaffApi.class);
     identity = new IdentityRepository(api, jar);
+    docketPrinter = (order, pickupMinutes, result) -> false;
     orders = new ApiOrderRepository(api, identity);
     timekeeping = new au.com.nakornthai.staffapp.timekeeping.data.TimekeepingRepository(api, identity);
     monitor = new OrderMonitor(executor, orders, identity);

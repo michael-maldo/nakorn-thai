@@ -52,6 +52,19 @@ public final class OrderDetailDialog extends DialogFragment {
           binding.detailBody.setText(OrderPresentation.detail(order, vm.role()));
           binding.detailNotice.setText(
               state.error == null ? "" : state.error);
+          if ("ACCEPTED".equals(order.status) || "PREPARING".equals(order.status)
+              || "READY".equals(order.status)) {
+            Button reprint = (Button)getLayoutInflater().inflate(
+                au.com.nakornthai.staffapp.R.layout.item_dashboard_action, binding.actions, false);
+            reprint.setText("Reprint kitchen docket");
+            reprint.setEnabled(!state.busy);
+            reprint.setOnClickListener(v -> {
+              if (!vm.reprint(order.id))
+                binding.detailNotice.setText("Kitchen printer is busy or the order is no longer eligible for reprint.");
+              else binding.detailNotice.setText("Reprint requested. Check the Orders screen for the printer outcome.");
+            });
+            binding.actions.addView(reprint);
+          }
           au.com.nakornthai.staffapp.ordering.model.OrderDraft paymentDraft =
               vm.existingDraft(id, true);
           if (paymentDraft != null) add(binding, paymentDraft.operation, order, !state.busy);
