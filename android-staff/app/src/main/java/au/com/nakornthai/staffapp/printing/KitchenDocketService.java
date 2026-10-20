@@ -46,11 +46,11 @@ public final class KitchenDocketService implements KitchenDocketPrinter {
           try { sending = true; connection.send(bytes); }
           finally { deadline.cancel(false); }
         }
-        outcome = "Kitchen docket sent for #" + order.reference + ". Printer output is not device-confirmed.";
+        outcome = "Kitchen docket sent for #" + reference(order) + ". Printer output is not device-confirmed.";
       } catch (Exception failure) {
         outcome = sending
-            ? "Kitchen docket outcome uncertain for #" + order.reference + ". Order acceptance remains saved. Inspect printer before using Reprint; no automatic retry."
-            : "Kitchen docket failed for #" + order.reference + ": " + message(failure) + " Order acceptance remains saved.";
+            ? "Kitchen docket outcome uncertain for #" + reference(order) + ". Order acceptance remains saved. Inspect printer before using Reprint; no automatic retry."
+            : "Kitchen docket failed for #" + reference(order) + ": " + message(failure) + " Order acceptance remains saved.";
       }
       try { result.accept(outcome); } finally { busy.set(false); }
     });
@@ -72,5 +72,9 @@ public final class KitchenDocketService implements KitchenDocketPrinter {
     if (e instanceof NoRouteToHostException) return "printer host is unreachable";
     if (e instanceof UnknownHostException) return "printer hostname could not be resolved";
     return e.getMessage() == null ? "printer operation failed" : e.getMessage();
+  }
+
+  private static String reference(Order order) {
+    return order == null || order.reference == null ? "unknown" : order.reference;
   }
 }

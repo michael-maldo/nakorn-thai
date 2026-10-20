@@ -201,9 +201,7 @@ public class PrinterProvisioningTest {
       PrinterProfile kitchen = profile(); kitchen.driver = "escpos";
       kitchen.compatibilityConfirmed = true;
       repository.save(List.of(kitchen)); outcomes.clear();
-      Order invalidDocketOrder = OrderWorkflowTest.order("a", "NEW", 1);
-      invalidDocketOrder.items = null;
-      assertTrue(service.print(invalidDocketOrder, "20", outcomes::add));
+      assertTrue(service.print(null, "20", outcomes::add));
       assertTrue(outcomes.get(0).contains("failed"));
       assertEquals(0, opens.get());
       outcomes.clear();
