@@ -27,16 +27,17 @@ public class OnlineOrderDocketTest {
 
   private Order orderAt(String email, String status, String paymentStatus, String createdAt) {
     String method = "PAYMENT_DUE".equals(paymentStatus) ? "PAY_AT_RESTAURANT" : "PAYPAL";
+    String emailJson = email == null ? "null" : new Gson().toJson(email);
     String json = """
         {"id":"order-id","reference":"NT-1043","status":"%s","totalMinor":3300,"subtotalMinor":3300,
         "currency":"AUD","createdAt":"2026-10-20T07:24:00Z","estimatedReadyAt":"2026-10-20T07:45:00Z",
-        "paidAt":null,"customerName":"Sarah Mitchell","phone":"0412 345 678","email":"%s","fulfilment":"PICKUP",
+        "paidAt":null,"customerName":"Sarah Mitchell","phone":"0412 345 678","email":%s,"fulfilment":"PICKUP",
         "notes":"Please include extra napkins and chilli sauce.","version":2,"paymentMethod":"%s","paymentStatus":"%s",
         "refundStatus":"NONE","paymentReviewRequired":false,"items":[
         {"dishName":"Pad Thai","variationName":"Chicken","quantity":2,"unitPriceMinor":1650,"lineTotalMinor":3300,
         "selectedOptions":[{"optionGroupName":"Protein","optionName":"Chicken","quantity":1,"priceDeltaMinor":0},
         {"optionGroupName":"Allergy note","optionName":"NO PEANUTS","quantity":1,"priceDeltaMinor":0}]}]}
-        """.formatted(status, email, method, paymentStatus)
+        """.formatted(status, emailJson, method, paymentStatus)
             .replace("2026-10-20T07:24:00Z", createdAt);
     return new Gson().fromJson(json, Order.class);
   }
