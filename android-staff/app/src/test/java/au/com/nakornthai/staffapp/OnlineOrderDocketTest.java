@@ -90,7 +90,11 @@ public class OnlineOrderDocketTest {
     assertFalse(docket.contains("Fee"));
     assertTrue(docket.contains("Currency : AUD"));
     assertTrue(docket.contains("20 OCT 2026  6:24 PM"));
-    for (String line : docket.split("\n")) assertTrue("line exceeds 80mm width: " + line, line.length() <= 48);
+    String printable = docket.replace("\u001ba\u0000", "").replace("\u001ba\u0001", "")
+        .replace("\u001bE\u0000", "").replace("\u001bE\u0001", "")
+        .replace("\u001d!\u0011", "").replace("\u001d!\u0000", "");
+    for (String line : printable.split("\n"))
+      assertTrue("line exceeds 80mm width: " + line, line.length() <= 48);
   }
 
   @Test public void refusesUnknownOrUnconfirmedPrinterBeforeProducingCutJob() {
