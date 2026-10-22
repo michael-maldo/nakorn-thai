@@ -1,14 +1,14 @@
 // Match Android NewOrderTracker: a silent baseline, then one alert per new ID.
 export function createPendingTracker() {
   const seen = new Set(), unread = new Set();
-  let initialized = false;
+  let initialized = false, arrivals = [];
   return {
     accept(orders) {
-      const pending = new Set(); let arrived = false;
+      const pending = new Set(); let arrived = false; arrivals = [];
       for (const order of orders) {
         if (order.status === 'NEW') {
           pending.add(order.id);
-          if (initialized && !seen.has(order.id)) { unread.add(order.id); arrived = true; }
+          if (initialized && !seen.has(order.id)) { unread.add(order.id); arrivals.push(order.id); arrived = true; }
         }
         seen.add(order.id);
       }
@@ -16,6 +16,7 @@ export function createPendingTracker() {
       initialized = true;
       return { arrived, count: unread.size };
     },
+    arrivals() { return [...arrivals]; },
     acknowledge() { unread.clear(); },
   };
 }
@@ -37,6 +38,9 @@ export function createSoundEngine(Context, changed = () => {}, {
   log = logAudio, timeoutMs = 3000, probeMs = 120,
 } = {}) {
   let context, verified = false, disposed = false, generation = 0, activation = null;
+  let enabledThisShift = false, automaticBlocked = false, activationSource = null;
+  let notification = null, notificationEpoch = 0;
+  const notified = new Set();
   const nodes = new Set(), timers = new Map();
   const visible = () => !page?.hidden;
   const ready = () => !disposed && visible() && verified && context?.state === 'running';
@@ -54,8 +58,8 @@ export function createSoundEngine(Context, changed = () => {}, {
     }
     nodes.clear();
   };
-  const retire = reason => {
-    generation++; activation = null; publish(false); stopNodes();
+  const retire = (reason, preserveActivation = false) => {
+    generation++; if (!preserveActivation) activation = null; publish(false); stopNodes();
     for (const [timer, cancel] of timers) { clearTimeout(timer); cancel(); }
     timers.clear();
     const previous = context;
@@ -70,72 +74,102 @@ export function createSoundEngine(Context, changed = () => {}, {
     const timer = setTimeout(() => { timers.delete(timer); resolve(); }, milliseconds);
     timers.set(timer, resolve);
   });
-  async function resumeAndCheck(target, ticket, source) {
+  const failure = (outcome, message) => Object.assign(new Error(message), { outcome });
+  async function resumeAndCheck(target, ticket, deadline) {
     let timer;
-    const resumed = target.resume(); // Synchronous call within the tap's activation, before any await.
     try {
-      await Promise.race([resumed, new Promise((_resolve, reject) => {
-        timer = setTimeout(() => { timers.delete(timer); reject(new Error('Sound activation timed out. Tap to Enable Sound again.')); }, timeoutMs);
-        timers.set(timer, () => reject(new Error('Audio activation cancelled.')));
+      // Called synchronously before the first await; manual activation stays inside the tap.
+      await Promise.race([target.resume(), new Promise((_resolve, reject) => {
+        timer = setTimeout(() => { timers.delete(timer); reject(failure('timed-out', 'Sound activation timed out. Tap to Enable Sound again.')); }, Math.max(0, deadline - Date.now()));
+        timers.set(timer, () => reject(failure('cancelled', 'Audio activation cancelled.')));
       })]);
       if (disposed || ticket !== generation || target !== context || !visible()) return false;
-      if (target.state !== 'running') throw new Error('Sound is interrupted. Tap to Enable Sound again.');
+      if (target.state !== 'running') throw failure(target.state === 'interrupted' ? 'interrupted' : 'blocked', 'Sound is interrupted or requires activation. Tap to Enable Sound again.');
       const start = target.currentTime;
-      await delay(probeMs);
+      await delay(Math.min(probeMs, Math.max(0, deadline - Date.now())));
       if (disposed || ticket !== generation || target !== context || !visible()) return false;
-      if (target.state !== 'running' || !(target.currentTime > start)) throw new Error('Audio clock is stalled. Tap to Enable Sound to start a fresh audio session.');
-      publish(true); report('resume-verified', { source }); return true;
+      if (Date.now() >= deadline) throw failure('timed-out', 'Audio readiness check timed out. Tap to Enable Sound again.');
+      if (target.state !== 'running') throw failure('interrupted', 'Sound was interrupted. Tap to Enable Sound again.');
+      if (!(target.currentTime > start)) throw failure('stalled', 'Audio clock is stalled. Tap to Enable Sound to start a fresh audio session.');
+      return true;
     } finally { clearTimeout(timer); timers.delete(timer); }
   }
+  const classify = error => error.outcome || (error.name === 'NotAllowedError' ? 'blocked' : 'failed');
+  function createContext() {
+    context = new Context();
+    const target = context;
+    context.onstatechange = () => {
+      if (disposed || target !== context) return;
+      report('statechange');
+      if (target.state !== 'running') { publish(false); stopNodes(); }
+    };
+    report('context-created');
+  }
   function activate(source) {
+    const manual = source === 'gesture';
     if (disposed || !visible()) return Promise.resolve(false);
-    if (activation) return activation;
-    if (!Context) return Promise.reject(new Error('Web Audio is unavailable in this browser.'));
-    // A user tap may rebuild an interrupted, closed or otherwise invalid engine.
-    if (context && !ready() && source === 'gesture') retire('gesture-rebuild');
-    if (!context) {
-      if (source !== 'gesture') { publish(false); report('gesture-required', { source }); return Promise.resolve(false); }
-      try {
-        context = new Context();
-        const target = context;
-        context.onstatechange = () => {
-          if (disposed || target !== context) return;
-          report('statechange');
-          if (target.state !== 'running') { publish(false); stopNodes(); }
-        };
-        report('context-created');
-      } catch (error) { publish(false); report('creation-error', { errorName: error.name, errorMessage: error.message }); return Promise.reject(error); }
+    if (activation) {
+      if (!manual || activationSource === 'gesture') return activation;
+      // A tap must not wait behind Safari's possibly gesture-blocked automatic resume.
+      retire('manual-preempts-recovery');
     }
-    const target = context, ticket = generation;
+    if (!manual && (!enabledThisShift || automaticBlocked)) {
+      publish(false); report('recovery-outcome', { source, outcome: 'blocked', reason: 'gesture-required' }); return Promise.resolve(false);
+    }
+    if (manual) { automaticBlocked = false; notificationEpoch++; notification = null; }
+    if (context && (context.state === 'closed' || manual && !ready())) retire('rebuild');
+    const deadline = Date.now() + timeoutMs;
+    let ticket = generation;
+    activationSource = source;
     if (!ready()) publish(false);
     report('resume-request', { source });
-    const operation = resumeAndCheck(target, ticket, source).catch(error => {
-      if (!disposed && ticket === generation && target === context) {
-        report('resume-error', { source, errorName: error.name, errorMessage: error.message }); retire('resume-failed');
+    const recover = async () => {
+      // One existing context plus at most one replacement. Never retry a denied/hung resume.
+      const hadContext = !!context;
+      for (let attempt = 0; attempt < (hadContext ? 2 : 1); attempt++) {
+        try {
+          if (!Context) throw failure('failed', 'Web Audio is unavailable in this browser.');
+          if (!context) createContext();
+          if (!await resumeAndCheck(context, ticket, deadline)) return false;
+          if (manual) enabledThisShift = true;
+          automaticBlocked = false; publish(true);
+          report('recovery-outcome', { source, outcome: 'successful' }); return true;
+        } catch (error) {
+          if (disposed || ticket !== generation || !visible()) return false;
+          const outcome = classify(error);
+          report('resume-error', { source, outcome, errorName: error.name, errorMessage: error.message });
+          retire('resume-failed', true); ticket = generation;
+          if (attempt === 0 && hadContext && !['blocked', 'timed-out', 'cancelled'].includes(outcome) && Date.now() < deadline) continue;
+          automaticBlocked = true;
+          report('recovery-outcome', { source, outcome });
+          if (manual) throw error;
+          return false;
+        }
       }
-      throw error;
-    }).finally(() => { if (activation === operation) activation = null; });
+      return false;
+    };
+    const operation = recover().finally(() => { if (activation === operation) { activation = null; activationSource = null; } });
     activation = operation; return operation;
   }
   const restore = event => {
     report(event.type, { persisted: !!event.persisted });
     if (!visible()) return;
-    // Do not create/unlock a new context without a tap, or replay sounds missed while hidden.
-    if (!context) { publish(false); report('gesture-required', { source: event.type }); return; }
-    activate(event.type).catch(() => {}); // Diagnostics + visible enable control handle blocked resume.
+    // Automatic recovery schedules no tones and obeys the browser's activation policy.
+    activate(event.type).catch(() => {});
   };
   const visibility = () => {
     report('visibilitychange');
-    if (!visible()) retire('page-hidden'); else restore({ type: 'foreground' });
+    if (!visible()) { notificationEpoch++; notification = null; retire('page-hidden'); } else restore({ type: 'foreground' });
   };
-  const hide = event => { report('pagehide', { persisted: !!event.persisted }); retire('pagehide'); };
+  const hide = event => { report('pagehide', { persisted: !!event.persisted }); notificationEpoch++; notification = null; retire('pagehide'); };
   page?.addEventListener('visibilitychange', visibility);
   host?.addEventListener('pagehide', hide);
   host?.addEventListener('pageshow', restore);
   host?.addEventListener('focus', restore);
   publish(false); report('engine-created');
-  return {
+  const engine = {
     ready,
+    recover: () => activate('incoming-order'),
     enable: () => activate('gesture'),
     play(settings) {
       if (!ready()) { publish(false); report('play-blocked'); return false; }
@@ -168,13 +202,31 @@ export function createSoundEngine(Context, changed = () => {}, {
         report('play-error', { errorName: error.name, errorMessage: error.message }); retire('play-failed'); return false;
       }
     },
+    notifyPending(ids, getSettings) {
+      // Reserve immediately, before recovery. IDs stay only in memory and never enter diagnostics.
+      const fresh = ids.filter(id => !notified.has(id));
+      for (const id of fresh) notified.add(id);
+      if (!fresh.length || disposed || !visible()) return Promise.resolve(false);
+      // Preserve the existing one-tone-per-poll-batch behavior, coalescing concurrent batches.
+      if (notification) return notification;
+      const epoch = notificationEpoch;
+      const operation = (async () => {
+        // Recheck the clock even for 'running' resources; Safari can freeze them silently.
+        if (!await activate('incoming-order')) return false;
+        if (disposed || !visible() || epoch !== notificationEpoch) return false;
+        return engine.play(getSettings());
+      })().catch(error => { report('notification-failed', { outcome: classify(error) }); return false; })
+        .finally(() => { if (notification === operation) notification = null; });
+      notification = operation; return operation;
+    },
     close() {
       if (disposed) return;
       page?.removeEventListener('visibilitychange', visibility);
       host?.removeEventListener('pagehide', hide);
       host?.removeEventListener('pageshow', restore);
       host?.removeEventListener('focus', restore);
-      disposed = true; retire('cleanup');
+      disposed = true; notificationEpoch++; notified.clear(); retire('cleanup');
     },
   };
+  return engine;
 }

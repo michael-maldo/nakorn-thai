@@ -116,10 +116,10 @@ test('Android detailed docket sections wrap to 58/80mm and ePOS preserves hierar
 });
 
 function audioFixture(overrides = {}) {
-  const page = new EventTarget(), host = new EventTarget(), contexts = [], logs = [], changes = [];
+  const page = new EventTarget(), host = new EventTarget(), contexts = [], logs = [], changes = [], policy = {};
   page.hidden = false; page.visibilityState = 'visible';
   class Context {
-    constructor() { this.state = 'suspended'; this.frozen = false; this.graphs = []; this.resumes = 0; this.closed = 0; contexts.push(this); }
+    constructor() { this.state = 'suspended'; this.frozen = false; this.graphs = []; this.resumes = 0; this.closed = 0; Object.assign(this, policy); contexts.push(this); }
     get currentTime() { return this.frozen ? 0 : performance.now() / 1000; }
     resume() { this.resumes++; if (this.failure) return Promise.reject(this.failure); if (this.hung) return new Promise(() => {}); if (!this.stuck) this.state = 'running'; return Promise.resolve(); }
     close() { this.closed++; this.state = 'closed'; return Promise.resolve(); }
@@ -132,9 +132,9 @@ function audioFixture(overrides = {}) {
   const engine = createSoundEngine(Context, ready => changes.push(ready), { document: page, window: host, log: (event, data) => logs.push({ event, ...data }), probeMs: 2, timeoutMs: 15, ...overrides });
   const visibility = hidden => { page.hidden = hidden; page.visibilityState = hidden ? 'hidden' : 'visible'; page.dispatchEvent(new Event('visibilitychange')); };
   const settle = () => new Promise(resolve => setTimeout(resolve, 8));
-  return { engine, contexts, logs, changes, page, host, visibility, settle };
+  return { engine, contexts, logs, changes, policy, page, host, visibility, settle };
 }
-test('lock/unlock retires even a running context and requires a new tap, preserving pending deduplication and settings', async () => {
+test('lock/unlock recovers a fresh context without a diagnostic tone, preserving pending deduplication and settings', async () => {
   const f = audioFixture(), tracker = createPendingTracker(), settings = { sound: 'chime', volume: .35 };
   try {
     tracker.accept([{ id: 'baseline', status: 'NEW' }]);
@@ -142,7 +142,8 @@ test('lock/unlock retires even a running context and requires a new tap, preserv
     f.visibility(true); assert.equal(original.closed, 1); assert.equal(f.engine.ready(), false);
     assert.ok(original.graphs.every(node => node.stops === 2));
     f.visibility(false); f.host.dispatchEvent(new Event('pageshow')); f.host.dispatchEvent(new Event('focus'));
-    assert.equal(f.contexts.length, 1); assert.equal(f.engine.play(settings), false);
+    await f.settle();
+    assert.equal(f.contexts.length, 2); assert.equal(f.engine.ready(), true); assert.equal(f.contexts[1].graphs.length, 0);
     assert.equal(tracker.accept([{ id: 'baseline', status: 'NEW' }]).arrived, false);
     await f.engine.enable(); assert.equal(f.contexts.length, 2); assert.equal(f.engine.play(settings), true);
     assert.deepEqual(settings, { sound: 'chime', volume: .35 });
@@ -161,7 +162,7 @@ test('pageshow and focus recover an existing suspended context without recreatin
     assert.equal(f.engine.ready(), true); assert.equal(f.contexts.length, 1);
   } finally { f.engine.close(); }
 });
-test('stuck interruption and running-but-frozen clock invalidate resources and can rebuild on the next tap', async () => {
+test('stuck interruption, frozen clock and closed contexts are automatically replaced once', async () => {
   for (const mode of ['interrupted', 'frozen', 'closed']) {
     const f = audioFixture();
     try {
@@ -169,9 +170,9 @@ test('stuck interruption and running-but-frozen clock invalidate resources and c
       if (mode === 'frozen') context.frozen = true;
       else { context.state = mode; context.stuck = true; context.onstatechange(); }
       f.host.dispatchEvent(new Event('focus')); await f.settle();
-      assert.equal(f.engine.ready(), false, mode); assert.equal(context.closed, 1);
-      await f.engine.enable(); assert.equal(f.engine.ready(), true); assert.equal(f.contexts.length, 2);
-      assert.ok(f.logs.some(entry => entry.event === 'resume-error'));
+      assert.equal(f.engine.ready(), true, mode); assert.equal(context.closed, 1);
+      assert.equal(f.contexts.length, 2); assert.equal(f.contexts[1].graphs.length, 0);
+      if (mode !== 'closed') assert.ok(f.logs.some(entry => entry.event === 'resume-error'));
     } finally { f.engine.close(); }
   }
 });
@@ -218,4 +219,115 @@ test('concurrent enable taps share one activation; hidden pages never create aud
     f.visibility(false); const first = f.engine.enable(), second = f.engine.enable();
     assert.equal(first, second); await first; assert.equal(f.contexts.length, 1); assert.equal(f.contexts[0].resumes, 1);
   } finally { f.engine.close(); }
+});
+
+test('automatic recovery is gated by shift activation; initial and historical orders never play', async () => {
+  const f = audioFixture(), tracker = createPendingTracker();
+  try {
+    f.host.dispatchEvent(new Event('pageshow')); f.host.dispatchEvent(new Event('focus'));
+    assert.equal(await f.engine.recover(), false); assert.equal(f.contexts.length, 0);
+    const orders = [{ id: 'historical', status: 'NEW' }]; tracker.accept(orders);
+    assert.deepEqual(tracker.arrivals(), []);
+    await f.engine.enable(); f.visibility(true); f.visibility(false); await f.settle();
+    tracker.accept(orders); assert.deepEqual(tracker.arrivals(), []); assert.equal(f.contexts.at(-1).graphs.length, 0);
+  } finally { f.engine.close(); }
+});
+test('incoming orders share a bounded recovery and coalesce one alert with latest volume', async () => {
+  const f = audioFixture(), settings = { sound: 'chime', volume: .2 };
+  try {
+    await f.engine.enable(); const original = f.contexts[0];
+    original.state = 'suspended'; original.onstatechange();
+    const first = f.engine.notifyPending(['a'], () => settings);
+    const second = f.engine.notifyPending(['a', 'b'], () => settings);
+    assert.equal(first, second); settings.volume = .45;
+    assert.equal(await first, true); assert.equal(original.resumes, 2); assert.equal(original.graphs.length, 2);
+    assert.equal(await f.engine.notifyPending(['a', 'b'], () => settings), false);
+    assert.equal(original.graphs.length, 2);
+    assert.ok(f.logs.some(entry => entry.event === 'play-scheduled' && entry.volume === .45 && entry.sound === 'chime'));
+    assert.ok(f.logs.some(entry => entry.event === 'recovery-outcome' && entry.source === 'incoming-order' && entry.outcome === 'successful'));
+  } finally { f.engine.close(); }
+});
+test('blocked restoration stops retries across focus, orders and later locks; manual fallback never replays failed orders', async () => {
+  const f = audioFixture();
+  try {
+    await f.engine.enable(); f.policy.failure = new DOMException('Gesture required', 'NotAllowedError');
+    f.visibility(true); f.visibility(false); await f.settle();
+    assert.equal(f.engine.ready(), false); const count = f.contexts.length;
+    for (let i = 0; i < 3; i++) { f.host.dispatchEvent(new Event('focus')); assert.equal(await f.engine.notifyPending([`failed-${i}`], () => ({})), false); }
+    f.visibility(true); f.visibility(false); await f.settle(); assert.equal(f.contexts.length, count);
+    delete f.policy.failure; await f.engine.enable();
+    assert.equal(await f.engine.notifyPending(['failed-0', 'failed-1', 'failed-2'], () => ({})), false);
+    assert.equal(f.contexts.at(-1).graphs.length, 0);
+    assert.equal(await f.engine.notifyPending(['fresh'], () => ({})), true);
+    assert.ok(f.logs.some(entry => entry.event === 'recovery-outcome' && entry.outcome === 'blocked'));
+  } finally { f.engine.close(); }
+});
+test('incoming-only recovery rejection, interruption, stall and timeout require activation without audible diagnostics', async () => {
+  for (const [property, value, outcome] of [['failure', new DOMException('Gesture required', 'NotAllowedError'), 'blocked'], ['stuck', true, 'blocked'], ['frozen', true, 'stalled'], ['hung', true, 'timed-out']]) {
+    const f = audioFixture();
+    try {
+      await f.engine.enable(); const context = f.contexts[0]; context.state = 'suspended'; context.onstatechange();
+      context[property] = value; f.policy[property] = value;
+      assert.equal(await f.engine.notifyPending(['unheard'], () => ({})), false);
+      assert.equal(f.engine.ready(), false);
+      assert.ok(f.contexts.every(context => !context.graphs.length));
+      assert.ok(f.logs.some(entry => entry.event === 'recovery-outcome' && entry.outcome === outcome), outcome);
+      const count = f.contexts.length;
+      assert.equal(await f.engine.notifyPending(['other'], () => ({})), false); assert.equal(f.contexts.length, count);
+      delete f.policy[property]; await f.engine.enable();
+      assert.equal(await f.engine.notifyPending(['unheard'], () => ({})), false);
+    } finally { f.engine.close(); }
+  }
+});
+test('manual gesture preempts a hung automatic recovery and cancels its pending notification', async () => {
+  const f = audioFixture();
+  try {
+    await f.engine.enable(); const old = f.contexts[0]; old.state = 'suspended'; old.hung = true; old.onstatechange();
+    const pending = f.engine.notifyPending(['old'], () => ({}));
+    assert.equal(await f.engine.enable(), true); assert.equal(await pending, false);
+    assert.equal(f.engine.ready(), true); assert.equal(f.contexts.at(-1).graphs.length, 0);
+    assert.equal(await f.engine.notifyPending(['old'], () => ({})), false);
+  } finally { f.engine.close(); }
+});
+test('restoration and incoming recovery share one replacement; hide/logout cancel delayed alerts', async () => {
+  const f = audioFixture();
+  try {
+    await f.engine.enable(); f.visibility(true); f.visibility(false);
+    f.host.dispatchEvent(new Event('pageshow')); f.host.dispatchEvent(new Event('focus'));
+    const first = f.engine.notifyPending(['first'], () => ({}));
+    assert.equal(await first, true); assert.equal(f.contexts.length, 2); assert.equal(f.contexts[1].resumes, 1);
+    const context = f.contexts[1]; context.state = 'suspended'; context.onstatechange();
+    const next = f.engine.notifyPending(['hidden'], () => ({})); f.visibility(true);
+    assert.equal(await next, false); f.visibility(false); await f.settle();
+    assert.equal(f.contexts.at(-1).graphs.length, 0);
+    const current = f.contexts.at(-1); current.state = 'suspended'; current.onstatechange();
+    const closed = f.engine.notifyPending(['logout'], () => ({})); f.engine.close();
+    assert.equal(await closed, false); assert.equal(f.engine.ready(), false);
+  } finally { f.engine.close(); }
+});
+
+test('a silently stalled running context is replaced before incoming-order playback', async () => {
+  const f = audioFixture();
+  try {
+    await f.engine.enable(); const old = f.contexts[0]; old.frozen = true;
+    assert.equal(await f.engine.notifyPending(['new'], () => ({ volume: .6 })), true);
+    assert.equal(old.graphs.length, 0); assert.equal(old.closed, 1); assert.equal(f.contexts.length, 2);
+    assert.equal(f.contexts[1].graphs.length, 2);
+    assert.equal(await f.engine.notifyPending(['new'], () => ({})), false);
+  } finally { f.engine.close(); }
+});
+test('failed replacement is bounded, remains single-flight and records interrupted or failed outcomes', async () => {
+  for (const outcome of ['interrupted', 'failed']) {
+    const f = audioFixture();
+    try {
+      await f.engine.enable(); const context = f.contexts[0];
+      context.state = 'interrupted'; context.stuck = true;
+      if (outcome === 'interrupted') Object.assign(f.policy, { state: 'interrupted', stuck: true });
+      else f.policy.failure = new Error('Audio device failed');
+      const first = f.engine.recover(), second = f.engine.recover(); assert.equal(first, second);
+      assert.equal(await first, false); assert.equal(f.contexts.length, 2);
+      assert.ok(f.logs.some(entry => entry.event === 'recovery-outcome' && entry.outcome === outcome));
+      assert.equal(await f.engine.recover(), false); assert.equal(f.contexts.length, 2);
+    } finally { f.engine.close(); }
+  }
 });

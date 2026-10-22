@@ -28,8 +28,8 @@ const send = (method, params = {}) => new Promise((resolve, reject) => {
   pending.set(id, { resolve, reject, timeout }); ws.send(JSON.stringify({ id, method, params }));
 });
 ws.addEventListener('close', () => { for (const waiter of pending.values()) { clearTimeout(waiter.timeout); waiter.reject(new Error('Browser connection closed')); } pending.clear(); });
-const evaluate = async expression => {
-  const value = await send('Runtime.evaluate', { expression, returnByValue: true, awaitPromise: true, userGesture: true });
+const evaluate = async (expression, userGesture = true) => {
+  const value = await send('Runtime.evaluate', { expression, returnByValue: true, awaitPromise: true, userGesture });
   if (value.exceptionDetails) throw new Error(JSON.stringify(value.exceptionDetails));
   return value.result.value;
 };
@@ -50,6 +50,18 @@ const nav = async (width, height, role = 'ADMIN') => {
 try {
   await send('Page.enable'); await send('Runtime.enable'); await send('Page.bringToFront');
   await send('Page.addScriptToEvaluateOnNewDocument',{source:`(${installPwaFixtures.toString()})(${staffSessionFixture.toString()});`});
+  await send('Page.addScriptToEvaluateOnNewDocument', {source: `
+    window.phase2Contexts=[];
+    const NativeContext=window.AudioContext;
+    window.AudioContext=class extends NativeContext {
+      constructor(...args){super(...args);window.phase2Contexts.push(this);}
+      resume(){
+        if(window.phase2AudioPolicy==='blocked')return Promise.reject(new DOMException('Simulated Safari activation required','NotAllowedError'));
+        if(window.phase2AudioPolicy==='hung'){this.phase2ResumePending=true;return new Promise(()=>{});}
+        return super.resume();
+      }
+    };
+  `});
   for (const [width,height] of [[810,1080],[1080,810],[1024,768],[768,1024],[390,844],[540,360]]) {
     await nav(width,height);
     check(await evaluate('document.scrollingElement.scrollWidth<=innerWidth'),`${width} no page overflow`);
@@ -117,21 +129,44 @@ try {
     await waitFor('document.hidden');
     check(await evaluate("document.querySelector('.sp-sound-status').textContent==='Sound not enabled'"),'hide immediately invalidates audio readiness');
     await send('Page.bringToFront'); await waitFor('!document.hidden');
-    await waitFor("document.querySelector('.sp-monitor button').textContent==='Tap to Enable Sound'");
-    check(await audioCount()===beforeLock,'restoration waits for a fresh gesture without creating audio');
-    await evaluate("window.dispatchEvent(new PageTransitionEvent('pageshow',{persisted:true})); window.dispatchEvent(new Event('focus'))");
-    check(await evaluate("document.querySelector('.sp-monitor button').textContent==='Tap to Enable Sound'"),'pageshow and focus keep recovery control visible');
-    await click('Tap to Enable Sound'); await waitFor("document.querySelector('.sp-sound-status').textContent==='Sound enabled'");
-    check(audioCount()===beforeLock+1,'unlock gesture creates a fresh AudioContext: '+JSON.stringify(audioEvents));
+    await waitFor("document.querySelector('.sp-sound-status').textContent==='Sound enabled'");
+    check(audioCount()===beforeLock+1,'restoration creates at most one replacement context');
+    const restorePlays=audioEvents.filter(event=>event==='play-scheduled').length;
+    await evaluate("window.dispatchEvent(new PageTransitionEvent('pageshow',{persisted:true})); window.dispatchEvent(new Event('focus'))", false);
+    await waitFor("document.querySelector('.sp-sound-status').textContent==='Sound enabled'");
+    check(audioCount()===beforeLock+1,'pageshow and focus share recovery without repeated context creation');
+    check(audioEvents.filter(event=>event==='play-scheduled').length===restorePlays,'restoration emits no diagnostic tones');
     check(await evaluate("!document.querySelector('.sp-alert')"),'unlock does not replay acknowledged pending-order alerts');
     const plays = audioEvents.filter(event => event === 'play-scheduled').length;
     await evaluate("pwaFixture.orders.push({...pwaFixture.orders[0],id:'after-unlock',reference:'AFTER-UNLOCK',status:'NEW'});location.hash='/orders'");
     await waitFor("document.querySelector('.sp-page-heading button') && !document.querySelector('.sp-page-heading button').disabled");
     await click('↻ Refresh'); await waitFor("document.querySelector('.sp-alert')");
+    for(let i=0;i<100 && audioEvents.filter(event=>event==='play-scheduled').length<plays+1;i++)await new Promise(resolve=>setTimeout(resolve,20));
     check(audioEvents.filter(event => event === 'play-scheduled').length===plays+1,'new incoming order schedules one sound after recovery');
     await click('↻ Refresh'); await waitFor("!document.querySelector('.sp-page-heading button').disabled");
     check(audioEvents.filter(event => event === 'play-scheduled').length===plays+1,'repeat polling after recovery remains silent');
   } finally { await send('Target.closeTarget', {targetId:away.targetId}); }
+  // Model Safari denial and a pending resume explicitly. This does not emulate real iPad audio hardware.
+  await evaluate("window.phase2AudioPolicy='blocked'", false);
+  await evaluate("window.dispatchEvent(new PageTransitionEvent('pagehide',{persisted:true}));window.dispatchEvent(new PageTransitionEvent('pageshow',{persisted:true}))", false);
+  await waitFor("window.phase2Contexts.at(-1).state==='closed'");
+  check(await evaluate("document.querySelector('.sp-monitor button').textContent==='Tap to Enable Sound'"),'blocked recovery keeps prominent manual fallback');
+  const blockedCount=audioCount(), blockedPlays=audioEvents.filter(event=>event==='play-scheduled').length;
+  await evaluate("window.dispatchEvent(new Event('focus'));pwaFixture.orders.push({...pwaFixture.orders[0],id:'blocked-order',reference:'BLOCKED-ORDER',status:'NEW'})", false);
+  await click('↻ Refresh'); await waitFor("document.body.textContent.includes('BLOCKED-ORDER')");
+  check(audioCount()===blockedCount,'incoming order does not repeatedly recreate an activation-blocked engine');
+  check(audioEvents.filter(event=>event==='play-scheduled').length===blockedPlays,'blocked order stays visible without a false sound');
+  await evaluate("window.phase2AudioPolicy='allowed'", false); await click('Tap to Enable Sound');
+  await waitFor("document.querySelector('.sp-sound-status').textContent==='Sound enabled'");
+  const afterManual=audioEvents.filter(event=>event==='play-scheduled').length;
+  await click('↻ Refresh'); await waitFor("!document.querySelector('.sp-page-heading button').disabled");
+  check(audioEvents.filter(event=>event==='play-scheduled').length===afterManual,'manual activation does not replay failed notification');
+  await evaluate("window.phase2AudioPolicy='hung';window.dispatchEvent(new PageTransitionEvent('pagehide'));window.dispatchEvent(new PageTransitionEvent('pageshow'));pwaFixture.orders.push({...pwaFixture.orders[0],id:'hung-order',reference:'HUNG-ORDER',status:'NEW'})", false);
+  await click('↻ Refresh'); await waitFor("document.body.textContent.includes('HUNG-ORDER')");
+  check(await evaluate("window.phase2Contexts.at(-1).phase2ResumePending && window.phase2Contexts.at(-1).state!=='closed'"),'queue renders while audio recovery remains pending');
+  await evaluate("window.phase2AudioPolicy='allowed'", false); await click('Tap to Enable Sound');
+  await waitFor("document.querySelector('.sp-sound-status').textContent==='Sound enabled'");
+  check(true,'manual activation preempts hung automatic recovery');
   await evaluate("location.hash='/printers'"); await waitFor("document.querySelector('h1')?.textContent==='Printer Management'");
   check(await evaluate("[...document.querySelectorAll('button')].find(e=>e.textContent==='Test Print').disabled"),'no unverified printing');
   await nav(810,1080,'BOH');

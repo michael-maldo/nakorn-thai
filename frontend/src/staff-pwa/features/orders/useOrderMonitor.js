@@ -25,7 +25,7 @@ export default function useOrderMonitor(authorization, role, onArrival) {
         if (!Array.isArray(orders)) throw new Error('Invalid order queue response.');
         const { arrived, count } = tracker.current.accept(orders);
         setState({ orders, error: '', loading: false, foreground: true, lastSync: Date.now(), unread: count });
-        if (arrived) callback.current();
+        if (arrived) callback.current(tracker.current.arrivals());
       } catch (error) {
         if (owns()) setState(previous => ({ ...previous, loading: false, error: error.name === 'AbortError' ? 'Order monitoring timed out. Check the connection and refresh.' : error.message }));
       } finally { reading = false; if (active && !document.hidden) timer = setTimeout(load, 10000); }
