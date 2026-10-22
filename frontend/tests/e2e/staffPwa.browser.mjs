@@ -130,11 +130,11 @@ try {
     check(await evaluate("document.querySelector('.sp-sound-status').textContent==='Sound not enabled'"),'hide immediately invalidates audio readiness');
     await send('Page.bringToFront'); await waitFor('!document.hidden');
     await waitFor("document.querySelector('.sp-sound-status').textContent==='Sound enabled'");
-    check(audioCount()===beforeLock+1,'restoration creates at most one replacement context');
+    check(audioCount()===beforeLock,'restoration retains the gesture-activated context');
     const restorePlays=audioEvents.filter(event=>event==='play-scheduled').length;
     await evaluate("window.dispatchEvent(new PageTransitionEvent('pageshow',{persisted:true})); window.dispatchEvent(new Event('focus'))", false);
     await waitFor("document.querySelector('.sp-sound-status').textContent==='Sound enabled'");
-    check(audioCount()===beforeLock+1,'pageshow and focus share recovery without repeated context creation');
+    check(audioCount()===beforeLock,'pageshow and focus share recovery without repeated context creation');
     check(audioEvents.filter(event=>event==='play-scheduled').length===restorePlays,'restoration emits no diagnostic tones');
     check(await evaluate("!document.querySelector('.sp-alert')"),'unlock does not replay acknowledged pending-order alerts');
     const plays = audioEvents.filter(event => event === 'play-scheduled').length;

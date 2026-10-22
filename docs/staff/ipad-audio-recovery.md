@@ -232,3 +232,62 @@ state, stalled clock, manual reset, no replay and preserved volume. Existing
 lock/unlock/concurrency/duplicate-suppression coverage remains passing. These are
 mocked/Chromium results; no physical iPad diagnosis or automatic audio fix is claimed.
 Release verification and deployment status are reported separately from these investigation results.
+
+## Context-preservation experiment
+
+Physical diagnostics from `372b3c8dc855` now establish the observed path: a manual
+activation succeeds, visibility hiding retires a running context, foreground creates
+a new suspended context, resume times out at three seconds and the existing failure
+latch prevents later attempts. This identifies the replacement timeout; it does not
+prove that WebKit will resume the original context or that its clock implies audibility.
+
+The original hide cleanup deliberately fenced late promises, stopped/disconnected
+tones and disposed resources so stale engines could not regain readiness. The local
+experiment separates those protections from context disposal:
+
+- Ordinary visibility hide retains one previously manually enabled, non-closed
+  context. Readiness is invalidated immediately, tone nodes are stopped/disconnected,
+  timers/recovery checks are cancelled and notification epochs are advanced. No
+  tones, silent media, keepalive, automatic suspend calls or background work are added.
+- BFCache `pagehide` (`persisted: true`) applies the same preservation policy. A
+  non-persisted pagehide is treated as navigation/disposal and still retires resources.
+  A context without completed prior manual activation or already closed is retired.
+- Foreground/pageshow/focus use the existing shared, bounded resume-and-clock probe.
+  Suspended/interrupted resources are resumed; running still requires clock progress.
+  Stalled/stuck/failed resources are retired, with the existing at-most-one replacement
+  and total three-second deadline. Denied/hung resume is retired without retry.
+- The failure latch, its manual reset, duplicate suppression, no-replay policy and
+  synchronous manual gesture recovery are unchanged. Queue publication never waits
+  for audio. Logout/unmount/navigation close the retained context and remove listeners.
+- `context-preserved` and `context-reused` diagnostics identify this experiment's
+  path. Existing Settings viewer, Copy Diagnostics and bounded local logs remain.
+
+Risks: Safari may retain an interrupted or frozen native resource, or resume it with
+an advancing clock but no audible speaker output. Clock checks and bounded disposal
+handle detected failures, but only physical testing proves audibility. A single
+silent context may retain native resources while hidden; no accumulated contexts or
+tone graphs are retained. OS process eviction/reload still destroys activation intent.
+Extended suspension may require manual recovery. A non-persisted pagehide on this
+particular iPad would still close the context; record its persisted flag rather than
+assuming every lock has the same lifecycle. No latch changes are bundled to mask this.
+
+For physical verification, confirm the deployed version and manually enable
+sound once. Lock/unlock briefly and for several minutes, app-switch and repeat cycles.
+Capture diagnostics before manual intervention: expect `context-preserved`, then
+`context-reused`, advancing `clock-probe` and success without `context-created`.
+Verify an ordinary new order is actually audible exactly once at the saved volume;
+restoration itself must stay silent and historical/failed orders must not replay.
+If recovery fails, capture the outcome/latch and ensure Enable Sound plus Test Sound
+and a subsequent fresh order still work. Collect pagehide persisted flags, test
+Safari and installed mode, and verify logout/relogin requires fresh activation.
+Background and locked-screen alarms remain unsupported.
+
+Local experiment verification: **237 frontend tests passed**, no failures/skips;
+production build and PWA build checks passed; **90 PWA browser assertions**, **14
+installation assertions**, existing order workflow regressions and **672 layout
+assertions** passed. Diff checks passed. Tests cover preserved identity/readiness,
+suspended/interrupted restoration, stalled/closed replacement, bounded timeout,
+manual fallback, cancellation, copy diagnostics and duplicate/no-replay behavior.
+Chromium visibility transitions do not establish iPad lock/unlock audibility.
+Changed files are the audio engine, core tests, PWA browser assertions and this guide.
+Release verification and deployment status are reported separately from these local results.

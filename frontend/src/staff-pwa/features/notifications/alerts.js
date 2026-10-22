@@ -60,10 +60,13 @@ export function createSoundEngine(Context, changed = () => {}, {
     }
     nodes.clear();
   };
-  const retire = (reason, preserveActivation = false) => {
+  const invalidate = (preserveActivation = false) => {
     generation++; if (!preserveActivation) activation = null; publish(false); stopNodes();
     for (const [timer, cancel] of timers) { clearTimeout(timer); cancel(); }
     timers.clear();
+  };
+  const retire = (reason, preserveActivation = false) => {
+    invalidate(preserveActivation);
     const previous = context;
     report('context-retired', { reason }); context = null;
     if (previous) {
@@ -141,6 +144,7 @@ export function createSoundEngine(Context, changed = () => {}, {
         try {
           if (!Context) throw failure('failed', 'Web Audio is unavailable in this browser.');
           if (!context) createContext();
+          else report('context-reused', { source });
           if (!await resumeAndCheck(context, ticket, deadline)) return false;
           if (manual) enabledThisShift = true;
           automaticBlocked = false; publish(true);
@@ -170,11 +174,24 @@ export function createSoundEngine(Context, changed = () => {}, {
     // Automatic recovery schedules no tones and obeys the browser's activation policy.
     activate(event.type).catch(() => {});
   };
+  const pause = reason => {
+    notificationEpoch++; notification = null;
+    if (enabledThisShift && context && context.state !== 'closed') {
+      // Keep the gesture-activated resource, not its readiness or queued tones.
+      // Let WebKit manage suspension; do not add a background keepalive or suspend race.
+      invalidate();
+      report('context-preserved', { reason });
+    } else retire(reason);
+  };
   const visibility = () => {
     report('visibilitychange');
-    if (!visible()) { notificationEpoch++; notification = null; retire('page-hidden'); } else restore({ type: 'foreground' });
+    if (!visible()) pause('page-hidden'); else restore({ type: 'foreground' });
   };
-  const hide = event => { report('pagehide', { persisted: !!event.persisted }); notificationEpoch++; notification = null; retire('pagehide'); };
+  const hide = event => {
+    report('pagehide', { persisted: !!event.persisted });
+    if (event.persisted) pause('bfcache-pagehide');
+    else { notificationEpoch++; notification = null; retire('pagehide'); }
+  };
   page?.addEventListener('visibilitychange', visibility);
   host?.addEventListener('pagehide', hide);
   host?.addEventListener('pageshow', restore);
