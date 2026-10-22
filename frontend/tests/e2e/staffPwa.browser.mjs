@@ -190,6 +190,8 @@ try {
   await waitFor("document.querySelector('.sp-order-card')");
   check(await evaluate("pwaFixture.requests.some(r=>r.path==='/api/identity/login' && r.headers['X-CSRF-TOKEN']==='synthetic')"),'login uses established CSRF contract');
   await evaluate("location.hash='/settings'"); await waitFor("document.querySelector('h1')?.textContent==='Settings'");
+  await click('Refresh audio diagnostics');
+  check(await evaluate(`(()=>{const data=JSON.parse(document.querySelector('[aria-label="Audio diagnostics"]').value);return data.version && data.entries.length>0 && data.entries.length<=80 && data.entries.every(e=>e.timestamp && e.visibility && e.state)})()`), 'Settings exposes bounded timestamped local audio diagnostics');
   await click('Sign out'); await waitFor("document.querySelector('.staff-login-page')");
   check(await evaluate("!document.querySelector('.sp-app')"),'logout removes protected workspace');
   // XML parser and mock transport use browser DOMParser, never a real printer.

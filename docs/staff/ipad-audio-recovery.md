@@ -145,3 +145,87 @@ rather than treating a successful API/clock check as audible delivery.
   local verification results.
 
 These are local mocks/Chromium checks, not iPadOS 26.6.1 automatic-recovery validation.
+
+## Physical Phase 2 failure investigation
+
+The restaurant reports that Phase 2 remains disabled after unlocking and subsequent
+new orders do not sound. This supersedes the earlier unverified physical status.
+The deployed status text cannot establish the exact native failure: there are no
+captured device logs yet. Do not label this a confirmed user-gesture rejection.
+
+Source trace confirms these distinct possibilities:
+
+1. Successful manual enable sets in-memory `enabledThisShift`; only engine recreation
+   (workspace remount, reload/process eviction, session change) loses it. Hide and
+   pagehide themselves retain it, but retire/close the context and cancel notifications.
+2. Visible visibilitychange (`foreground`), pageshow and focus call `activate`.
+   Hidden events skip; simultaneous callers share the operation. A fresh context is
+   constructed because hiding deliberately destroyed the manually activated one.
+3. Creation, resume and advancing-clock verification must all succeed. An exception,
+   non-running state, frozen clock or three-second deadline causes fallback.
+4. A restoration failure sets `automaticBlocked`. Every subsequent incoming order
+   is reserved/consumed but recovery is skipped, even if the OS has since recovered.
+   This is a confirmed policy limitation: a transient early failure can prevent a
+   useful later order-triggered attempt. It does not prove that a later attempt
+   would succeed on this device. Manual enable resets the latch and retains the
+   verified synchronous gesture path; failed orders are never replayed.
+5. The monitor publishes queue state before calling the audio adapter and never
+   waits for audio. Initial snapshots stay silent, detection/deduplication is unchanged.
+
+This investigation adds instrumentation rather than changing the retry strategy
+without physical evidence. In particular the known close-on-hide behavior and
+failure latch are retained. A delayed first-order attempt might avoid transient
+restoration timing, but cannot restore browser activation permission. Compare the
+actual first failure with the subsequent incoming-order skip before deciding on a
+separate, explicitly bounded policy change. There are no polling-based retries.
+
+New diagnostics distinguish `recovery-request`, `recovery-skipped` (missing prior
+activation, failure latch, hidden or disposed), shared attempts, context creation
+request/failure, resume called/resolved/error, clock probe, latch set/reset, manual
+activation required, playback attempted/scheduled/error and notification skip.
+Existing error outcomes distinguish blocked, interrupted, stalled, timed-out and
+failed. A suspended state is recorded before resume; a resolved promise with that
+state is distinct from a rejected resume. Each record includes timestamp, document
+visibility, context state/clock, activation intent/latch, generation, recovery source,
+focus and browser user-activation state where supported. Activation API state is
+context only, not proof of the browser's permission decision. Logs remain the latest
+80 records in memory, without order/customer identifiers or uploads.
+
+### Collecting evidence on the restaurant iPad
+
+On the diagnostic build, after confirming the deployed version:
+
+1. Confirm Settings version. Tap Enable Sound and confirm the test physically.
+2. Lock/unlock; before tapping Enable Sound again, open Settings and tap
+   **Refresh audio diagnostics**. Select/copy the read-only log text. Capture again
+   immediately after a genuinely new order appears, to retain the first failure
+   within the 80-entry window. Refresh is a snapshot and does not activate audio.
+3. Look for `engine-created` after unlock (reload/remount), then
+   `missing-prior-activation`; otherwise follow foreground/pageshow/focus through
+   context creation, resume and clock probe. A `failure-latch-set` followed by an
+   incoming-order `failure-latch` skip establishes why orders cannot retry. The
+   preceding resume error identifies timeout, rejection, interruption or stall.
+4. Tap Enable Sound, confirm the test and collect again. Expect latch reset,
+   successful clock probe and play scheduled. Check a subsequent fresh order sounds
+   once; failed/historical notifications must stay silent and volume unchanged.
+5. With a Mac, enable Safari Web Inspector on the iPad and inspect the PWA through
+   Safari's Develop menu. Filter console for `[Nakorn Staff audio]` and preserve the
+   log across restoration where possible. Settings capture needs no Mac or console
+   module import. No diagnostics survive a full process reload; capture promptly.
+
+WebKit reports [pending resume after suspension](https://bugs.webkit.org/show_bug.cgi?id=281566)
+and [running contexts with frozen clocks](https://bugs.webkit.org/show_bug.cgi?id=263627)
+show that multiple native failure modes exist. They concern other OS versions and
+are not evidence of the exact cause on iPadOS 26.6.1. Actual audible output and any
+automatic recovery still require physical testing. Locked-screen alarms are unsupported.
+
+Diagnostic investigation validation: `npm test` **235 passed**, no failures/skips;
+production build and `test:staff-pwa-build` passed; `test:staff-pwa-browser` **85
+assertions passed**, including Settings diagnostic capture; `test:orders-browser`
+passed; `git diff --check` passed. New regressions distinguish missing activation,
+early timeout followed by incoming-order latch skip, context construction failure,
+cancellation without latching, rejected vs resolved resume, suspended/interrupted
+state, stalled clock, manual reset, no replay and preserved volume. Existing
+lock/unlock/concurrency/duplicate-suppression coverage remains passing. These are
+mocked/Chromium results; no physical iPad diagnosis or automatic audio fix is claimed.
+Release verification and deployment status are reported separately from these investigation results.

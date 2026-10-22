@@ -45,8 +45,10 @@ export function createSoundEngine(Context, changed = () => {}, {
   const visible = () => !page?.hidden;
   const ready = () => !disposed && visible() && verified && context?.state === 'running';
   const report = (event, extra = {}) => log(event, {
-    state: context?.state || 'uninitialized', visibility: page?.visibilityState || (visible() ? 'visible' : 'hidden'),
-    currentTime: context?.currentTime ?? null, ...extra,
+    timestamp: new Date().toISOString(), state: context?.state || 'uninitialized', visibility: page?.visibilityState || (visible() ? 'visible' : 'hidden'),
+    currentTime: context?.currentTime ?? null, enabledThisShift, automaticBlocked,
+    activationSource, generation, hasFocus: page?.hasFocus?.() ?? null,
+    userActivation: host?.navigator?.userActivation?.isActive ?? null, ...extra,
   });
   const publish = value => { verified = value; if (!disposed) changed(ready()); };
   const stopNodes = () => {
@@ -79,24 +81,29 @@ export function createSoundEngine(Context, changed = () => {}, {
     let timer;
     try {
       // Called synchronously before the first await; manual activation stays inside the tap.
+      report('resume-called', { targetState: target.state });
       await Promise.race([target.resume(), new Promise((_resolve, reject) => {
         timer = setTimeout(() => { timers.delete(timer); reject(failure('timed-out', 'Sound activation timed out. Tap to Enable Sound again.')); }, Math.max(0, deadline - Date.now()));
         timers.set(timer, () => reject(failure('cancelled', 'Audio activation cancelled.')));
       })]);
-      if (disposed || ticket !== generation || target !== context || !visible()) return false;
+      if (disposed || ticket !== generation || target !== context || !visible()) { report('recovery-cancelled', { reason: 'resource-or-visibility-changed' }); return false; }
+      report('resume-resolved', { targetState: target.state });
       if (target.state !== 'running') throw failure(target.state === 'interrupted' ? 'interrupted' : 'blocked', 'Sound is interrupted or requires activation. Tap to Enable Sound again.');
       const start = target.currentTime;
       await delay(Math.min(probeMs, Math.max(0, deadline - Date.now())));
-      if (disposed || ticket !== generation || target !== context || !visible()) return false;
+      if (disposed || ticket !== generation || target !== context || !visible()) { report('recovery-cancelled', { reason: 'resource-or-visibility-changed' }); return false; }
       if (Date.now() >= deadline) throw failure('timed-out', 'Audio readiness check timed out. Tap to Enable Sound again.');
       if (target.state !== 'running') throw failure('interrupted', 'Sound was interrupted. Tap to Enable Sound again.');
+      report('clock-probe', { startTime: start, endTime: target.currentTime, advanced: target.currentTime > start });
       if (!(target.currentTime > start)) throw failure('stalled', 'Audio clock is stalled. Tap to Enable Sound to start a fresh audio session.');
       return true;
     } finally { clearTimeout(timer); timers.delete(timer); }
   }
   const classify = error => error.outcome || (error.name === 'NotAllowedError' ? 'blocked' : 'failed');
   function createContext() {
-    context = new Context();
+    report('context-create-request');
+    try { context = new Context(); }
+    catch (error) { report('context-create-failed', { errorName: error.name, errorMessage: error.message }); throw error; }
     const target = context;
     context.onstatechange = () => {
       if (disposed || target !== context) return;
@@ -107,16 +114,20 @@ export function createSoundEngine(Context, changed = () => {}, {
   }
   function activate(source) {
     const manual = source === 'gesture';
-    if (disposed || !visible()) return Promise.resolve(false);
+    report('recovery-request', { source });
+    if (disposed || !visible()) { report('recovery-skipped', { source, reason: disposed ? 'disposed' : 'page-hidden' }); return Promise.resolve(false); }
     if (activation) {
-      if (!manual || activationSource === 'gesture') return activation;
+      if (!manual || activationSource === 'gesture') { report('recovery-shared', { source }); return activation; }
       // A tap must not wait behind Safari's possibly gesture-blocked automatic resume.
       retire('manual-preempts-recovery');
     }
     if (!manual && (!enabledThisShift || automaticBlocked)) {
-      publish(false); report('recovery-outcome', { source, outcome: 'blocked', reason: 'gesture-required' }); return Promise.resolve(false);
+      publish(false);
+      report('recovery-skipped', { source, reason: !enabledThisShift ? 'missing-prior-activation' : 'failure-latch' });
+      report('manual-activation-required', { source, reason: !enabledThisShift ? 'missing-prior-activation' : 'failure-latch' });
+      return Promise.resolve(false);
     }
-    if (manual) { automaticBlocked = false; notificationEpoch++; notification = null; }
+    if (manual) { automaticBlocked = false; report('failure-latch-reset', { source }); notificationEpoch++; notification = null; }
     if (context && (context.state === 'closed' || manual && !ready())) retire('rebuild');
     const deadline = Date.now() + timeoutMs;
     let ticket = generation;
@@ -141,6 +152,8 @@ export function createSoundEngine(Context, changed = () => {}, {
           retire('resume-failed', true); ticket = generation;
           if (attempt === 0 && hadContext && !['blocked', 'timed-out', 'cancelled'].includes(outcome) && Date.now() < deadline) continue;
           automaticBlocked = true;
+          report('failure-latch-set', { source, outcome });
+          report('manual-activation-required', { source, reason: outcome });
           report('recovery-outcome', { source, outcome });
           if (manual) throw error;
           return false;
@@ -153,7 +166,7 @@ export function createSoundEngine(Context, changed = () => {}, {
   }
   const restore = event => {
     report(event.type, { persisted: !!event.persisted });
-    if (!visible()) return;
+    if (!visible()) { report('recovery-skipped', { source: event.type, reason: 'page-hidden' }); return; }
     // Automatic recovery schedules no tones and obeys the browser's activation policy.
     activate(event.type).catch(() => {});
   };
@@ -173,6 +186,7 @@ export function createSoundEngine(Context, changed = () => {}, {
     enable: () => activate('gesture'),
     play(settings) {
       if (!ready()) { publish(false); report('play-blocked'); return false; }
+      report('play-attempt');
       const { sound, volume } = normalizeAlertSettings(settings);
       try {
         [0, 0.24].forEach((offset, index) => {
@@ -206,7 +220,11 @@ export function createSoundEngine(Context, changed = () => {}, {
       // Reserve immediately, before recovery. IDs stay only in memory and never enter diagnostics.
       const fresh = ids.filter(id => !notified.has(id));
       for (const id of fresh) notified.add(id);
-      if (!fresh.length || disposed || !visible()) return Promise.resolve(false);
+      if (!fresh.length || disposed || !visible()) {
+        report('notification-skipped', { reason: !fresh.length ? 'no-new-notification' : disposed ? 'disposed' : 'page-hidden' });
+        return Promise.resolve(false);
+      }
+      report('notification-request');
       // Preserve the existing one-tone-per-poll-batch behavior, coalescing concurrent batches.
       if (notification) return notification;
       const epoch = notificationEpoch;

@@ -331,3 +331,71 @@ test('failed replacement is bounded, remains single-flight and records interrupt
     } finally { f.engine.close(); }
   }
 });
+
+test('diagnostics distinguish missing activation, restoration timeout and incoming-order latch skips', async () => {
+  const f = audioFixture();
+  try {
+    f.host.dispatchEvent(new Event('pageshow'));
+    assert.ok(f.logs.some(e => e.event === 'recovery-skipped' && e.reason === 'missing-prior-activation'));
+    assert.equal(f.contexts.length, 0);
+    await f.engine.enable(); f.policy.hung = true;
+    f.visibility(true); f.visibility(false);
+    await new Promise(resolve => setTimeout(resolve, 30));
+    assert.ok(f.logs.some(e => e.event === 'failure-latch-set' && e.source === 'foreground' && e.outcome === 'timed-out'));
+    const count = f.contexts.length; delete f.policy.hung;
+    assert.equal(await f.engine.notifyPending(['private-id'], () => ({ volume: .2 })), false);
+    assert.equal(f.contexts.length, count);
+    assert.ok(f.logs.some(e => e.event === 'recovery-skipped' && e.source === 'incoming-order' && e.reason === 'failure-latch'));
+    assert.ok(f.logs.every(e => e.timestamp && e.visibility && e.state && typeof e.enabledThisShift === 'boolean'));
+    assert.equal(JSON.stringify(f.logs).includes('private-id'), false);
+    await f.engine.enable();
+    assert.ok(f.logs.some(e => e.event === 'failure-latch-reset'));
+    assert.equal(await f.engine.notifyPending(['private-id'], () => ({})), false);
+    assert.equal(await f.engine.notifyPending(['fresh-private-id'], () => ({ volume: .2 })), true);
+    assert.ok(f.logs.some(e => e.event === 'play-scheduled' && e.volume === .2));
+  } finally { f.engine.close(); }
+});
+
+test('diagnostics identify context construction failure before resume and cancellation without a latch', async () => {
+  const logs = [], page = new EventTarget(); page.hidden = false;
+  const engine = createSoundEngine(class { constructor() { throw new Error('Construction unavailable'); } }, () => {},
+    { document: page, window: new EventTarget(), log: (event, data) => logs.push({ event, ...data }) });
+  try {
+    await assert.rejects(engine.enable(), /Construction unavailable/);
+    assert.ok(logs.some(e => e.event === 'context-create-failed'));
+    assert.equal(logs.some(e => e.event === 'resume-called'), false);
+  } finally { engine.close(); }
+  const f = audioFixture();
+  try {
+    await f.engine.enable(); f.contexts[0].hung = true;
+    const pending = f.engine.recover(); f.visibility(true);
+    assert.equal(await pending, false);
+    assert.equal(f.logs.some(e => e.event === 'failure-latch-set'), false);
+    f.visibility(false); await f.settle();
+    assert.equal(f.engine.ready(), true);
+    assert.ok(f.logs.some(e => e.event === 'clock-probe' && e.advanced));
+  } finally { f.engine.close(); }
+});
+
+test('diagnostics separate rejected resume from resolved suspended, interrupted and stalled contexts', async () => {
+  for (const [policy, outcome, resolved] of [
+    [{ failure: new DOMException('Denied', 'NotAllowedError') }, 'blocked', false],
+    [{ stuck: true }, 'blocked', true],
+    [{ stuck: true, state: 'interrupted' }, 'interrupted', true],
+    [{ frozen: true }, 'stalled', true],
+  ]) {
+    const f = audioFixture();
+    try {
+      await f.engine.enable(); f.visibility(true); Object.assign(f.policy, policy);
+      const start = f.logs.length;
+      f.visibility(false); await f.settle();
+      const logs = f.logs.slice(start);
+      assert.ok(logs.some(e => e.event === 'resume-called'));
+      assert.equal(logs.some(e => e.event === 'resume-resolved'), resolved);
+      assert.ok(logs.some(e => e.event === 'resume-error' && e.outcome === outcome));
+      assert.ok(logs.some(e => e.event === 'manual-activation-required' && e.reason === outcome));
+      assert.equal(f.engine.ready(), false);
+      assert.equal(f.contexts.at(-1).graphs.length, 0);
+    } finally { f.engine.close(); }
+  }
+});
