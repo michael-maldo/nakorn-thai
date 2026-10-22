@@ -190,8 +190,21 @@ try {
   await waitFor("document.querySelector('.sp-order-card')");
   check(await evaluate("pwaFixture.requests.some(r=>r.path==='/api/identity/login' && r.headers['X-CSRF-TOKEN']==='synthetic')"),'login uses established CSRF contract');
   await evaluate("location.hash='/settings'"); await waitFor("document.querySelector('h1')?.textContent==='Settings'");
+  check(await evaluate(`[...document.querySelectorAll('button')].find(b=>b.textContent==='Copy Diagnostics').disabled`), 'copy disabled before diagnostic snapshot');
   await click('Refresh audio diagnostics');
   check(await evaluate(`(()=>{const data=JSON.parse(document.querySelector('[aria-label="Audio diagnostics"]').value);return data.version && data.entries.length>0 && data.entries.length<=80 && data.entries.every(e=>e.timestamp && e.visibility && e.state)})()`), 'Settings exposes bounded timestamped local audio diagnostics');
+  await evaluate(`window.diagnosticSnapshot=document.querySelector('[aria-label="Audio diagnostics"]').value; window.copiedDiagnostics=[]; Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText(text){window.copiedDiagnostics.push(text); return Promise.resolve()}}})`);
+  check(await evaluate(`[...document.querySelectorAll('button')].find(b=>b.textContent==='Copy Diagnostics').click(); copiedDiagnostics.length===1`), 'clipboard write invoked synchronously within click');
+  await waitFor("document.body.textContent.includes('Diagnostics copied')");
+  check(await evaluate(`copiedDiagnostics.length===1 && copiedDiagnostics[0]===diagnosticSnapshot && document.querySelector('[aria-label="Audio diagnostics"]').value===diagnosticSnapshot`), 'full snapshot copied exactly without refreshing timestamp or entries');
+  await evaluate(`Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText(){return Promise.reject(new DOMException('Denied','NotAllowedError'))}}})`);
+  await click('Copy Diagnostics');
+  await waitFor("document.body.textContent.includes('Could not copy automatically')");
+  await click('Select diagnostic text');
+  check(await evaluate(`(()=>{const t=document.querySelector('[aria-label="Audio diagnostics"]');return t.value===diagnosticSnapshot && t.selectionStart===0 && t.selectionEnd===t.value.length})()`), 'clipboard rejection offers selection of the entire unchanged snapshot');
+  await evaluate(`Object.defineProperty(navigator,'clipboard',{configurable:true,value:undefined})`);
+  await click('Copy Diagnostics');
+  check(await evaluate(`document.body.textContent.includes('Could not copy automatically') && document.querySelector('[aria-label="Audio diagnostics"]').value===diagnosticSnapshot`), 'unavailable clipboard retains actionable manual fallback and unchanged snapshot');
   await click('Sign out'); await waitFor("document.querySelector('.staff-login-page')");
   check(await evaluate("!document.querySelector('.sp-app')"),'logout removes protected workspace');
   // XML parser and mock transport use browser DOMParser, never a real printer.

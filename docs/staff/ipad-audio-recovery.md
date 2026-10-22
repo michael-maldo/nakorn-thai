@@ -197,7 +197,10 @@ On the diagnostic build, after confirming the deployed version:
 
 1. Confirm Settings version. Tap Enable Sound and confirm the test physically.
 2. Lock/unlock; before tapping Enable Sound again, open Settings and tap
-   **Refresh audio diagnostics**. Select/copy the read-only log text. Capture again
+   **Refresh audio diagnostics**, then **Copy Diagnostics**. This copies the full
+   displayed snapshot without refreshing its timestamp or entries. If clipboard access
+   fails, tap **Select diagnostic text**, touch and hold the selection and choose Copy.
+   Copy is disabled until a non-empty snapshot is captured. Capture again
    immediately after a genuinely new order appears, to retain the first failure
    within the 80-entry window. Refresh is a snapshot and does not activate audio.
 3. Look for `engine-created` after unlock (reload/remount), then
