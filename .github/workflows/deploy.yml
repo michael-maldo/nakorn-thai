@@ -7,7 +7,13 @@ on:
       - 'backend/**'
       - 'frontend/**'
       - 'infrastructure/**'
+      - '.github/workflows/deploy.yml'
   workflow_dispatch:
+    inputs:
+      deploy_backend:
+        description: 'Also rebuild and activate the backend'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -39,8 +45,28 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Identify backend changes
+        id: changes
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
+          EVENT_NAME: ${{ github.event_name }}
+          REQUEST_BACKEND: ${{ inputs.deploy_backend || false }}
+        run: |
+          if [ "$EVENT_NAME" = workflow_dispatch ]; then
+            echo "backend=$REQUEST_BACKEND" >> "$GITHUB_OUTPUT"
+          elif ! git cat-file -e "$BEFORE_SHA^{commit}" 2>/dev/null; then
+            echo "backend=true" >> "$GITHUB_OUTPUT"
+          elif git diff --quiet "$BEFORE_SHA" "$GITHUB_SHA" -- backend infrastructure/scripts/activate-backend.sh infrastructure/systemd; then
+            echo "backend=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "backend=true" >> "$GITHUB_OUTPUT"
+          fi
 
       - uses: actions/setup-java@v5
+        if: steps.changes.outputs.backend == 'true'
         with:
           distribution: temurin
           java-version: '21'
@@ -48,6 +74,7 @@ jobs:
           cache-dependency-path: backend/pom.xml
 
       - name: Test and package backend
+        if: steps.changes.outputs.backend == 'true'
         working-directory: backend
         env:
           DB_TEST_URL: jdbc:postgresql://localhost:5432/nakorn_menu_test
@@ -67,12 +94,38 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
 
       - name: Install and build
+        env:
+          VITE_STAFF_EPOS_ENABLED: 'false'
         working-directory: frontend
         run: |
           npm ci --include=optional
           npm test
           npm run build
+          npm run test:staff-pwa-build
           test -s dist/index.html
+
+      - name: Verify staff PWA and existing staff layouts in Chromium
+        working-directory: frontend
+        env:
+          # No production jobs: this build leaves Epson printing disabled.
+          VITE_STAFF_EPOS_ENABLED: 'false'
+        run: |
+          set -euo pipefail
+          npm run dev -- --host 127.0.0.1 --port 5174 > /tmp/nakorn-vite.log 2>&1 &
+          vite_pid=$!
+          google-chrome --headless=new --no-sandbox --disable-dev-shm-usage \
+            --remote-debugging-port=9223 --user-data-dir=/tmp/nakorn-ci-browser about:blank > /tmp/nakorn-chrome.log 2>&1 &
+          chrome_pid=$!
+          npm run preview -- --host 127.0.0.1 --port 5175 > /tmp/nakorn-preview.log 2>&1 &
+          preview_pid=$!
+          trap 'kill "$vite_pid" "$chrome_pid" "$preview_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 40); do
+            if curl -fsS http://127.0.0.1:5174/staff/ >/dev/null && curl -fsS http://127.0.0.1:9223/json/version >/dev/null && curl -fsS http://127.0.0.1:5175/staff/ >/dev/null; then break; fi
+            sleep 1
+          done
+          npm run test:staff-pwa-browser
+          npm run test:staff-layout-browser
+          npm run test:staff-pwa-install-browser
 
       - name: Configure SSH
         env:
@@ -86,6 +139,7 @@ jobs:
           chmod 600 ~/.ssh/id_ed25519 ~/.ssh/known_hosts
 
       - name: Upload and activate backend
+        if: steps.changes.outputs.backend == 'true'
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
         run: |
