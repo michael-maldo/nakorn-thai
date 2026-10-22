@@ -11,13 +11,16 @@ const page = await (await fetch(`${debug}/json/new?about:blank`, { method: 'PUT'
 const ws = new WebSocket(page.webSocketDebuggerUrl);
 await new Promise(resolve => ws.addEventListener('open', resolve, { once: true }));
 let sequence = 0, checks = 0;
-const pending = new Map(), errors = [], results = [];
+const pending = new Map(), errors = [], results = [], audioEvents = [];
 ws.addEventListener('message', event => {
   const message = JSON.parse(event.data);
   if (message.id) {
     const waiter = pending.get(message.id); if (!waiter) return; pending.delete(message.id); clearTimeout(waiter.timeout);
     message.error ? waiter.reject(message.error) : waiter.resolve(message.result);
   } else if (message.method === 'Runtime.exceptionThrown') errors.push(message.params.exceptionDetails);
+  else if (message.method === 'Runtime.consoleAPICalled' && message.params.args[0]?.value === '[Nakorn Staff audio]') {
+    audioEvents.push(message.params.args[1]?.preview?.properties?.find(property => property.name === 'event')?.value);
+  }
 });
 const send = (method, params = {}) => new Promise((resolve, reject) => {
   const id = ++sequence;
@@ -105,6 +108,30 @@ try {
   await waitFor("document.querySelector('h1')?.textContent==='Settings'");
   check(await evaluate("document.body.textContent.includes('Sound not enabled')"),'sound activation indicator');
   await click('Enable Sound'); await waitFor("document.body.textContent.includes('Sound enabled')");
+  // Simulate suspension with a real Chromium visibility transition, not a physical iPad lock.
+  const audioCount = () => audioEvents.filter(event => event === 'context-created').length;
+  const beforeLock = await audioCount();
+  const away = await send('Target.createTarget', {url:'about:blank'});
+  try {
+    await send('Target.activateTarget', {targetId:away.targetId});
+    await waitFor('document.hidden');
+    check(await evaluate("document.querySelector('.sp-sound-status').textContent==='Sound not enabled'"),'hide immediately invalidates audio readiness');
+    await send('Page.bringToFront'); await waitFor('!document.hidden');
+    await waitFor("document.querySelector('.sp-monitor button').textContent==='Tap to Enable Sound'");
+    check(await audioCount()===beforeLock,'restoration waits for a fresh gesture without creating audio');
+    await evaluate("window.dispatchEvent(new PageTransitionEvent('pageshow',{persisted:true})); window.dispatchEvent(new Event('focus'))");
+    check(await evaluate("document.querySelector('.sp-monitor button').textContent==='Tap to Enable Sound'"),'pageshow and focus keep recovery control visible');
+    await click('Tap to Enable Sound'); await waitFor("document.querySelector('.sp-sound-status').textContent==='Sound enabled'");
+    check(audioCount()===beforeLock+1,'unlock gesture creates a fresh AudioContext: '+JSON.stringify(audioEvents));
+    check(await evaluate("!document.querySelector('.sp-alert')"),'unlock does not replay acknowledged pending-order alerts');
+    const plays = audioEvents.filter(event => event === 'play-scheduled').length;
+    await evaluate("pwaFixture.orders.push({...pwaFixture.orders[0],id:'after-unlock',reference:'AFTER-UNLOCK',status:'NEW'});location.hash='/orders'");
+    await waitFor("document.querySelector('.sp-page-heading button') && !document.querySelector('.sp-page-heading button').disabled");
+    await click('↻ Refresh'); await waitFor("document.querySelector('.sp-alert')");
+    check(audioEvents.filter(event => event === 'play-scheduled').length===plays+1,'new incoming order schedules one sound after recovery');
+    await click('↻ Refresh'); await waitFor("!document.querySelector('.sp-page-heading button').disabled");
+    check(audioEvents.filter(event => event === 'play-scheduled').length===plays+1,'repeat polling after recovery remains silent');
+  } finally { await send('Target.closeTarget', {targetId:away.targetId}); }
   await evaluate("location.hash='/printers'"); await waitFor("document.querySelector('h1')?.textContent==='Printer Management'");
   check(await evaluate("[...document.querySelectorAll('button')].find(e=>e.textContent==='Test Print').disabled"),'no unverified printing');
   await nav(810,1080,'BOH');

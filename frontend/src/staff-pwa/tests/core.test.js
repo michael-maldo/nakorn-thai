@@ -20,13 +20,14 @@ test('pending tracker establishes silent baseline, suppresses repeats, survives 
 test('audio activation is explicit and interruptions return visible disabled state', async () => {
   let created = 0, nodes = 0, context, ready;
   class Context {
-    constructor() { created++; context = this; this.state = 'suspended'; this.currentTime = 0; }
+    constructor() { created++; context = this; this.state = 'suspended'; }
+    get currentTime() { return performance.now() / 1000; }
     async resume() { this.state = 'running'; }
     createOscillator() { nodes++; return { frequency: {}, connect() {}, start() {}, stop() {}, disconnect() {} }; }
     createGain() { return { gain: { setValueAtTime() {}, linearRampToValueAtTime() {}, exponentialRampToValueAtTime() {} }, connect() {}, disconnect() {} }; }
     async close() { this.state = 'closed'; }
   }
-  const engine = createSoundEngine(Context, value => { ready = value; });
+  const engine = createSoundEngine(Context, value => { ready = value; }, { log() {}, probeMs: 2 });
   assert.equal(created, 0); assert.equal(engine.play({ volume: 1 }), false);
   await engine.enable(); assert.equal(ready, true); assert.equal(engine.play({ sound: 'chime', volume: .3 }), true); assert.equal(nodes, 2);
   context.state = 'interrupted'; context.onstatechange(); assert.equal(ready, false); assert.equal(engine.play({}), false);
@@ -112,4 +113,109 @@ test('Android detailed docket sections wrap to 58/80mm and ePOS preserves hierar
   }
   const review = docketText({ ...sample, paymentReviewRequired: true }, 'detailed');
   assert.match(review, /Financial review/);
+});
+
+function audioFixture(overrides = {}) {
+  const page = new EventTarget(), host = new EventTarget(), contexts = [], logs = [], changes = [];
+  page.hidden = false; page.visibilityState = 'visible';
+  class Context {
+    constructor() { this.state = 'suspended'; this.frozen = false; this.graphs = []; this.resumes = 0; this.closed = 0; contexts.push(this); }
+    get currentTime() { return this.frozen ? 0 : performance.now() / 1000; }
+    resume() { this.resumes++; if (this.failure) return Promise.reject(this.failure); if (this.hung) return new Promise(() => {}); if (!this.stuck) this.state = 'running'; return Promise.resolve(); }
+    close() { this.closed++; this.state = 'closed'; return Promise.resolve(); }
+    createOscillator() {
+      if (this.playError) throw new DOMException('Audio resource invalid', 'InvalidStateError');
+      const node = { frequency: {}, connect() {}, start() {}, stops: 0, stop() { this.stops++; }, disconnect() {} }; this.graphs.push(node); return node;
+    }
+    createGain() { return { gain: { setValueAtTime() {}, linearRampToValueAtTime(value) { this.volume = value; }, exponentialRampToValueAtTime() {} }, connect() {}, disconnect() {} }; }
+  }
+  const engine = createSoundEngine(Context, ready => changes.push(ready), { document: page, window: host, log: (event, data) => logs.push({ event, ...data }), probeMs: 2, timeoutMs: 15, ...overrides });
+  const visibility = hidden => { page.hidden = hidden; page.visibilityState = hidden ? 'hidden' : 'visible'; page.dispatchEvent(new Event('visibilitychange')); };
+  const settle = () => new Promise(resolve => setTimeout(resolve, 8));
+  return { engine, contexts, logs, changes, page, host, visibility, settle };
+}
+test('lock/unlock retires even a running context and requires a new tap, preserving pending deduplication and settings', async () => {
+  const f = audioFixture(), tracker = createPendingTracker(), settings = { sound: 'chime', volume: .35 };
+  try {
+    tracker.accept([{ id: 'baseline', status: 'NEW' }]);
+    await f.engine.enable(); const original = f.contexts[0]; assert.equal(f.engine.play(settings), true);
+    f.visibility(true); assert.equal(original.closed, 1); assert.equal(f.engine.ready(), false);
+    assert.ok(original.graphs.every(node => node.stops === 2));
+    f.visibility(false); f.host.dispatchEvent(new Event('pageshow')); f.host.dispatchEvent(new Event('focus'));
+    assert.equal(f.contexts.length, 1); assert.equal(f.engine.play(settings), false);
+    assert.equal(tracker.accept([{ id: 'baseline', status: 'NEW' }]).arrived, false);
+    await f.engine.enable(); assert.equal(f.contexts.length, 2); assert.equal(f.engine.play(settings), true);
+    assert.deepEqual(settings, { sound: 'chime', volume: .35 });
+    assert.ok(f.logs.some(entry => entry.event === 'play-scheduled' && entry.volume === .35 && entry.sound === 'chime'));
+    assert.equal(tracker.accept([{ id: 'new', status: 'NEW' }]).arrived, true);
+    assert.equal(tracker.accept([{ id: 'new', status: 'NEW' }]).arrived, false);
+  } finally { f.engine.close(); }
+});
+test('pageshow and focus recover an existing suspended context without recreating or playing a tone', async () => {
+  const f = audioFixture();
+  try {
+    await f.engine.enable(); const context = f.contexts[0]; context.state = 'suspended'; context.onstatechange();
+    f.host.dispatchEvent(new Event('pageshow')); f.host.dispatchEvent(new Event('focus')); await f.settle();
+    assert.equal(f.engine.ready(), true); assert.equal(context.resumes, 2); assert.equal(context.graphs.length, 0);
+    context.state = 'interrupted'; context.onstatechange(); f.host.dispatchEvent(new Event('focus')); await f.settle();
+    assert.equal(f.engine.ready(), true); assert.equal(f.contexts.length, 1);
+  } finally { f.engine.close(); }
+});
+test('stuck interruption and running-but-frozen clock invalidate resources and can rebuild on the next tap', async () => {
+  for (const mode of ['interrupted', 'frozen', 'closed']) {
+    const f = audioFixture();
+    try {
+      await f.engine.enable(); const context = f.contexts[0];
+      if (mode === 'frozen') context.frozen = true;
+      else { context.state = mode; context.stuck = true; context.onstatechange(); }
+      f.host.dispatchEvent(new Event('focus')); await f.settle();
+      assert.equal(f.engine.ready(), false, mode); assert.equal(context.closed, 1);
+      await f.engine.enable(); assert.equal(f.engine.ready(), true); assert.equal(f.contexts.length, 2);
+      assert.ok(f.logs.some(entry => entry.event === 'resume-error'));
+    } finally { f.engine.close(); }
+  }
+});
+test('playback failures and frozen clock after playback clear readiness and log the cause', async () => {
+  for (const mode of ['playError', 'frozen']) {
+    const f = audioFixture();
+    try {
+      await f.engine.enable(); f.contexts[0][mode] = true;
+      const scheduled = f.engine.play({ volume: .2 });
+      if (mode === 'playError') assert.equal(scheduled, false);
+      await f.settle(); assert.equal(f.engine.ready(), false);
+      assert.ok(f.logs.some(entry => entry.event === (mode === 'playError' ? 'play-error' : 'play-clock-stalled')));
+    } finally { f.engine.close(); }
+  }
+});
+test('blocked and timed-out resume expose failure and do not leave activation stuck', async () => {
+  for (const mode of ['failure', 'hung']) {
+    const f = audioFixture();
+    try {
+      await f.engine.enable(); const context = f.contexts[0];
+      context[mode] = mode === 'failure' ? new DOMException('Gesture required', 'NotAllowedError') : true;
+      f.host.dispatchEvent(new Event('focus')); await new Promise(resolve => setTimeout(resolve, 25));
+      assert.equal(f.engine.ready(), false); assert.equal(context.closed, 1);
+      assert.ok(f.logs.some(entry => entry.event === 'resume-error'));
+      await f.engine.enable(); assert.equal(f.engine.ready(), true);
+    } finally { f.engine.close(); }
+  }
+});
+test('hide during activation or BFCache pagehide prevents late promises from re-enabling stale audio', async () => {
+  const f = audioFixture();
+  const first = f.engine.enable(); f.visibility(true);
+  assert.equal(await first, false); f.visibility(false);
+  await f.engine.enable(); const original = f.contexts.at(-1);
+  const hide = new Event('pagehide'); Object.defineProperty(hide, 'persisted', { value: true }); f.host.dispatchEvent(hide);
+  f.host.dispatchEvent(new Event('pageshow')); assert.equal(f.engine.ready(), false); assert.equal(original.closed, 1);
+  await f.engine.enable(); const count = f.logs.length; f.engine.close();
+  const closedCount = f.contexts.length; f.visibility(true); f.host.dispatchEvent(new Event('focus')); await f.settle();
+  assert.equal(f.contexts.length, closedCount); assert.equal(f.logs.length, count + 1); assert.equal(f.engine.ready(), false);
+});
+test('concurrent enable taps share one activation; hidden pages never create audio', async () => {
+  const f = audioFixture();
+  try {
+    f.visibility(true); assert.equal(await f.engine.enable(), false); assert.equal(f.contexts.length, 0);
+    f.visibility(false); const first = f.engine.enable(), second = f.engine.enable();
+    assert.equal(first, second); await first; assert.equal(f.contexts.length, 1); assert.equal(f.contexts[0].resumes, 1);
+  } finally { f.engine.close(); }
 });
