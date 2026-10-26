@@ -1,3 +1,4 @@
+import PageAction from '../../../components/PageAction';
 import { StaffPageHeading } from '../../staff/components/StaffPresentation';
 import { useEffect, useState } from 'react';
 import { useAuth } from '../../identity/model/AuthContext';
@@ -41,7 +42,7 @@ export default function HomepageSettingsPage() {
     });
   }
   return <main className="staff-menu page-width">
-    <StaffPageHeading title="Home page" actions={<button type="button" disabled={busy} aria-busy={busy || undefined} onClick={reload}>Refresh settings</button>} />
+    <StaffPageHeading title="Home page" actions={<PageAction><button type="button" disabled={busy} aria-busy={busy || undefined} onClick={reload}>Refresh settings</button></PageAction>} />
     {error && <p role="alert" className="staff-error">{error}</p>}
     {notice && <p role="status">{notice}</p>}
     {!settings && !error && <p role="status">Loading home page settings…</p>}

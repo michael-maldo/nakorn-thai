@@ -1,3 +1,4 @@
+import PageAction from '../../../components/PageAction';
 import { StaffPageHeading } from '../components/StaffPresentation';
 import { useEffect, useState } from 'react';
 import { useAuth } from '../../identity/model/AuthContext';
@@ -51,7 +52,7 @@ export default function FunctionEnquiriesPage() {
       <label>Status<select value={status} disabled={busy} onChange={(event) => { setStatus(event.target.value); setPage(0); setNotice(''); }}>
         {['ALL', ...statuses].map((value) => <option key={value}>{value}</option>)}
       </select></label>
-      <button disabled={busy} onClick={() => setReload((value) => value + 1)}>Refresh enquiries</button>
+      <PageAction><button disabled={busy} onClick={() => setReload((value) => value + 1)}>Refresh enquiries</button></PageAction>
     </div>
     {error && <p className="staff-error" role="alert">{error}</p>}
     {notice && <p role="status">{notice}</p>}

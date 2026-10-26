@@ -1,3 +1,4 @@
+import PageAction from '../../../components/PageAction';
 import { StaffPageHeading } from '../../staff/components/StaffPresentation';
 import { useAuth } from '../../identity/model/AuthContext';
 import { useEffect, useState } from 'react';
@@ -32,7 +33,7 @@ export default function OnlineOrderingPage() {
     } catch (e) { setError(e.message); } finally { setBusy(false); }
   }
   return <main className="staff-menu page-width">
-    <StaffPageHeading title="Online ordering" actions={<button type="button" disabled={busy} aria-busy={busy || undefined} onClick={reload}>Refresh status</button>} />
+    <StaffPageHeading title="Online ordering" actions={<PageAction><button type="button" disabled={busy} aria-busy={busy || undefined} onClick={reload}>Refresh status</button></PageAction>} />
     {error && <p role="alert" className="staff-error">{error}</p>}
     {notice && <p role="status">{notice}</p>}{busy && <p role="status">Updating ordering status…</p>}
     {settings && <>

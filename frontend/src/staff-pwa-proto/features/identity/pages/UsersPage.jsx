@@ -1,3 +1,4 @@
+import PageAction from '../../../components/PageAction';
 import { StaffPageHeading } from '../../staff/components/StaffPresentation';
 import { useEffect, useState } from 'react';
 import { usersRequest } from '../api/identityApi';
@@ -15,7 +16,7 @@ export default function UsersPage() {
   }
   return <main className="staff-menu page-width"><StaffPageHeading title="Staff accounts" />
     {error && <p role="alert" className="staff-error">{error}</p>}{notice && <p role="status">{notice}</p>}
-    <div className="staff-toolbar"><button disabled={busy} onClick={() => {setDraft({username:'',role:'FOH',password:''});setError('');}}>Add staff account</button><button disabled={busy} onClick={reload}>Reload accounts</button></div>
+    <div className="staff-toolbar"><button disabled={busy} onClick={() => {setDraft({username:'',role:'FOH',password:''});setError('');}}>Add staff account</button><PageAction><button disabled={busy} onClick={reload}>Reload accounts</button></PageAction></div>
     {draft && <form className="staff-panel" onSubmit={save}><h2>{draft.id ? 'Edit account' : 'New account'}</h2><fieldset disabled={busy}>
       <label>Username<input required minLength={3} maxLength={50} pattern="[a-z0-9][a-z0-9._\-]{2,49}" disabled={!!draft.id} autoComplete="off" value={draft.username} onChange={(e)=>setDraft({...draft,username:e.target.value})} /></label>
       <label>Role<select value={draft.role} onChange={(e)=>setDraft({...draft,role:e.target.value})}><option value="FOH">Front of house</option><option value="BOH">Kitchen</option><option value="ADMIN">Administrator</option></select></label>

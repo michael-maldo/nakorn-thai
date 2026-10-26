@@ -1,3 +1,4 @@
+import PageAction from '../../../components/PageAction';
 import { StaffPageHeading, StaffNotice, StaffLoading } from '../../staff/components/StaffPresentation';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { staffIdentityContext } from '../../identity/api/identityApi';
@@ -247,7 +248,7 @@ function OrdersWorkspace({ linked }) {
         setRead({ status: 'loading', error: '', loaded: false });
       }}><option value="active">Active orders</option><option value="history">History (placed in the last 24 hours)</option></select></label>}
       {!linked.orderId && <label>Status <select value={filter} onChange={event => setFilter(event.target.value)}><option value="ALL">All states</option>{states.map(state => <option key={state} value={state}>{orderStates[state]} ({current.filter(({ order }) => order.status === state).length})</option>)}</select></label>}
-      <button type="button" disabled={read.status === 'loading' || !!Object.keys(savingIds).length} onClick={() => loadRef.current()}>Refresh</button>
+      <PageAction><button type="button" disabled={read.status === 'loading' || !!Object.keys(savingIds).length} onClick={() => loadRef.current()}>Refresh</button></PageAction>
     </div>
     <p>Refreshes every 15 seconds. Times shown in Melbourne time.</p>
     {!kitchen && <PaymentReviewPanel key={authorization} authorization={authorization} />}
