@@ -1,3 +1,4 @@
+import PrinterSettings from '../../../../shared/staff-orders/printing/PrinterSettings';
 import PageAction from '../../../components/PageAction';
 import { StaffPageHeading, StaffUnsavedIndicator } from '../../staff/components/StaffPresentation';
 import {useEffect,useRef,useState} from 'react';
@@ -14,7 +15,8 @@ const businessSettingGroups=[
  ['Reservation notifications',['reservationSms','reservationEmail','staffReservationEmail','staffReservationEmailAddress']],
  ['Payment methods',['paypalEnabled','payidEnabled','payAtRestaurantEnabled']]
 ];
-export default function IntegrationSettingsPage(){
+export default function IntegrationSettingsPage({orders}){
+ const [printingOpen,setPrintingOpen]=useState(false);
  const [configuration,setConfiguration]=useState(null),[category,setCategory]=useState('SETTINGS'),[fields,setFields]=useState({}),[secrets,setSecrets]=useState({}),[replace,setReplace]=useState({}),[clear,setClear]=useState([]),[audit,setAudit]=useState([]),[recipient,setRecipient]=useState('');
  const [busy,setBusy]=useState(true),[error,setError]=useState(''),[notice,setNotice]=useState(''),[auditError,setAuditError]=useState(''),[activity,setActivity]=useState('refresh');
  const request=useRef(null), drafts=useRef({}), dialog=useRef(null), previousFocus=useRef(null), pendingConfirmation=useRef(null);
@@ -81,6 +83,7 @@ export default function IntegrationSettingsPage(){
  function renderField(key,label){return <label key={key}>{booleanFields.has(key)?<span className="configuration-checkbox"><input name={key} type="checkbox" checked={fields[key]==='true'} onChange={e=>setFields({...fields,[key]:String(e.target.checked)})}/><span>{label}</span></span>:<>{label}{key==='environment'?<select name={key} value={fields[key]} onChange={e=>setFields({...fields,[key]:e.target.value})}><option value="sandbox">Sandbox</option><option value="live">Live</option></select>:<input name={key} type={key==='businessWebsiteUrl'?'url':['staffOrderEmailAddress','staffReservationEmailAddress'].includes(key)?'email':key==='port'?'number':'text'} required={(key==='staffOrderEmailAddress'&&fields.staffOrderEmail==='true')||(key==='staffReservationEmailAddress'&&fields.staffReservationEmail==='true')} min={key==='port'?1:undefined} max={key==='port'?65535:undefined} maxLength={500} value={fields[key]??''} onChange={e=>setFields({...fields,[key]:e.target.value})}/>}</>}{key==='businessWebsiteUrl'&&<small>Use your trusted application website, such as https://nakorn.com.au. Leave blank to use PUBLIC_APP_URL. HTTPS is required in production.</small>}<small>Source: {row.sources[key]==='DASHBOARD'?'Dashboard managed':'Environment/default supplied'}</small></label>;}
  return <main className="staff-menu page-width"><StaffPageHeading title="Settings and integrations" actions={<PageAction><button disabled={busy} aria-busy={busy || undefined} onClick={()=>refresh()}>Refresh configuration</button></PageAction>} />
  <p>ADMIN controls restaurant operations and integrations. Configured, enabled and tested are separate states. Secrets are write-only.</p>
+ <details className="staff-panel shared-staff-orders" onToggle={event=>setPrintingOpen(event.currentTarget.open)}><summary>Printing</summary><p>This printer profile belongs to this application on this browser/device. It is the same profile used by Device settings, not restaurant-wide backend configuration.</p>{printingOpen&&<PrinterSettings config={orders.config} printer={orders.printer} onSave={orders.savePrinter}/>}</details>
  <StaffUnsavedIndicator dirty={dirty} />
  {error&&<p className="staff-error" role="alert">{error}</p>}{notice&&<p role="status">{notice}</p>}
  {configuration&&<><section className="staff-panel"><h2>Integrations overview</h2><nav className="staff-section-navigation" aria-label="Configuration sections">{Object.entries(definitions).map(([key,d])=><button type="button" disabled={busy} aria-pressed={key===category} key={key} onClick={()=>choose(key)}>{d.label}</button>)}</nav><dl className="staff-integration-summary">{Object.entries(definitions).filter(([key])=>key!=='SETTINGS').map(([key,d])=><div key={key}><dt>{d.label}</dt><dd>{configuration[key].state.replaceAll('_',' ')} · {configuration[key].validationStatus.replaceAll('_',' ')}</dd></div>)}</dl></section>

@@ -43,6 +43,13 @@ class WorkflowRoutingTests(unittest.TestCase):
         for path in ('frontend/package.json', 'frontend/package-lock.json', 'frontend/src/assets/images/signature-green-curry.jpg', 'frontend/tests/e2e/staffIdentityFixtures.mjs', 'frontend/tests/e2e/staffLayoutFixtures.mjs'):
             self.assertTrue(matches(new, path), path)
 
+    def test_shared_orders_changes_trigger_both_frontend_workflows(self):
+        old = patterns('deploy.yml')
+        new = patterns('deploy-staff-pwa-proto.yml')
+        for path in ('frontend/src/shared/staff-orders/audio/alerts.js', 'frontend/src/shared/staff-orders/components/OrderDetails.jsx', 'frontend/src/domains/ordering/components/OrderItemOptions.jsx', 'frontend/src/domains/staff/components/StaffPresentation.jsx'):
+            self.assertTrue(matches(old, path), path)
+            self.assertTrue(matches(new, path), path)
+
     def test_no_shared_deployment_or_service_actions_in_dedicated_job(self):
         workflow = (ROOT / '.github/workflows/deploy-staff-pwa-proto.yml').read_text()
         self.assertIn('group: staff-pwa-proto-deploy', workflow)

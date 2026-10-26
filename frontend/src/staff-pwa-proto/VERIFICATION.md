@@ -98,3 +98,8 @@ local release trees with injected failures, not by disrupting the live applicati
 An actual GitHub Actions execution is not claimed: the workflow must first be
 published to main. Its first matching push will deploy only the prototype; it can
 also be run manually on main. No commit/push is part of these local validation results.
+
+
+## Shared Orders extraction
+
+The prototype now consumes the original Staff PWA operational Orders implementation through `src/shared/staff-orders`. See [architecture, parity, validation and CI/CD impact](../shared/staff-orders/README.md). Both shells retain independent routing, authentication adapters, preferences, manifests and workers. Coordinated release through the existing GitHub Actions workflows is approved; local validation is documented in the linked report.

@@ -88,3 +88,8 @@ UTF-8 password byte limit, timezone scheduling, notification delivery and image
 pixel limits); real provider calls; physical iPad Safari and Android tablet testing;
 OS installation/update and browser-specific keyboard behavior. No live mutation
 or hardware/provider integration tests were performed.
+
+
+## Shared Orders extraction
+
+The prototype now consumes the original Staff PWA operational Orders implementation through `src/shared/staff-orders`. See [architecture, parity, validation and CI/CD impact](../shared/staff-orders/README.md). Both shells retain independent routing, authentication adapters, preferences, manifests and workers. Coordinated release through the existing GitHub Actions workflows is approved; local validation is documented in the linked report.

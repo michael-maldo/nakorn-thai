@@ -17,7 +17,7 @@ test('all Staff Web destinations are independently routed and role restricted',(
  assert.equal(canAccess('#/staff/ordering','FOH'),false);
  assert.deepEqual(visibleRoutes('BOH').map(x=>x.label),['Home','Orders']);
 });
-test('protected workflow source files match the read-only inventory baseline',()=>{
+test('workflow source fingerprints match the reviewed shared-Orders extraction baseline',()=>{
  const baseline=JSON.parse(readFileSync(resolve(local,'tests/source-baseline.json')));
  for(const [path,hash] of Object.entries(baseline))assert.equal(createHash('sha256').update(readFileSync(resolve(root,'frontend/src',path))).digest('hex'),hash,path);
 });
@@ -44,7 +44,7 @@ test('prototype never imports protected order, audio, worker or printer componen
   const text=readFileSync(path,'utf8');assert.doesNotMatch(text,/from ['"][^'"]*\/staff-pwa\//,path);assert.doesNotMatch(text,/epos|createSoundEngine|registerStaffWorker/,path);
  }
 });
-test('protected PWA, Android, Web shell and styles retain byte-for-byte fingerprints',()=>{
+test('PWA extraction baseline and untouched Android, Web shell and styles retain reviewed fingerprints',()=>{
  const baseline=JSON.parse(readFileSync(resolve(local,'tests/protected-baseline.json')));
  for(const [path,hash] of Object.entries(baseline))assert.equal(createHash('sha256').update(readFileSync(resolve(root,path))).digest('hex'),hash,path);
 });

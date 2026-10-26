@@ -66,7 +66,7 @@ export function installPrototypeFixtures(staffSessionFixture, installStaffLayout
     const group=fixture.groups.find(g=>g.group.id===groupId);const optionId=parts[7],resource={id:optionId||'shared-new',version:(body.version||0)+1,data:body};const index=group.options.findIndex(o=>o.id===optionId);if(index<0)group.options.push(resource);else group.options[index]=resource;return ok(resource);
    }
    if(path.startsWith('/api/staff/menu/items')){if(method==='DELETE'){item.status='ARCHIVED';item.version++;return no();}if(method==='POST'){const value={...body,id:'created-item',version:1};menu.items.push(value);return ok({id:value.id});}Object.assign(item,body,{version:item.version+1});return no();}
-   if(path.startsWith('/api/staff/orders/')&&path.endsWith('/status')){Object.assign(fixture.orders[0],body,{version:fixture.orders[0].version+1});return no();}
+   if(path.startsWith('/api/staff/orders/')&&path.endsWith('/status')){Object.assign(fixture.orders.find(o=>o.id===path.split('/')[4]),body,{version:fixture.orders.find(o=>o.id===path.split('/')[4]).version+1});return no();}
    if(path.startsWith('/api/staff/payments/')){fixture.orders[0].paidAt=new Date().toISOString();return ok({paid:true});}
    throw Error('Unhandled prototype mutation '+method+' '+path);
   }

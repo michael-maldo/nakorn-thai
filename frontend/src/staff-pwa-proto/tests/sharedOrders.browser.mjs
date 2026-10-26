@@ -1,0 +1,33 @@
+import assert from 'node:assert/strict';
+import {browser} from './browserHarness.mjs';
+import {installPrototypeFixtures} from './prototypeFixtures.mjs';
+import {staffSessionFixture} from '../../../tests/e2e/staffIdentityFixtures.mjs';
+import {installStaffLayoutFixtures} from '../../../tests/e2e/staffLayoutFixtures.mjs';
+const b=await browser(),{send,evaluate,waitFor,click,field,frame}=b;
+const base=process.env.PROTO_TEST_URL||'http://127.0.0.1:5175/staff-pwa-proto/';
+const reads=()=>evaluate("fixture.requests.filter(r=>r.url.includes('/orders?history=false')).length");
+const open=async(ref='NT-PROTO')=>{await evaluate(`(()=>{const card=[...document.querySelectorAll('.sp-order-card')].find(b=>b.textContent.includes(${JSON.stringify(ref)}));card.click();})()`);await waitFor("document.querySelector('dialog .staff-order-card')");};
+try{
+ await send('Page.addScriptToEvaluateOnNewDocument',{source:`(${installPrototypeFixtures.toString()})(${staffSessionFixture.toString()},${installStaffLayoutFixtures.toString()});
+ const timer=window.setTimeout;window.setTimeout=(fn,ms,...args)=>{if(ms===10000){const id=timer(fn,600000,...args);window.orderPoll=()=>{clearTimeout(id);fn(...args);};return id;}return timer(fn,ms,...args);};`});
+ await send('Emulation.setDeviceMetricsOverride',{width:1360,height:1000,deviceScaleFactor:1,mobile:false});
+ await send('Page.navigate',{url:base+'#/staff/orders'});await waitFor("document.querySelector('.sp-order-card')&&!document.querySelector('.proto-action-bar button').disabled");
+ assert.equal(await evaluate("document.querySelectorAll('.sp-column').length"),4);
+ await evaluate("window.audioLog=()=>import('/src/shared/staff-orders/audio/alerts.js').then(m=>m.readAudioDiagnostics())");
+ const initial=await reads();await evaluate('orderPoll();orderPoll()');await waitFor(`fixture.requests.filter(r=>r.url.includes('/orders?history=false')).length===${initial+1}`);await frame();assert.equal(await reads(),initial+1);
+ assert.equal(await evaluate("getComputedStyle(document.querySelector('.sp-summary.sp-NEW')).color"),'rgb(128, 82, 0)');
+ await click('Tap to Enable Sound');await waitFor("document.body.innerText.includes('Sound enabled')");
+ const plays=await evaluate("audioLog().then(rows=>rows.filter(r=>r.event==='play-scheduled').length)");
+ await evaluate("fixture.orders.push({...fixture.orders[0],id:'22222222-2222-4222-8222-222222222222',reference:'SECOND'});orderPoll()");await waitFor("document.body.innerText.includes('1 new pending order')");await waitFor(`audioLog().then(rows=>rows.filter(r=>r.event==='play-scheduled').length===${plays+1})`);
+ await evaluate('orderPoll();orderPoll()');await frame();assert.equal(await evaluate("audioLog().then(rows=>rows.filter(r=>r.event==='play-scheduled').length)"),plays+1);await click('Acknowledge');
+ await open();await click('Accept order');await field('Ready for pickup in','25');await click('Close dialog');
+ await open('SECOND');await click('Accept order');await field('Ready for pickup in','30');await click('Close dialog');
+ assert.equal(await evaluate("[...document.querySelectorAll('button')].filter(b=>b.textContent==='Resume order draft').length"),2);
+ await click('Refresh');await waitFor("!document.querySelector('.proto-action-bar button').disabled");await open();assert.equal(await evaluate("document.querySelector('[name=pickupMinutes]').value"),'25');await click('Close dialog');
+ await evaluate('fixture.orders[0].version=2');await click('Refresh');await waitFor("!document.querySelector('.proto-action-bar button').disabled");await open();await waitFor("document.body.innerText.includes('Order changed since this status draft began')");assert.equal(await evaluate("[...document.querySelectorAll('dialog button')].find(b=>b.textContent==='Confirm accept order').disabled"),true);
+ await click('Reload order / discard drafts');await waitFor("!document.querySelector('[name=pickupMinutes]')");await click('Accept order');
+ await evaluate("fixture.holdWrites=true;const form=document.querySelector('dialog form.staff-order-action');form.requestSubmit();form.requestSubmit()");await waitFor('fixture.releaseWrite');assert.equal(await evaluate('fixture.writes.length'),1);assert.equal(await evaluate('fixture.writes[0].body.version'),2);await evaluate('fixture.holdWrites=false;fixture.releaseWrite()');await waitFor("document.body.innerText.includes('Server confirmed the update.')");await click('Close dialog');
+ await open('SECOND');assert.equal(await evaluate("document.querySelector('[name=pickupMinutes]').value"),'30');await click('Close dialog');
+ await click('Device settings');await waitFor("document.body.innerText.includes('Printer Management')");assert.equal(await evaluate("[...document.querySelectorAll('button')].find(b=>b.textContent==='Test Print').disabled"),true);await field('Alert sound','chime');await click('Refresh audio diagnostics');await waitFor("document.querySelector('[aria-label=\"Audio diagnostics\"]')");assert.equal(await evaluate("document.querySelector('[aria-label=\"Audio diagnostics\"]').value.includes('play-scheduled')"),true);await click('Close dialog');
+ assert.deepEqual(b.errors,[]);console.log('PASS: shared Orders: one poll per cycle, sound activation/dedup, two retained drafts, refresh/version conflict/discard, one mutation, independent device controls and disabled printing.');
+}finally{await b.close();}

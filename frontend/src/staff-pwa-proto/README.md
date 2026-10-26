@@ -148,3 +148,8 @@ been certified. No production data, provider credentials or hardware was used.
 
 The original manual release remains independent. Dedicated CI/CD now handles
 prototype-only pushes and manual dispatch without publishing other applications.
+
+
+## Shared Orders extraction
+
+The prototype now consumes the original Staff PWA operational Orders implementation through `src/shared/staff-orders`. See [architecture, parity, validation and CI/CD impact](../shared/staff-orders/README.md). Both shells retain independent routing, authentication adapters, preferences, manifests and workers. Coordinated release through the existing GitHub Actions workflows is approved; local validation is documented in the linked report.

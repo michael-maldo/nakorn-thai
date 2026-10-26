@@ -5,6 +5,13 @@ on:
     branches: [main]
     paths:
       - 'frontend/src/staff-pwa-proto/**'
+      - 'frontend/src/shared/staff-orders/**'
+      - 'frontend/src/domains/ordering/components/OrderItemOptions.jsx'
+      - 'frontend/src/domains/ordering/model/cartReducer.js'
+      - 'frontend/src/domains/ordering/model/cartModel.js'
+      - 'frontend/src/domains/menu/model/menuOptions.js'
+      - 'frontend/src/domains/staff/components/StaffPresentation.jsx'
+      - 'frontend/src/staff-pwa/tests/core.test.js'
       - 'frontend/staff-pwa-proto/**'
       - 'frontend/vite.proto.config.js'
       - 'frontend/package.json'

@@ -177,8 +177,8 @@ try {
   check(await evaluate("!document.querySelector('dialog').textContent.includes('Cancel order')"),'BOH cannot cancel');
   await evaluate("document.querySelector('[aria-label=\"Close dialog\"]').click()");
 
-  await evaluate("location.hash='/printers'"); await waitFor("document.querySelector('h1')?.textContent==='Access restricted'");
-  check(true,'printer role restriction');
+  await evaluate("location.hash='/printers'"); await waitFor("document.querySelector('h1')?.textContent==='Printer Management'");
+  check(await evaluate("[...document.querySelectorAll('button')].find(b=>b.textContent==='Test Print').disabled"),'BOH device printer settings retain disabled hardware gate');
   await nav(1080,810,'FOH');
   await evaluate("document.querySelector('.sp-order-card').click()"); await waitFor("document.querySelector('dialog .staff-order-card')");
   check(await evaluate("document.querySelector('dialog').textContent.includes('Accept order')"),'FOH may accept');

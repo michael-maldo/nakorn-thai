@@ -141,3 +141,8 @@ Nginx include, release/rollback instructions and a non-destructive live smoke te
 - `frontend/src/staff-pwa-proto/deploy/test_workflow_routing.py`: prototype-only/shared dependency/original application trigger-isolation checks.
 - `frontend/src/staff-pwa-proto/deploy/.gitignore`: ignores Python test bytecode.
 - `DEPLOYMENT.md`, `README.md`, `tests/README.md`, `VERIFICATION.md`: automated release operation, security, rollback and validation instructions/results.
+
+
+## Shared Orders extraction
+
+The prototype now consumes the original Staff PWA operational Orders implementation through `src/shared/staff-orders`. See [architecture, parity, validation and CI/CD impact](../shared/staff-orders/README.md). Both shells retain independent routing, authentication adapters, preferences, manifests and workers. Coordinated release through the existing GitHub Actions workflows is approved; local validation is documented in the linked report.
