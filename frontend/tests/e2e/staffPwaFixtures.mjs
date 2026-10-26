@@ -19,7 +19,7 @@ export function installPwaFixtures(sessionFactory) {
     if (state.expire) return Response.json({message:'Session expired'},{status:401});
     if (path.startsWith('/api/staff/foh/orders') || path === '/api/staff/kitchen/orders') {
       if (state.queueError) throw new TypeError('Synthetic offline');
-      return Response.json(state.orders.filter(order => role !== 'BOH' || order.status !== 'NEW').map(order => role !== 'BOH' ? order : { ...order, customerName:null,phone:null,email:null,paymentReference:null,totalMinor:0,paymentMethod:null }));
+      return Response.json(state.orders.map(order => role !== 'BOH' ? order : { ...order, customerName:null,phone:null,email:null,paymentReference:null }));
     }
     if (path.endsWith('/status')) {
       const id = path.split('/')[4], order = state.orders.find(order => order.id === id), command = JSON.parse(options.body);
@@ -31,7 +31,7 @@ export function installPwaFixtures(sessionFactory) {
     }
     if (path.startsWith('/api/staff/orders/')) {
       const order = state.orders.find(order => order.id === path.split('/')[4]);
-      if (role === 'BOH') return Response.json({ ...order, customerName:null,phone:null,email:null,paymentReference:null,totalMinor:0,paymentMethod:null });
+      if (role === 'BOH') return Response.json({ ...order, customerName:null,phone:null,email:null,paymentReference:null });
       return Response.json(order);
     }
     if (path.startsWith('/api/staff/reservations')) return Response.json([]);

@@ -76,14 +76,13 @@ public final class Order {
   }
 
   public List<String> actions(String role) {
-    boolean front = "ADMIN".equals(role) || "FOH".equals(role),
-        kitchen = "ADMIN".equals(role) || "BOH".equals(role);
+    boolean staff = "ADMIN".equals(role) || "FOH".equals(role) || "BOH".equals(role);
     List<String> actions = new ArrayList<>();
-    if (front && "NEW".equals(status)) actions.add("ACCEPTED");
-    if (kitchen && "ACCEPTED".equals(status)) actions.add("PREPARING");
-    if (kitchen && "PREPARING".equals(status)) actions.add("READY");
-    if (front && "READY".equals(status)) actions.add("COMPLETED");
-    if (front && Arrays.asList("NEW", "ACCEPTED", "PREPARING", "READY").contains(status))
+    if (staff && "NEW".equals(status)) actions.add("ACCEPTED");
+    if (staff && "ACCEPTED".equals(status)) actions.add("PREPARING");
+    if (staff && "PREPARING".equals(status)) actions.add("READY");
+    if (staff && "READY".equals(status)) actions.add("COMPLETED");
+    if ("ADMIN".equals(role) && Arrays.asList("NEW", "ACCEPTED", "PREPARING", "READY").contains(status))
       actions.add("CANCELLED");
     return actions;
   }

@@ -35,6 +35,7 @@ export function StaffOrderCard({ order, role, busy, onAction, onPayment, drafts 
     {order.notes && <p className="staff-order-notes"><strong>Customer notes:</strong> {order.notes}</p>}
     {order.cancellationReason && <p>Cancellation: {order.cancellationReason}</p>}
     {front && <p>{money(order.totalMinor)} · {order.paymentMethod?.replaceAll('_', ' ')} · {order.paidAt ? 'Paid' : ['PAYPAL','PAYID'].includes(order.paymentMethod) ? 'Payment pending' : 'Unpaid'}</p>}
+    {!front && blocked && <StaffNotice>Payment must be verified by ADMIN or FOH before acceptance or handover.</StaffNotice>}
     {front && order.paymentReviewRequired && <StaffNotice>Financial review required. A historical capture does not confirm that funds are still available.</StaffNotice>}
     {front && order.refundStatus && order.refundStatus !== 'NONE' && <p>Refund obligation: {order.refundStatus.replaceAll('_', ' ')}. Original payment history is retained.</p>}
     {missing && <StaffNotice>This order is no longer in this queue. Unsaved drafts are retained, but cannot be submitted. <button type="button" onClick={() => onDiscard(order.id)}>Discard drafts for this order</button></StaffNotice>}
@@ -230,13 +231,12 @@ function OrdersWorkspace({ linked }) {
       }
     }
   }
-  const states = history ? ['COMPLETED', 'CANCELLED'] : kitchen ? ['ACCEPTED', 'PREPARING', 'READY'] : ['NEW', 'ACCEPTED', 'PREPARING', 'READY'];
+  const states = history ? ['COMPLETED', 'CANCELLED'] : ['NEW', 'ACCEPTED', 'PREPARING', 'READY'];
   const current = entries.filter(entry => !entry.missing);
   const visible = entries.filter(({ order }) => filter === 'ALL' || order.status === filter);
   return <main ref={workspace} className="staff-menu page-width">
     <StaffPageHeading title={kitchen ? 'Kitchen orders' : 'Orders'} />
-    <p>{kitchen ? 'Accepted → Preparing → Ready for pickup. FOH handles customer handover.' : 'New → Accepted → Preparing → Ready for pickup → Completed. Orders can be cancelled before completion.'}</p>
-    {user.role === 'FOH' && <p>The kitchen updates preparation and ready states.</p>}
+    <p>New → Accepted → Preparing → Ready for pickup → Completed. Only ADMIN can cancel orders.</p>
     {linked.invalid && <StaffNotice>This order link is invalid. Choose an order from the queue.</StaffNotice>}
     {linked.orderId && <p><a href="#/staff/orders">Back to all orders</a></p>}
     {!linked.orderId && <div className="proto-summary" aria-label="Queue summary">{states.map(state => <button key={state} aria-pressed={filter === state} onClick={() => setFilter(state)}>{orderStates[state]}<strong>{current.filter(({order}) => order.status === state).length}</strong></button>)}</div>}

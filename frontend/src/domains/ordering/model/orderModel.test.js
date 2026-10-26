@@ -2,17 +2,11 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { needsPayment, orderActions } from './orderModel.js';
 
-test('FOH accepts, cancels and hands over but cannot update preparation', () => {
-  assert.deepEqual(orderActions('FOH', 'NEW'), ['ACCEPTED', 'CANCELLED']);
-  assert.deepEqual(orderActions('FOH', 'ACCEPTED'), ['CANCELLED']);
-  assert.deepEqual(orderActions('FOH', 'PREPARING'), ['CANCELLED']);
-  assert.deepEqual(orderActions('FOH', 'READY'), ['COMPLETED', 'CANCELLED']);
-});
-test('BOH prepares accepted orders and marks them ready without front desk actions', () => {
-  assert.deepEqual(orderActions('BOH', 'NEW'), []);
-  assert.deepEqual(orderActions('BOH', 'ACCEPTED'), ['PREPARING']);
-  assert.deepEqual(orderActions('BOH', 'PREPARING'), ['READY']);
-  assert.deepEqual(orderActions('BOH', 'READY'), []);
+for (const role of ['FOH','BOH']) test(`${role} performs every non-cancellation transition`, () => {
+ for (const [status,next] of Object.entries({NEW:'ACCEPTED',ACCEPTED:'PREPARING',PREPARING:'READY',READY:'COMPLETED'})) {
+  assert.deepEqual(orderActions(role,status),[next]);
+  assert.ok(!orderActions(role,status).includes('CANCELLED'));
+ }
 });
 test('ADMIN can manage the entire lifecycle; terminal states have no actions', () => {
   for (const [status, next] of Object.entries({ NEW: 'ACCEPTED', ACCEPTED: 'PREPARING', PREPARING: 'READY', READY: 'COMPLETED' })) {

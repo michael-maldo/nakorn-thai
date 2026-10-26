@@ -273,7 +273,7 @@ try {
  await respond('writes',0,204);await waitFor('reads.length===6');await finishRead(5,[{...rows[0],status:'PREPARING',version:4}]);
  await evaluate("(async()=>{session=null;await(await import('/src/staff-pwa-proto/features/identity/api/identityApi.js')).refreshAccess().catch(()=>{});})()");await waitFor("document.querySelector('[name=password]')");
  assert.equal(await evaluate("document.querySelectorAll('.staff-order-card').length"),0);
- await seed('FOH');await press('A','Cancel order');await input('A','reason','Logout draft');index=await startRead();await click('Sign out');await waitFor("document.querySelector('[name=password]')");
+ await seed('FOH');await press('A','Accept order');await input('A','pickupMinutes','25');index=await startRead();await click('Sign out');await waitFor("document.querySelector('[name=password]')");
  await respond('reads',index,200,await evaluate('orders'));assert.equal(await evaluate("document.querySelectorAll('.staff-order-card').length"),0);
  await seed();await press('A','Cancel order');await input('A','reason','Unmount draft');index=await startRead();await evaluate("location.hash='#/staff'");await waitFor("!document.querySelector('.staff-order-card')");await respond('reads',index,503,{message:'Unmount error'});
  assert.equal(await evaluate("document.body.innerText.includes('Unmount error')"),false);

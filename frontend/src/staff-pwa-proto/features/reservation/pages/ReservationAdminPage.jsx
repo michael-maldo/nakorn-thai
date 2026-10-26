@@ -15,7 +15,7 @@ export default function ReservationAdminPage() {
  return <ReservationWorkspace key={principal} />;
 }
 function ReservationWorkspace() {
- const {authorization}=useAuth();
+ const {authorization,user}=useAuth();
  const [date,setDate]=useState(''),[timezone,setTimezone]=useState(''),[rows,setRows]=useState([]),[notes,setNotes]=useState({});
  const [availability,setAvailability]=useState({status:'loading',error:''});
  const [bookings,setBookings]=useState({status:'idle',error:''});
@@ -84,5 +84,5 @@ function ReservationWorkspace() {
  {writing&&<StaffLoading>Updating booking…</StaffLoading>}
  {bookings.status==='loading'&&<StaffLoading>{rows.length>0?'Refreshing bookings… Displayed bookings are from an earlier load.':'Loading bookings…'}</StaffLoading>}
  {availability.status==='ready'&&bookings.status==='ready'&&!rows.length&&<StaffEmptyState title="No booking requests for this date." />}
- <div className="order-queue">{rows.map(row=><article className="order-panel" key={row.id}><h2>{row.requestedAt.slice(11,16)} · {row.customerName}</h2><p>{row.partySize} guests · {row.status.replaceAll('_',' ')}</p>{row.phone&&<p>Phone: {row.phone} · {row.phoneVerified?'Verified':'Unverified'}</p>}{row.email&&<p>Email for booking updates: {row.email}</p>}{row.notes&&<p>Guest notes: {row.notes}</p>}<small>Reference: {row.id}</small>{transitions[row.status]?<><label>Staff note<textarea disabled={busy} maxLength={500} value={notes[row.id]??row.staffNote} onChange={e=>setNotes({...notes,[row.id]:e.target.value})}/></label><div className="staff-toolbar">{transitions[row.status].map(status=><button disabled={busy} key={status} onClick={()=>update(row,status)}>{status.replaceAll('_',' ')}</button>)}</div></>:<p>{row.staffNote}</p>}{row.updatedBy&&<small>Last updated by {row.updatedBy}</small>}</article>)}</div></main>;
+ <div className="order-queue">{rows.map(row=><article className="order-panel" key={row.id}><h2>{row.requestedAt.slice(11,16)} · {row.customerName}</h2><p>{row.partySize} guests · {row.status.replaceAll('_',' ')}</p>{row.phone&&<p>Phone: {row.phone} · {row.phoneVerified?'Verified':'Unverified'}</p>}{row.email&&<p>Email for booking updates: {row.email}</p>}{row.notes&&<p>Guest notes: {row.notes}</p>}<small>Reference: {row.id}</small>{transitions[row.status]?<><label>Staff note<textarea disabled={busy} maxLength={500} value={notes[row.id]??row.staffNote} onChange={e=>setNotes({...notes,[row.id]:e.target.value})}/></label><div className="staff-toolbar">{transitions[row.status].filter(status=>status!=='CANCELLED'||user.role==='ADMIN').map(status=><button disabled={busy} key={status} onClick={()=>update(row,status)}>{status.replaceAll('_',' ')}</button>)}</div></>:<p>{row.staffNote}</p>}{row.updatedBy&&<small>Last updated by {row.updatedBy}</small>}</article>)}</div></main>;
 }

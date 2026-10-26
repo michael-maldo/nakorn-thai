@@ -171,12 +171,19 @@ try {
   check(await evaluate("[...document.querySelectorAll('button')].find(e=>e.textContent==='Test Print').disabled"),'no unverified printing');
   await nav(810,1080,'BOH');
   check(await evaluate("!document.body.textContent.includes('Synthetic guest')"),'kitchen customer privacy');
+  await evaluate("document.querySelector('.sp-tabs button').click()");await waitFor("document.querySelector('.sp-column[aria-label=\"Pending orders\"] .sp-order-card')");
+  await evaluate("document.querySelector('.sp-column[aria-label=\"Pending orders\"] .sp-order-card').click()");await waitFor("document.querySelector('dialog .staff-order-card')");
+  check(await evaluate("[...document.querySelectorAll('dialog button')].some(b=>b.textContent==='Accept order'&&!b.disabled)"),'BOH can accept Pending orders');
+  check(await evaluate("!document.querySelector('dialog').textContent.includes('Cancel order')"),'BOH cannot cancel');
+  await evaluate("document.querySelector('[aria-label=\"Close dialog\"]').click()");
+
   await evaluate("location.hash='/printers'"); await waitFor("document.querySelector('h1')?.textContent==='Access restricted'");
   check(true,'printer role restriction');
   await nav(1080,810,'FOH');
   await evaluate("document.querySelector('.sp-order-card').click()"); await waitFor("document.querySelector('dialog .staff-order-card')");
   check(await evaluate("document.querySelector('dialog').textContent.includes('Accept order')"),'FOH may accept');
-  check(await evaluate("!document.querySelector('dialog').textContent.includes('Start preparing')"),'FOH cannot prepare');
+  check(await evaluate("!document.querySelector('dialog').textContent.includes('Cancel order')"),'FOH cannot cancel from details');
+  check(await evaluate("!document.querySelector('dialog').textContent.includes('Cancel order')"),'FOH cannot cancel');
   // Forced 401 clears protected workspace through existing refresh contract.
   await evaluate("document.querySelector('[aria-label=\"Close dialog\"]').click(); pwaFixture.expire=true");
   await click('↻ Refresh'); await waitFor("document.querySelector('.staff-login-page')");

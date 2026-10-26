@@ -83,7 +83,7 @@ export function installPrototypeFixtures(staffSessionFixture, installStaffLayout
   if(path==='/api/identity/users')return ok(fixture.users);
   if(path==='/api/staff/payments/review')return ok(fixture.review||{orders:[],webhookEvents:[]});
   if(path.startsWith('/api/staff/foh/orders'))return ok(fixture.orders.filter(o=>path.includes('history=true')?['COMPLETED','CANCELLED'].includes(o.status):!['COMPLETED','CANCELLED'].includes(o.status)));
-  if(path.startsWith('/api/staff/kitchen/orders'))return ok(fixture.orders.filter(o=>['ACCEPTED','PREPARING','READY'].includes(o.status)));
+  if(path.startsWith('/api/staff/kitchen/orders'))return ok(fixture.orders.filter(o=>['NEW','ACCEPTED','PREPARING','READY'].includes(o.status)));
   if(path.startsWith('/api/staff/orders/'))return ok(fixture.orders.find(o=>o.id===path.split('/').at(-1)));
   return base(url,options);
  };

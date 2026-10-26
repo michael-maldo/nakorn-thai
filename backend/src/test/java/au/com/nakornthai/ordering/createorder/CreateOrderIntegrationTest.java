@@ -111,7 +111,7 @@ class CreateOrderIntegrationTest {
         mvc.perform(get("/api/staff/foh/orders").with(user("front").roles("FOH")))
                 .andExpect(status().isOk()).andExpect(jsonPath("$[?(@.id == '"+id+"')].phone").value("+61400000000"));
         mvc.perform(get("/api/staff/kitchen/orders").with(user("cook").roles("BOH")))
-                .andExpect(status().isOk()).andExpect(jsonPath("$[?(@.id == '"+id+"')]").isEmpty());
+                .andExpect(status().isOk()).andExpect(jsonPath("$[?(@.id == '"+id+"')].status").value("NEW"));
         transition("FOH","ACCEPTED",false);
         mvc.perform(get("/api/staff/kitchen/orders").with(user("cook").roles("BOH")))
                 .andExpect(status().isOk()).andExpect(jsonPath("$[?(@.id == '"+id+"')].phone").value(org.hamcrest.Matchers.contains(org.hamcrest.Matchers.nullValue())));
@@ -145,7 +145,7 @@ class CreateOrderIntegrationTest {
         create();
         mvc.perform(patch("/api/staff/orders/"+id+"/status").with(user("cook").roles("BOH")).with(csrf())
                 .contentType("application/json").content("{\"version\":0,\"status\":\"ACCEPTED\",\"pickupMinutes\":20,\"paymentCollected\":false}"))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isNoContent());
     }
     @Test void invalidTransitionsStaleEditsAndUnpaidCompletionAreRejected() throws Exception {
         create();

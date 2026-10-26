@@ -23,6 +23,7 @@ public class ListReservationsController {
  public record Update(@NotNull @Min(0) Long version,@NotNull String status,@NotNull @Size(max=500) String staffNote) {}
  @PatchMapping("/{id}") @Transactional @ResponseStatus(HttpStatus.NO_CONTENT)
  void update(@PathVariable UUID id,@Valid @RequestBody Update request, Authentication auth) {
+  au.com.nakornthai.shared.security.StaffPermissions.requireReservationTransition(auth, request.status());
   var r=em.find(ReservationJpaEntity.class,id,LockModeType.PESSIMISTIC_WRITE);
   if(r==null)throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Reservation not found");
   if(!r.getVersion().equals(request.version()))throw new ResponseStatusException(HttpStatus.CONFLICT,"Booking changed; reload before saving");

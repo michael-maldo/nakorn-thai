@@ -101,7 +101,7 @@ export default function AppRouter() {
   const staffPage = (page, roles) => <ProtectedRoute roles={roles}><StaffShell hash={hash}>{page}</StaffShell></ProtectedRoute>;
   if (hash === '#/staff' || hash === '#/staff/') return staffPage(<StaffDashboardPage />);
   if (hash === '#/functions') return <FunctionsPage />;
-  if (hash === '#/staff/functions') return staffPage(<FunctionEnquiriesPage />, ['ADMIN','FOH']);
+  if (hash === '#/staff/functions') return staffPage(<FunctionEnquiriesPage />, ['ADMIN']);
   if (hash === '#/reservations') return <ReservationPage />;
   if (hash === '#/staff/reservations') return staffPage(<ReservationAdminPage />, ['ADMIN','FOH']);
   if (hash === '#/menu') return <MenuPage />;
@@ -111,7 +111,7 @@ export default function AppRouter() {
   if (hash === '#/order-confirmation') return <OrderConfirmationPage />;
   if (hash === '#/staff/homepage') return staffPage(<HomepageSettingsPage />, ['ADMIN']);
   if (hash === '#/staff/orders') return staffPage(<OrdersAdminPage key={location} linked={linked} />, ['ADMIN', 'FOH', 'BOH']);
-  if (hash === '#/staff/ordering') return staffPage(<OnlineOrderingPage />, ['ADMIN', 'FOH']);
+  if (hash === '#/staff/ordering') return staffPage(<OnlineOrderingPage />, ['ADMIN']);
   if (hash === '#/staff/settings') return staffPage(<IntegrationSettingsPage />, ['ADMIN']);
   if (hash === '#/staff/restaurant') return staffPage(<RestaurantSchedulePage />, ['ADMIN']);
   if (hash === '#/staff/users') return staffPage(<UsersPage />, ['ADMIN']);

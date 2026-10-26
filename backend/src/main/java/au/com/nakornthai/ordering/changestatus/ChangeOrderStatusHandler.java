@@ -26,9 +26,7 @@ public class ChangeOrderStatusHandler {
     public CreateOrderResponse handle(UUID id, ChangeOrderStatusCommand command, Authentication actor) {
         var roles = actor.getAuthorities().stream().map(a -> a.getAuthority()).toList();
         boolean front = roles.contains("ROLE_ADMIN") || roles.contains("ROLE_FOH");
-        boolean kitchen = roles.contains("ROLE_ADMIN") || roles.contains("ROLE_BOH");
-        boolean kitchenAction = Set.of("PREPARING","READY").contains(command.status());
-        if (kitchenAction ? !kitchen : !front) throw new ResponseStatusException(HttpStatus.FORBIDDEN);
+        au.com.nakornthai.shared.security.StaffPermissions.requireOrderTransition(actor, command.status());
         var order = em.find(OrderJpaEntity.class,id,LockModeType.PESSIMISTIC_WRITE);
         if (order == null) throw new ResponseStatusException(HttpStatus.NOT_FOUND);
         if (order.getVersion() != command.version()) throw new ResponseStatusException(HttpStatus.CONFLICT,"Order changed; reload the queue");

@@ -150,7 +150,7 @@ class VerifiedOrderIntegrationTest {
           .andExpect(jsonPath("$.email").value("guest@example.test"))
           .andExpect(jsonPath("$.items[0].lineTotalMinor").value(1990))
           .andExpect(jsonPath("$.subtotalMinor").value(1990));
-  mvc.perform(get("/api/staff/orders/"+id).with(user("kitchen").roles("BOH"))).andExpect(status().isNotFound());
+  mvc.perform(get("/api/staff/orders/"+id).with(user("kitchen").roles("BOH"))).andExpect(status().isOk()).andExpect(jsonPath("$.customerName").doesNotExist());
   jdbc.update("UPDATE restaurant_order SET status='ACCEPTED' WHERE id=?",id);em.clear();
   mvc.perform(get("/api/staff/orders/"+id).with(user("kitchen").roles("BOH"))).andExpect(status().isOk())
           .andExpect(jsonPath("$.customerName").doesNotExist()).andExpect(jsonPath("$.phone").doesNotExist())
@@ -224,15 +224,14 @@ class VerifiedOrderIntegrationTest {
  }
  @Test void successfulTransitionsQueueOnlyAcceptedReadyAndCancelled() throws Exception {
   create(verified(),"0412345678","guest@example.test","PAY_AT_RESTAURANT").andExpect(status().isCreated());
-  transition("BOH","ACCEPTED",403);assertEquals(0,jobs("ORDER_ACCEPTED"));
-  transition("FOH","ACCEPTED",204);assertEquals(2,jobs("ORDER_ACCEPTED"));
+  transition("BOH","ACCEPTED",204);assertEquals(2,jobs("ORDER_ACCEPTED"));
   String message=jdbc.queryForObject("SELECT body FROM notification_delivery WHERE order_id=? AND type='ORDER_ACCEPTED' AND channel='SMS'",String.class,id);assertTrue(message.contains("Estimated pickup:"));
   transition("FOH","ACCEPTED",409);assertEquals(2,jobs("ORDER_ACCEPTED"));
   transition("BOH","PREPARING",204);assertEquals(4,jdbc.queryForObject("SELECT count(*) FROM notification_delivery WHERE order_id=?",Integer.class,id));
   transition("BOH","READY",204);assertEquals(2,jobs("ORDER_READY"));
-  transition("FOH","CANCELLED",204);assertEquals(2,jobs("ORDER_CANCELLED"));
+  transition("ADMIN","CANCELLED",204);assertEquals(2,jobs("ORDER_CANCELLED"));
   assertTrue(jdbc.queryForObject("SELECT body FROM notification_delivery WHERE order_id=? AND type='ORDER_CANCELLED' AND channel='SMS'",String.class,id).contains("does not automatically refund"));
-  transition("FOH","CANCELLED",409);assertEquals(2,jobs("ORDER_CANCELLED"));
+  transition("ADMIN","CANCELLED",409);assertEquals(2,jobs("ORDER_CANCELLED"));
  }
  @Test void completedHasNoAdditionalNotification() throws Exception {
   create(verified(),"0412345678",null,"PAY_AT_RESTAURANT").andExpect(status().isCreated());

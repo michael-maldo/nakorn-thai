@@ -3,14 +3,13 @@ export const orderStates = {
   COMPLETED: 'Completed', CANCELLED: 'Cancelled',
 };
 export function orderActions(role, status) {
-  const front = ['ADMIN', 'FOH'].includes(role);
-  const kitchen = ['ADMIN', 'BOH'].includes(role);
+  const staff = ['ADMIN', 'FOH', 'BOH'].includes(role);
   const actions = [];
-  if (front && status === 'NEW') actions.push('ACCEPTED');
-  if (kitchen && status === 'ACCEPTED') actions.push('PREPARING');
-  if (kitchen && status === 'PREPARING') actions.push('READY');
-  if (front && status === 'READY') actions.push('COMPLETED');
-  if (front && ['NEW', 'ACCEPTED', 'PREPARING', 'READY'].includes(status)) actions.push('CANCELLED');
+  if (staff && status === 'NEW') actions.push('ACCEPTED');
+  if (staff && status === 'ACCEPTED') actions.push('PREPARING');
+  if (staff && status === 'PREPARING') actions.push('READY');
+  if (staff && status === 'READY') actions.push('COMPLETED');
+  if (role === 'ADMIN' && ['NEW', 'ACCEPTED', 'PREPARING', 'READY'].includes(status)) actions.push('CANCELLED');
   return actions;
 }
 export const needsPayment = order => order.paymentMethod !== 'PAY_AT_RESTAURANT' && (!order.paidAt || order.paymentReviewRequired || !!order.refundStatus && order.refundStatus !== 'NONE');

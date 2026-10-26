@@ -1,3 +1,5 @@
+> Approved RBAC refinement: see [policy and verification](../../../docs/security/staff-rbac-refinement.md). The historical FOH Online ordering exception below is superseded; functions and ordering configuration are now ADMIN-only.
+
 # Navigation parity — before and after
 
 Inventory recorded before navigation changes. All ten destinations previously
@@ -9,8 +11,8 @@ both visibility and direct-route access; no permissions or feature code change.
 | `#/staff` | ADMIN, FOH, BOH | Dashboard, summaries, session | Operations (sidebar/drawer) |
 | `#/staff/orders` | ADMIN, FOH, BOH | Queue/history, linked order query, transitions, drafts, payment verification/review | Operations (sidebar/drawer) |
 | `#/staff/reservations` | ADMIN, FOH | Filters, notes, statuses, availability | Operations |
-| `#/staff/functions` | ADMIN, FOH | Filters, pagination, agreed date, notes, status updates | Operations |
-| `#/staff/ordering` | ADMIN, FOH | Availability, pause/message controls; FOH remains read-only | Header Manage for ADMIN; contextual Ordering controls for FOH |
+| `#/staff/functions` | ADMIN | Filters, pagination, agreed date, notes, status updates | Operations |
+| `#/staff/ordering` | ADMIN | Availability, pause/message controls | Header Manage |
 | `#/staff/menu` and descendants | ADMIN | Items/create/overview/pricing/options/images/membership; collections/create/overview/items/categories/availability | Header Manage (Menu management) |
 | `#/staff/homepage` | ADMIN | Collection selection, order, save/cancel | Header Manage |
 | `#/staff/restaurant` | ADMIN | Timezone, opening windows and closures CRUD | Header Manage |
@@ -82,3 +84,12 @@ PageAction import/wrapper; original button handlers/props and feature logic matc
 Browser tests explicitly check selected-date booking refresh and retained notes,
 FOH desktop/drawer ordering access, ADMIN header Manage/Escape focus, no bottom
 navigation, empty-bar hiding and bottom-right alignment across five viewports.
+
+Confirmed transition policy: ADMIN, FOH and BOH all have every
+valid non-cancellation order transition. Only ADMIN can cancel. Both operational
+roles complete acceptance → preparation → readiness → handover/completion. BOH
+NEW orders are included in its existing kitchen queue, and the Status filter now
+includes NEW. Customer-contact privacy and payment verification permissions stay
+unchanged. The shared Staff Web/PWA and Android action models match this policy.
+Corrected browser verification: 381 assertions and 100 responsive route renders,
+including full end-to-end synthetic order lifecycles for FOH and BOH.

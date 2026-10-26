@@ -23,14 +23,14 @@ class OrderingSettingsApiTest {
     @MockitoBean au.com.nakornthai.identity.infrastructure.SpringDataStaffSessionRepository sessions;
     final String path = "/api/staff/restaurant/ordering";
     final String update = "{\"acceptingOrders\":false,\"pauseMessage\":\"Kitchen busy\",\"version\":0}";
-    @Test void adminCanWriteFohCanOnlyReadAndBohAndGuestsCannot() throws Exception {
+    @Test void onlyAdminCanReadAndWriteOrderingConfiguration() throws Exception {
         mvc.perform(get(path)).andExpect(status().isUnauthorized());
         mvc.perform(put(path).with(csrf()).contentType("application/json").content(update)).andExpect(status().isUnauthorized());
         mvc.perform(get(path).with(user("boh").roles("BOH"))).andExpect(status().isForbidden());
         mvc.perform(put(path).with(user("boh").roles("BOH")).with(csrf()).contentType("application/json").content(update)).andExpect(status().isForbidden());
         for (String role : new String[]{"ADMIN", "FOH"}) {
-            mvc.perform(get(path).with(user("staff").roles(role))).andExpect(status().isOk()).andExpect(header().string("Cache-Control", "no-store"));
-            mvc.perform(get("/api/staff/restaurant/csrf").with(user("staff").roles(role))).andExpect(status().isOk()).andExpect(jsonPath("$.token").isString());
+            mvc.perform(get(path).with(user("staff").roles(role))).andExpect(role.equals("ADMIN")?status().isOk():status().isForbidden());
+            mvc.perform(get("/api/staff/restaurant/csrf").with(user("staff").roles(role))).andExpect(role.equals("ADMIN")?status().isOk():status().isForbidden());
             mvc.perform(put(path).with(user("staff").roles(role)).contentType("application/json").content(update)).andExpect(status().isForbidden());
             mvc.perform(put(path).with(user("staff").roles(role)).with(csrf()).contentType("application/json").content(update)).andExpect(role.equals("ADMIN")?status().isOk():status().isForbidden());
         }

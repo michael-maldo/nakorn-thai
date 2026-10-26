@@ -14,7 +14,7 @@ test('all Staff Web destinations are independently routed and role restricted',(
  assert.equal(resolveRoute('#/unknown'),null);
  assert.equal(canAccess('#/staff/settings','FOH'),false);
  assert.equal(canAccess('#/staff/functions','BOH'),false);
- assert.equal(canAccess('#/staff/ordering','FOH'),true);
+ assert.equal(canAccess('#/staff/ordering','FOH'),false);
  assert.deepEqual(visibleRoutes('BOH').map(x=>x.label),['Home','Orders']);
 });
 test('protected workflow source files match the read-only inventory baseline',()=>{

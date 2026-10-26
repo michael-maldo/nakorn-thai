@@ -122,17 +122,17 @@ jobs:
           set -euo pipefail
           mv release-assets/app-debug.apk "release-assets/nakorn-thai-staff-${RELEASE_TAG}-debug.apk"
           cat > release-notes.md <<'NOTES'
-          ## Nakorn Thai Android staff app
+          ## Nakorn Thai Android staff — RBAC refinement
 
-          This pre-release keeps the kitchen-only docket as the backward-compatible default and adds an optional detailed online-order layout for a Kitchen printer profile. The detailed docket includes available authorized staff contact details, actual fulfillment, verified payment state, a safe confirmed transaction reference where available, order items and authoritative item/order amounts. Select **Detailed online order** in Printer Management to try it on the configured Epson TM-m30II. Automatic printing still starts only after confirmed order acceptance; **Reprint** is deliberate, printer failure is reported separately, and uncertain TCP sends are not retried. Jobs end with feed and Epson partial cut.
+          ADMIN retains all existing staff functionality and exclusive cancellation permission. FOH and BOH can both accept, prepare, mark ready and complete handover for every valid non-cancellation order transition. The existing BOH kitchen endpoint includes pending orders, while customer-contact privacy is preserved. Payment prerequisites, refund obligations, versions, audit and notification behavior remain enforced by the backend.
 
           ### CI verification
 
-          GitHub Actions completed the Android JVM unit tests, Android lint, and debug APK build using the production API URL `https://nakorn-thai.tech-labs.dev/` before publishing this asset. Tests cover detailed response deserialization, 58/80 mm formatting, long text, payment states and safe references, command ordering and cut bytes, profile defaults, kitchen layout regression, acceptance, reprint and uncertain sends.
+          GitHub Actions runs Android JVM unit tests, Android lint and the debug APK build against `https://nakorn-thai.tech-labs.dev/`. Role tests cover the complete non-cancellation action list for FOH and BOH, ADMIN cancellation and terminal states. Existing order, payment, printing and session regression tests remain in place.
 
-          ### Hardware verification still required
+          ### Distribution
 
-          Install on the restaurant Samsung tablet and verify actual order acceptance, detailed and kitchen docket contents, 58/80 mm readability and paper feed/partial cut with the Epson TM-m30II over LAN/TCP. Check printer-offline, timeout, uncertain-send and deliberate reprint behavior. CI cannot confirm physical printer output.
+          This is a development debug APK pre-release. It is not automatically installed or distributed to restaurant tablets. Physical tablet acceptance and any existing printer hardware verification remain separate manual activities. No printing behavior is changed by this RBAC release.
           NOTES
 
       - name: Publish pre-release

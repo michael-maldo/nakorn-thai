@@ -25,12 +25,14 @@ public class OrderWorkflowTest {
 
   @Test
   public void rolesPreserveServerWorkflow() {
-    assertEquals(List.of("ACCEPTED", "CANCELLED"), order("a", "NEW", 1).actions("FOH"));
-    assertTrue(order("a", "NEW", 1).actions("BOH").isEmpty());
-    assertEquals(List.of("PREPARING"), order("a", "ACCEPTED", 1).actions("BOH"));
-    assertEquals(List.of("READY"), order("a", "PREPARING", 1).actions("BOH"));
-    assertEquals(List.of("COMPLETED", "CANCELLED"), order("a", "READY", 1).actions("FOH"));
+    for (String role : List.of("FOH", "BOH")) {
+      assertEquals(List.of("ACCEPTED"), order("a", "NEW", 1).actions(role));
+      assertEquals(List.of("PREPARING"), order("a", "ACCEPTED", 1).actions(role));
+      assertEquals(List.of("READY"), order("a", "PREPARING", 1).actions(role));
+      assertEquals(List.of("COMPLETED"), order("a", "READY", 1).actions(role));
+    }
     assertTrue(order("a", "COMPLETED", 1).actions("ADMIN").isEmpty());
+    assertEquals(List.of("ACCEPTED", "CANCELLED"), order("a", "NEW", 1).actions("ADMIN"));
   }
 
   @Test

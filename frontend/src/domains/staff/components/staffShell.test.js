@@ -46,11 +46,10 @@ test('admin shell has account and sidebar navigation with nested menu active sta
   assert.match(html, /aria-expanded="false" aria-controls="staff-navigation"/);
   assert.match(html, /Skip to content/);
 });
-test('FOH shell exposes reservations and functions without administrator links', async () => {
+test('FOH shell exposes reservations without administrator links', async () => {
   const html = await renderShell('FOH');
   assert.match(html, /Reservations/);
-  assert.match(html, /Online ordering/);
-  assert.match(html, /Function enquiries/);
+  assert.doesNotMatch(html, /Online ordering|Function enquiries/);
   assert.doesNotMatch(html, /href="#\/staff\/(menu|users|restaurant|homepage|settings)"/);
 });
 test('BOH shell retains overview and sign out without unsupported staff screens', async () => {
@@ -75,5 +74,5 @@ test('FOH unpaid online orders expose verification and block acceptance', () => 
   assert.match(html, /Private customer/);
   assert.match(html, /Confirm PayID payment/);
   assert.match(html, /disabled="">Accept order/);
-  assert.doesNotMatch(html, /Start preparing/);
+  assert.doesNotMatch(html, /Cancel order/);
 });

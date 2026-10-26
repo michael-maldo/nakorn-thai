@@ -23,7 +23,7 @@ public class OrdersViewModelTest {
     IdentityRepository identity = mock(IdentityRepository.class);
     Session session = new Session();
     session.user = new Session.User();
-    session.user.role = "FOH";
+    session.user.role = "ADMIN";
     when(identity.current()).thenReturn(session);
     when(identity.generation()).thenReturn(1L);
     OrderRepository repository = mock(OrderRepository.class);
