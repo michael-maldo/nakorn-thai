@@ -23,7 +23,13 @@
     "test:availability-browser": "node tests/e2e/featureAvailability.browser.mjs",
     "test:staff-pwa-browser": "node tests/e2e/staffPwa.browser.mjs",
     "test:staff-pwa-build": "node src/staff-pwa/tests/build.test.mjs",
-    "test:staff-pwa-install-browser": "node tests/e2e/staffPwaInstall.browser.mjs"
+    "test:staff-pwa-install-browser": "node tests/e2e/staffPwaInstall.browser.mjs",
+    "dev:staff-proto": "vite --config vite.proto.config.js",
+    "build:staff-proto": "vite build --config vite.proto.config.js",
+    "preview:staff-proto": "vite preview --config vite.proto.config.js",
+    "test:staff-proto": "node --test --test-isolation=none src/staff-pwa-proto/tests/*.test.js",
+    "test:staff-proto-browser": "node src/staff-pwa-proto/tests/run-browser.mjs",
+    "test:staff-proto-install-browser": "node src/staff-pwa-proto/tests/install.browser.mjs"
   },
   "dependencies": {
     "@vitejs/plugin-react": "latest",

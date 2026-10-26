@@ -23,3 +23,6 @@ Thumbs.db
 # Local uploaded menu photos
 /backend/menu-media/
 TODO/
+
+# Isolated Staff PWA prototype build output
+/frontend/dist-staff-pwa-proto/
