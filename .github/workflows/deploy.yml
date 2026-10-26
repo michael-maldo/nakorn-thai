@@ -6,8 +6,12 @@ on:
     paths:
       - 'backend/**'
       - 'frontend/**'
+      - '!frontend/src/staff-pwa-proto/**'
+      - '!frontend/staff-pwa-proto/**'
+      - '!frontend/vite.proto.config.js'
       - 'infrastructure/**'
-      - '.github/workflows/deploy.yml'
+      # Workflow-only edits do not publish the existing applications.
+      # Use workflow_dispatch when an intentional configuration-only redeploy is needed.
   workflow_dispatch:
     inputs:
       deploy_backend:

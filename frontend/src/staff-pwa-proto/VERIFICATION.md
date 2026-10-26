@@ -78,3 +78,23 @@ Namespaced Rollup output now keeps all prototype JS/CSS/images beneath
 installation test are rerun for this deployment-only path change. No workflow
 logic or protected application source is changed; the prior full browser matrix
 is retained rather than repeated.
+
+## Dedicated CI/CD implementation checks
+
+The dedicated workflow uses the verified existing VPS secret names and Node 24.
+Local validation passed: 140 prototype tests, 19 deployment/rollback/trigger tests,
+prototype production build, generated-file/checksum validation, dedicated workflow
+`actionlint`, YAML parsing and Bash syntax checks. The existing workflow's trigger
+edit was also checked; its pre-existing checkout/setup-node v3 deprecation warnings
+were left outside this change.
+
+The new deployment helper's `smoke` operation was run read-only over SSH against
+the active `706b2de` manual release. All 12 public artifact hashes, prototype/fallback
+responses, missing-asset 404, existing website/PWA and backend availability/health
+checks passed. No release was uploaded/activated and no service was restarted or
+reloaded during CI/CD implementation. Automated rollback was tested in temporary
+local release trees with injected failures, not by disrupting the live application.
+
+An actual GitHub Actions execution is not claimed: the workflow must first be
+published to main. Its first matching push will deploy only the prototype; it can
+also be run manually on main. No commit/push is part of these local validation results.

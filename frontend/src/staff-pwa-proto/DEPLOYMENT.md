@@ -4,18 +4,68 @@ Build with `npm run build:staff-proto` from `frontend/`.
 All generated/public files live inside `dist-staff-pwa-proto/staff-pwa-proto/`.
 Rollup output paths explicitly namespace JS, CSS and image assets beneath
 `/staff-pwa-proto/assets/`; no customer `/assets/` upload is needed. The original
-Vite entry and deployment workflow remain unchanged.
+Vite application entry remains unchanged; deployment workflows only change their
+prototype ownership and trigger isolation.
 
-## Push safety
+## Dedicated GitHub Actions pipeline
 
-The existing branch is `main`. `.github/workflows/deploy.yml` automatically deploys
-the customer/Staff Web/PWA frontend for `frontend/**` pushes on main; it can also
-activate the backend for backend changes. Android has a separate main/path-gated
-build and prerelease workflow. Neither workflow deploys this prototype independently.
+`.github/workflows/deploy-staff-pwa-proto.yml` deploys the prototype on `main`
+pushes affecting its sources, HTML entry, Vite config, deployment helper/tests,
+workflow, locked npm dependencies, consumed signature photographs or the two
+shared browser fixtures. It also supports `workflow_dispatch` on `main`.
 
-This focused manual deployment uses `[skip ci]` in its commit body so pushing it
-cannot trigger the unrelated website deployment. Verify remote workflow runs after
-pushing. Do not dispatch the existing deploy workflow for this prototype.
+Node 24 and `npm ci --include=optional` match repository conventions. The pipeline
+runs prototype unit tests, deployment/rollback tests, a prototype-only build,
+asset/checksum validation and a mocked production installation browser test.
+It never starts another backend/database or sends domain mutations.
+
+Secrets reused (names verified in the repository): `VPS_HOST`, `VPS_SSH_KEY`,
+`VPS_KNOWN_HOSTS`. SSH uses `deploy`, batch mode, a private key file with mode 600,
+strict host-key checking and the approved known-host entries. Credentials are
+removed by an always-run cleanup step. No new secret or variable is required.
+
+Concurrency group `staff-pwa-proto-deploy` never cancels a deployment in progress.
+An additional VPS file lock prevents concurrent prototype activations. The helper
+is sent over SSH stdin; no persistent executable or Nginx change is installed.
+
+The existing `deploy.yml` excludes prototype-only source/entry/config paths.
+Workflow-only changes no longer automatically publish the existing website;
+intentional configuration-only deployments still use its manual dispatch.
+Ordinary website/backend/infrastructure deployment paths remain active. Shared
+package/image changes may legitimately trigger both frontends because both consume
+them. No workflow dispatches another workflow, and routine prototype commits do
+not require `[skip ci]`.
+
+**Publishing this workflow to main enables automatic prototype deployment.** It
+has been tested locally and with read-only live checks; an actual Actions run and
+activation are separate from those checks.
+
+## Automated release safety
+
+CI uploads only to `/var/www/nakorn-thai/prototype/releases/<sha>-<run>-<attempt>`.
+The upload cannot overwrite an existing release. A generated `release-manifest.json`
+contains the intended commit and every public file's SHA-256. Both local and remote
+validation reject missing/corrupt files, symlinks, out-of-scope files, incorrect
+manifest scope, root-level assets and unsafe worker cache paths.
+
+The activation helper records the previous prototype target and protected state
+in `prototype/backups/<release>.json`, then atomically replaces only the prototype
+`current` symlink. It fetches live HTML/JS/CSS/images/icons/manifest/worker and
+compares their bytes with the release; checks MIME types, fallback and missing-asset
+404; checks the existing website/PWA and read-only backend availability/health;
+and verifies unchanged protected file hashes, Nginx files and backend PID/release.
+A failure restores the previous prototype symlink and verifies the restored release.
+The existing manual release is supported without a CI checksum manifest.
+
+The GitHub job summary reports status, revision, release and live URL. No release
+pruning is automatic. Retained failed and previous releases support investigation
+and rollback. The pipeline does not restart or reload any service.
+
+Run deployment tests locally without touching the VPS:
+
+```sh
+python3 -B -m unittest discover -s frontend/src/staff-pwa-proto/deploy -p 'test_*.py' -v
+```
 
 ## Host inspection and domain boundary
 
@@ -28,8 +78,7 @@ on `127.0.0.1:8081`; existing `/api/` and `/media/menu/` proxies are reused unch
 At inspection, the requested `nakorn.com.au` resolves to Wix and redirects to
 `www.nakorn.com.au`, and no certificate/server_name for it exists on this VPS.
 Changing its DNS would affect the protected customer site and is outside this
-prototype deployment. Publish on the existing VPS hostname only if that target
-is accepted; otherwise leave the public URL blocked pending a routing decision.
+prototype deployment. The approved live URL is `https://nakorn-thai.tech-labs.dev/staff-pwa-proto/`.
 Do not redirect or replace the Wix customer website.
 
 ## Release layout and activation

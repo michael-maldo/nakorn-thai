@@ -131,3 +131,13 @@ Nginx include, release/rollback instructions and a non-destructive live smoke te
 - `frontend/src/staff-pwa-proto/tests/worker.test.js`
 - `frontend/staff-pwa-proto/index.html`
 - `frontend/vite.proto.config.js`
+
+## Dedicated CI/CD additions
+
+- `.github/workflows/deploy-staff-pwa-proto.yml`: independent main push/manual pipeline, locked dependencies, prototype tests/build/installation checks, verified SSH upload, atomic activation and summary.
+- `.github/workflows/deploy.yml`: excludes prototype-only paths; workflow-only edits no longer automatically publish existing applications. Other deployment jobs/steps remain unchanged.
+- `frontend/src/staff-pwa-proto/deploy/release.py`: strict artifact/checksum validation, read-only smoke checks, protected-state snapshots, remote locking, atomic activation and rollback.
+- `frontend/src/staff-pwa-proto/deploy/test_release.py`: artifact corruption, namespace, revision, activation and rollback tests in temporary directories.
+- `frontend/src/staff-pwa-proto/deploy/test_workflow_routing.py`: prototype-only/shared dependency/original application trigger-isolation checks.
+- `frontend/src/staff-pwa-proto/deploy/.gitignore`: ignores Python test bytecode.
+- `DEPLOYMENT.md`, `README.md`, `tests/README.md`, `VERIFICATION.md`: automated release operation, security, rollback and validation instructions/results.

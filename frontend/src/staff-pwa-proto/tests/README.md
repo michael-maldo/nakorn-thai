@@ -48,3 +48,7 @@ Reference domain API/model tests execute against the prototype-local modules.
 These are mocked browser and Node contract tests, not real-backend integration
 or physical Safari/Android-device verification. No hardware printing or audio
 recovery is implemented or claimed in this prototype.
+
+CI/CD deployment helpers and rollback tests: `python3 -B -m unittest discover -s
+frontend/src/staff-pwa-proto/deploy -p 'test_*.py' -v` from the repository root.
+Tests use temporary directories and injected smoke checks; no live activation occurs.

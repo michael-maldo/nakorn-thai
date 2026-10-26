@@ -1,0 +1,152 @@
+name: Deploy Staff PWA prototype
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'frontend/src/staff-pwa-proto/**'
+      - 'frontend/staff-pwa-proto/**'
+      - 'frontend/vite.proto.config.js'
+      - 'frontend/package.json'
+      - 'frontend/package-lock.json'
+      - 'frontend/src/assets/images/signature-*.jpg'
+      - 'frontend/tests/e2e/staffIdentityFixtures.mjs'
+      - 'frontend/tests/e2e/staffLayoutFixtures.mjs'
+      - '.github/workflows/deploy-staff-pwa-proto.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: staff-pwa-proto-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      RELEASE: ${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+      COMMIT_SHA: ${{ github.sha }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install locked frontend dependencies
+        working-directory: frontend
+        run: npm ci --include=optional
+
+      - name: Test prototype and deployment safeguards
+        working-directory: frontend
+        run: |
+          set -euo pipefail
+          npm run test:staff-proto
+          python3 -m unittest discover -s src/staff-pwa-proto/deploy -p 'test_*.py' -v
+
+      - name: Build and validate namespaced production assets
+        working-directory: frontend
+        run: |
+          set -euo pipefail
+          npm run build:staff-proto
+          python3 src/staff-pwa-proto/deploy/release.py manifest dist-staff-pwa-proto --commit "$COMMIT_SHA"
+          python3 src/staff-pwa-proto/deploy/release.py validate dist-staff-pwa-proto --commit "$COMMIT_SHA"
+
+      - name: Verify production worker installation with synthetic APIs
+        working-directory: frontend
+        run: |
+          set -euo pipefail
+          npm run preview:staff-proto > /tmp/nakorn-proto-preview.log 2>&1 &
+          preview_pid=$!
+          google-chrome --headless=new --no-sandbox --disable-dev-shm-usage \
+            --remote-debugging-port=9225 --user-data-dir=/tmp/nakorn-proto-ci-browser \
+            about:blank > /tmp/nakorn-proto-chrome.log 2>&1 &
+          chrome_pid=$!
+          trap 'kill "$preview_pid" "$chrome_pid" 2>/dev/null || true' EXIT
+          ready=false
+          for attempt in $(seq 1 40); do
+            if curl -fsS http://127.0.0.1:5176/staff-pwa-proto/ >/dev/null && \
+               curl -fsS http://127.0.0.1:9225/json/version >/dev/null; then
+              ready=true
+              break
+            fi
+            sleep 1
+          done
+          test "$ready" = true
+          npm run test:staff-proto-install-browser
+
+      - name: Configure verified SSH connection
+        env:
+          SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          set -euo pipefail
+          test -n "$SSH_KEY" && test -n "$KNOWN_HOSTS" && test -n "$VPS_HOST"
+          [[ "$VPS_HOST" =~ ^[A-Za-z0-9][A-Za-z0-9.-]*$ ]]
+          install -d -m 700 ~/.ssh
+          umask 077
+          printf '%s\n' "$SSH_KEY" | tr -d '\r' > ~/.ssh/staff_proto_key
+          printf '%s\n' "$KNOWN_HOSTS" | tr -d '\r' > ~/.ssh/staff_proto_known_hosts
+          cat > ~/.ssh/staff_proto_config <<CONFIG
+          Host staff-proto-vps
+              HostName $VPS_HOST
+              User deploy
+              IdentityFile ~/.ssh/staff_proto_key
+              IdentitiesOnly yes
+              BatchMode yes
+              StrictHostKeyChecking yes
+              UserKnownHostsFile ~/.ssh/staff_proto_known_hosts
+              ConnectTimeout 15
+          CONFIG
+          ssh -F ~/.ssh/staff_proto_config staff-proto-vps true
+
+      - name: Prepare and upload a new prototype-only release
+        run: |
+          set -euo pipefail
+          destination="/var/www/nakorn-thai/prototype/releases/$RELEASE"
+          ssh -F ~/.ssh/staff_proto_config staff-proto-vps \
+            "python3 - prepare '$RELEASE' --commit '$COMMIT_SHA'" \
+            < frontend/src/staff-pwa-proto/deploy/release.py
+          rsync -az --checksum \
+            -e "ssh -F $HOME/.ssh/staff_proto_config" \
+            frontend/dist-staff-pwa-proto/ "staff-proto-vps:$destination/"
+          ssh -F ~/.ssh/staff_proto_config staff-proto-vps \
+            "python3 - validate '$destination' --commit '$COMMIT_SHA'" \
+            < frontend/src/staff-pwa-proto/deploy/release.py
+
+      - name: Atomically activate, verify and roll back on failure
+        run: |
+          set -euo pipefail
+          ssh -F ~/.ssh/staff_proto_config staff-proto-vps \
+            "python3 - activate '$RELEASE' --commit '$COMMIT_SHA'" \
+            < frontend/src/staff-pwa-proto/deploy/release.py
+
+      - name: Report deployment result
+        if: always()
+        env:
+          RESULT: ${{ job.status }}
+        run: |
+          {
+            printf '### Staff PWA prototype deployment\n\n'
+            printf -- '- Result: %s\n' "$RESULT"
+            printf -- '- Commit: `%s`\n' "$COMMIT_SHA"
+            printf -- '- Release: `/var/www/nakorn-thai/prototype/releases/%s`\n' "$RELEASE"
+            printf -- '- URL: https://nakorn-thai.tech-labs.dev/staff-pwa-proto/\n'
+            printf -- '- Existing website/backend releases are never activated by this workflow.\n'
+            printf -- '- Failed activation restores the previous prototype symlink; see the remote backups/%s.json report.\n' "$RELEASE"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Remove deployment credentials
+        if: always()
+        run: rm -f ~/.ssh/staff_proto_key ~/.ssh/staff_proto_known_hosts ~/.ssh/staff_proto_config

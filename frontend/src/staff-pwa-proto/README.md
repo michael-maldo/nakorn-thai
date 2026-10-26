@@ -24,7 +24,8 @@ npm run preview:staff-proto
 Preview: `http://127.0.0.1:5176/staff-pwa-proto/`. Output:
 `frontend/dist-staff-pwa-proto/`, separate from the existing `dist/` build.
 Preview is for static/installation evaluation; it has no backend proxy configured.
-No existing deployment workflow was changed to include the prototype.
+The dedicated `deploy-staff-pwa-proto.yml` workflow builds/deploys only this
+prototype. The existing workflow excludes prototype-only paths. See DEPLOYMENT.md.
 
 The ordinary `npm run build` still builds the existing applications independently.
 The prototype has its own public directory, so its manifest/icons do not enter
@@ -145,5 +146,5 @@ Production worker installation is tested in Chromium. Physical iPad Safari,
 Android tablet interaction, OS installation and live-provider behavior have not
 been certified. No production data, provider credentials or hardware was used.
 
-Commit, normal push and prototype-only deployment are authorized. Existing
-automatic deployments must be suppressed for the focused manual release.
+The original manual release remains independent. Dedicated CI/CD now handles
+prototype-only pushes and manual dispatch without publishing other applications.
