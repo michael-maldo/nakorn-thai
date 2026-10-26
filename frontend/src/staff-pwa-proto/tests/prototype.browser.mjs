@@ -20,8 +20,12 @@ try{
  // Authentication is exercised through the actual form, refresh and sign-out.
  await seed('#/staff','ANON');await field('Username','owner');await field('Password','synthetic-password-123');await click('Sign in');await ready('You’re signed in.');await click('Sign out');await waitFor("document.querySelector('[name=password]')");
  // Start a fresh authenticated workspace for management actions.
- await seed();await ready('You’re signed in.');verify(await evaluate("document.querySelectorAll('.proto-sidebar nav a').length===10"),'ADMIN destinations');
- await click('Manage');await waitFor("document.querySelector('dialog[open]')");await click('Function enquiries','dialog a');await ready('Functions & venue enquiries');
+ await seed();await ready('You’re signed in.');verify(await evaluate("document.querySelectorAll('.proto-sidebar nav a').length===4"),'ADMIN destinations');
+ await click('Manage');await waitFor("document.querySelector('dialog[open]')");
+ verify(await evaluate("JSON.stringify([...document.querySelectorAll('dialog nav a')].map(a=>a.textContent))===JSON.stringify(['Online ordering','Menu management','Home page collections','Restaurant schedule','Staff accounts','Settings & integrations'])"),'administration only');
+ await click('Online ordering','dialog a');await ready('Current availability');verify(await evaluate("!document.querySelector('dialog[open]')"),'selection closes Manage');
+ await evaluate("document.querySelector('.proto-footer button').focus()");await click('Manage');await send('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape',windowsVirtualKeyCode:27});await send('Input.dispatchKeyEvent',{type:'keyUp',key:'Escape',code:'Escape',windowsVirtualKeyCode:27});await waitFor("!document.querySelector('dialog[open]')");verify(await evaluate("document.activeElement.textContent==='Manage'"),'Escape restores trigger focus');
+ await click('Function enquiries','.proto-sidebar a');await ready('Functions & venue enquiries');
  // Functions: filters, pagination, server validation, successful writes, duplicate prevention.
  await ready('Private dinner');await click('Next');await waitFor("document.body.innerText.includes('Page 2')");await click('Previous');await ready('Page 1');
  await field('Status','ALL');await ready('Private dinner');
@@ -89,16 +93,17 @@ try{
   await send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:true});
   await seed();
   for(const route of routes){await nav(route);await waitFor("!document.querySelector('#proto-content [role=status]')?.textContent.startsWith('Loading')");await frame();verify(await evaluate('document.documentElement.scrollWidth<=innerWidth'),`${route} fits ${width}`);verify(await evaluate("document.querySelector('.proto-footer').getBoundingClientRect().bottom<=innerHeight+1"),'footer fits');verify(await evaluate("[...document.querySelectorAll('button,input:not([type=checkbox]),select,textarea')].filter(e=>e.getClientRects().length&&!e.closest('[hidden]')).every(e=>e.getBoundingClientRect().height>=44)"),'touch controls >=44px');}
+  await click('Manage');await waitFor("document.querySelector('dialog[open]')");verify(await evaluate("document.querySelector('dialog').getBoundingClientRect().right<=innerWidth&&document.querySelector('dialog').getBoundingClientRect().bottom<=innerHeight"),'Manage fits viewport');await click('Close dialog');
   await nav('#/staff/orders');await b.screenshot(`orders-${width}x${height}`);
   if(width<840){await click('Open navigation');await waitFor("document.querySelector('dialog[open]')");verify(await evaluate("document.querySelector('dialog').getBoundingClientRect().right<=innerWidth"),'drawer fits');await click('Close dialog');}
   else{await click('Collapse sidebar');verify(await evaluate("document.querySelector('.proto-sidebar').getBoundingClientRect().width===72"),'72px rail');await click('Expand sidebar');}
  }
  // Role navigation and direct access fail before protected feature requests.
  for(const role of ['FOH','BOH']){
-  await seed('#/staff',role);const expected=role==='FOH'?5:2;verify(await evaluate(`document.querySelectorAll('.proto-sidebar nav a').length===${expected}`),role+' navigation');
+  await seed('#/staff',role);const expected=role==='FOH'?4:2;verify(await evaluate(`document.querySelectorAll('.proto-sidebar nav a').length===${expected}`),role+' navigation');
   for(const route of ['#/staff/menu','#/staff/homepage','#/staff/restaurant','#/staff/users','#/staff/settings']){const before=await evaluate('fixture.requests.length');await nav(route);await ready('Access restricted');verify(await evaluate('fixture.requests.length')===before,role+' no unauthorized request');}
-  if(role==='FOH'){await nav('#/staff/ordering');await ready('Current availability');verify(await evaluate("document.querySelector('fieldset').disabled"),'FOH ordering read-only');}
-  else{await nav('#/staff/functions');await ready('Access restricted');await nav('#/staff/reservations');await ready('Access restricted');}
+  if(role==='FOH'){await click('Manage');await waitFor("document.querySelector('dialog[open]')");verify(await evaluate("document.querySelectorAll('dialog nav a').length===1&&document.querySelector('dialog nav a').textContent==='Online ordering'"),'FOH management permission');await click('Close dialog');await nav('#/staff/ordering');await ready('Current availability');verify(await evaluate("document.querySelector('fieldset').disabled"),'FOH ordering read-only');}
+  else{verify(await evaluate("![...document.querySelectorAll('.proto-footer button')].some(e=>e.textContent==='Manage')"),'BOH no Manage');await nav('#/staff/functions');await ready('Access restricted');await nav('#/staff/reservations');await ready('Access restricted');}
  }
  verify(b.errors.length===0,'no uncaught browser errors');
  const dir=process.env.PROTO_ARTIFACTS||'/tmp/nakorn-staff-proto';await mkdir(dir,{recursive:true});await writeFile(`${dir}/results.json`,JSON.stringify({assertions,responsiveRouteRenders:routes.length*5,api:'synthetic only',errors:b.errors},null,2));

@@ -82,7 +82,9 @@ const category=async(name)=>{const button=`Array.from(document.querySelectorAll(
 try{
  await send('Page.enable');await send('Runtime.enable');await send('Page.addScriptToEvaluateOnNewDocument',{source:`(${fixture.toString()})()`});
  await send('Page.navigate',{url:`${base}#/staff/settings`});await waitFor("document.body.innerText.includes('Integrations overview')");
+ await evaluate("document.querySelector('.proto-footer button').click()");await waitFor("document.querySelector('dialog[open]')");
  assert.equal(await evaluate("document.querySelector('a[href=\"#/staff/settings\"]')!==null"),true);
+ await evaluate("document.querySelector('dialog button[aria-label=\"Close dialog\"]').click()");await waitFor("!document.querySelector('dialog[open]')");
  assert.equal(await evaluate("document.body.innerText.includes('Configure Twilio SMS Verify')"),true);
  assert.equal(await evaluate("document.querySelector('[name=businessWebsiteUrl]').type"),'url');
  await input('businessWebsiteUrl','https://restaurant.example.test');
@@ -277,6 +279,7 @@ try{
  assert.equal(await evaluate("document.querySelector('[name=businessWebsiteUrl]').value"),'');
  // New attempts replace queued approvals before restoration: only the latest destination runs.
  await input('businessWebsiteUrl','https://newer-draft.example.test');await evaluate('window.traversals=[];window.holdNextTraversal=true');
+ await evaluate("document.querySelector('.proto-footer button').click()");await waitFor("document.querySelector('nav[aria-label=\"Management navigation\"]')");
  await immediateChoice('back','Discard and continue',`const oldButton=[...dialog.querySelectorAll('button')].find(button=>button.textContent==='Discard and continue');oldButton.click();document.querySelector('a[href="#/staff/restaurant"]').click();`);
  assert.deepEqual(await evaluate('traversals.map(call=>call.delta)'),[1]);await evaluate('window.releaseTraversal()');
  await waitFor("location.hash==='#/staff/restaurant'&&document.body.innerText.includes('Restaurant scheduling')");
