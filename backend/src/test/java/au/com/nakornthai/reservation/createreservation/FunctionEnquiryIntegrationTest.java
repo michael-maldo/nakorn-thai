@@ -56,23 +56,25 @@ class FunctionEnquiryIntegrationTest {
         create(UUID.randomUUID());
         mvc.perform(get("/api/staff/functions")).andExpect(status().isUnauthorized());
         mvc.perform(get("/api/staff/functions").with(user("kitchen").roles("BOH"))).andExpect(status().isForbidden());
-        mvc.perform(get("/api/staff/functions").with(user("front").roles("FOH"))).andExpect(status().isOk())
+        mvc.perform(get("/api/staff/functions").with(user("front").roles("FOH"))).andExpect(status().isForbidden());
+        mvc.perform(get("/api/staff/functions").with(user("admin").roles("ADMIN"))).andExpect(status().isOk())
             .andExpect(header().string("Cache-Control","no-store")).andExpect(jsonPath("$.items[0].email").value("venue@example.com"));
         mvc.perform(get("/api/staff/functions?status=BAD").with(user("admin").roles("ADMIN"))).andExpect(status().isBadRequest());
-        mvc.perform(get("/api/staff/functions?page=-1").with(user("front").roles("FOH"))).andExpect(status().isBadRequest());
+        mvc.perform(get("/api/staff/functions?page=-1").with(user("admin").roles("ADMIN"))).andExpect(status().isBadRequest());
     }
     @Test void confirmsWithDateAndRejectsStaleAndInvalidChanges() throws Exception {
         var id=UUID.randomUUID();create(id);
         String url="/api/staff/functions/"+id;
         String update="{\"version\":0,\"status\":\"CONFIRMED\",\"arrangedDate\":null,\"staffNote\":\"Spoke to guest\"}";
-        mvc.perform(patch(url).with(user("front").roles("FOH")).with(csrf()).contentType("application/json").content(update)).andExpect(status().isBadRequest());
+        mvc.perform(patch(url).with(user("admin").roles("ADMIN")).with(csrf()).contentType("application/json").content(update)).andExpect(status().isBadRequest());
         String dated=update.replace("\"arrangedDate\":null","\"arrangedDate\":\""+LocalDate.now(ZoneId.of("Australia/Melbourne")).plusDays(20)+"\"");
         mvc.perform(patch(url).with(user("kitchen").roles("BOH")).with(csrf()).contentType("application/json").content(dated)).andExpect(status().isForbidden());
-        mvc.perform(patch(url).with(user("front").roles("FOH")).with(csrf()).contentType("application/json").content(dated)).andExpect(status().isNoContent());
+        mvc.perform(patch(url).with(user("front").roles("FOH")).with(csrf()).contentType("application/json").content(dated)).andExpect(status().isForbidden());
+        mvc.perform(patch(url).with(user("admin").roles("ADMIN")).with(csrf()).contentType("application/json").content(dated)).andExpect(status().isNoContent());
         em.flush();em.clear();
-        mvc.perform(patch(url).with(user("front").roles("FOH")).with(csrf()).contentType("application/json").content(dated)).andExpect(status().isConflict());
-        mvc.perform(patch(url).with(user("front").roles("FOH")).with(csrf()).contentType("application/json").content(dated.replace("\"version\":0","\"version\":1").replace("CONFIRMED","NEW"))).andExpect(status().isConflict());
+        mvc.perform(patch(url).with(user("admin").roles("ADMIN")).with(csrf()).contentType("application/json").content(dated)).andExpect(status().isConflict());
+        mvc.perform(patch(url).with(user("admin").roles("ADMIN")).with(csrf()).contentType("application/json").content(dated.replace("\"version\":0","\"version\":1").replace("CONFIRMED","NEW"))).andExpect(status().isConflict());
         assertEquals("CONFIRMED",jdbc.queryForObject("SELECT status FROM function_enquiry WHERE id=?",String.class,id));
-        assertEquals("front",jdbc.queryForObject("SELECT updated_by FROM function_enquiry WHERE id=?",String.class,id));
+        assertEquals("admin",jdbc.queryForObject("SELECT updated_by FROM function_enquiry WHERE id=?",String.class,id));
     }
 }

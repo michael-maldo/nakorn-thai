@@ -146,7 +146,10 @@ class CreateReservationIntegrationTest {
  int jobs(UUID id,String type){em.flush();return jdbc.queryForObject("SELECT count(*) FROM notification_delivery WHERE reservation_id=? AND type=?",Integer.class,id,type);}
  void change(UUID id,String status,int expected) throws Exception {
   em.flush();em.clear();long version=jdbc.queryForObject("SELECT version FROM reservation WHERE id=?",Long.class,id);
-  mvc.perform(patch("/api/staff/reservations/"+id).with(user("front").roles("FOH")).with(csrf()).contentType("application/json").content("{\"version\":"+version+",\"status\":\""+status+"\",\"staffNote\":\"\"}")).andExpect(status().is(expected));
+  String payload="{\"version\":"+version+",\"status\":\""+status+"\",\"staffNote\":\"\"}";
+  boolean cancellation="CANCELLED".equals(status);
+  if(cancellation) mvc.perform(patch("/api/staff/reservations/"+id).with(user("front").roles("FOH")).with(csrf()).contentType("application/json").content(payload)).andExpect(status().isForbidden());
+  mvc.perform(patch("/api/staff/reservations/"+id).with(user(cancellation?"admin":"front").roles(cancellation?"ADMIN":"FOH")).with(csrf()).contentType("application/json").content(payload)).andExpect(status().is(expected));
  }
  @Test void rejectsWrongExpiredUnverifiedMismatchedAndLandlineProof() throws Exception {
   UUID id=UUID.randomUUID();String payload=body(id);UUID challenge=proof(id);
