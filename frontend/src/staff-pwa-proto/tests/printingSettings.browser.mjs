@@ -35,7 +35,8 @@ try{
  await click('Save profile');await waitFor("document.body.innerText.includes('Experimental Assistant profile saved')");
  assert.equal(await evaluate("JSON.parse(localStorage.getItem('nakorn-staff-pwa-proto:orders:printer')).method"),'EPSON_TM_PRINT_ASSISTANT');
  assert.equal(await evaluate("JSON.parse(localStorage.getItem('nakorn-staff-pwa-proto:orders:printer')).autoPrint"),false);
- assert.equal(await evaluate("document.querySelector('input[type=url]') === null"),true);
+ await waitFor("document.querySelector('details .sp-settings-card select').value==='EPSON_TM_PRINT_ASSISTANT'");
+ assert.equal(await evaluate("document.querySelector('details .sp-settings-card input[type=url]') === null"),true);
  assert.equal(await evaluate("document.body.innerText.includes('Test Print via Epson Assistant')"),true);
  await b.check('Enable printing on this device');
  assert.equal(await evaluate("JSON.parse(localStorage.getItem('nakorn-staff-pwa-proto:orders:printer')).autoPrint"),false);
