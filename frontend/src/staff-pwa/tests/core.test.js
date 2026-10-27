@@ -424,7 +424,7 @@ test('repeated lock cycles preserve one activated context through browser suspen
 
 test('unusable retained contexts are retired after unlock, with bounded replacement and manual fallback', async () => {
   for (const mode of ['frozen', 'interrupted', 'closed', 'hung']) {
-    const f = audioFixture();
+    const f = audioFixture({ timeoutMs: 100 });
     try {
       await f.engine.enable(); const original = f.contexts[0];
       f.visibility(true);
@@ -432,7 +432,10 @@ test('unusable retained contexts are retired after unlock, with bounded replacem
       else if (mode === 'hung') original.hung = true;
       else { original.state = mode; original.stuck = true; }
       f.visibility(false);
-      await new Promise(resolve => setTimeout(resolve, 30));
+      // The visibility listener starts recovery synchronously; share and await that
+      // operation instead of guessing its completion from a short wall-clock delay.
+      const recovered = await f.engine.recover();
+      assert.equal(recovered, mode !== 'hung', mode);
       assert.equal(original.closed, 1, mode);
       if (mode === 'hung') {
         assert.equal(f.engine.ready(), false); assert.equal(f.contexts.length, 1);
