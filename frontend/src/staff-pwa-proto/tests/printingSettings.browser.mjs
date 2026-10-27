@@ -21,8 +21,8 @@ try{
  await b.check('Enable printing on this device');
  assert.equal(await evaluate("JSON.parse(localStorage.getItem('nakorn-staff-pwa-proto:orders:printer')).deviceEnabled"),true);
  assert.equal(await evaluate("JSON.parse(localStorage.getItem('nakorn-staff-pwa-proto:orders:printer')).autoPrint"),false);
- const capable=await evaluate("document.body.innerText.includes('Experimental browser printing enabled')");
- assert.equal(await evaluate("[...document.querySelectorAll('details button')].find(b=>b.textContent==='Test Print').disabled"),!capable);
+ // The enabled build capability is verified by the real control gate, not status copy.
+ assert.equal(await evaluate("[...document.querySelectorAll('details button')].find(b=>b.textContent==='Test Print').disabled"),false);
  await b.check('Enable printing on this device');
  assert.equal(await evaluate("[...document.querySelectorAll('details button')].find(b=>b.textContent==='Test Print').disabled"),true);
  await click('Device settings');await waitFor("document.querySelector('dialog input')");
@@ -37,6 +37,9 @@ try{
  assert.equal(await evaluate("JSON.parse(localStorage.getItem('nakorn-staff-pwa-proto:orders:printer')).autoPrint"),false);
  assert.equal(await evaluate("document.querySelector('input[type=url]')"),null);
  assert.equal(await evaluate("document.body.innerText.includes('Test Print via Epson Assistant')"),true);
+ await b.check('Enable printing on this device');
+ assert.equal(await evaluate("JSON.parse(localStorage.getItem('nakorn-staff-pwa-proto:orders:printer')).autoPrint"),false);
+ assert.equal(await evaluate("[...document.querySelectorAll('details button')].find(b=>b.textContent==='Test Print via Epson Assistant').disabled"),false);
  for(const role of ['FOH','BOH']){
   await send('Page.navigate',{url:base+'?role='+role+'#/staff/settings'});await waitFor("document.body.innerText.includes('Access restricted')");
   assert.equal(await evaluate("!!document.querySelector('.proto-manage')"),false);assert.equal(await evaluate("!!document.querySelector('summary')"),false);
