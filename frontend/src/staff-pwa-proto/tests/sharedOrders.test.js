@@ -33,7 +33,7 @@ test('legacy operational paths are reexports, not duplicate implementations',()=
 
 test('ADMIN integrations Printing reuses the same printer UI and session profile',()=>{
  const page=readFileSync(new URL('../features/restaurant/pages/IntegrationSettingsPage.jsx',import.meta.url),'utf8');
- assert.match(page,/shared\/staff-orders\/printing\/PrinterSettings/);
+ assert.match(page,/printing\/PrinterSettings/);
  assert.match(page,/<summary>Printing<\/summary>/);
  assert.match(page,/config={orders.config} printer={orders.printer} onSave={orders.savePrinter}/);
 });

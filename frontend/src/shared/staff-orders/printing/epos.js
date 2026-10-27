@@ -3,8 +3,17 @@ import { docketLines } from './dockets.js';
 export { docketText } from './dockets.js';
 // A build-time flag cannot be enabled through device preferences.
 export const printingEnabled = import.meta.env?.VITE_STAFF_EPOS_ENABLED === 'true';
-export const printerDefaults = { name: 'Epson TM-m30II', endpoint: '', deviceId: 'local_printer', layout: 'kitchen', paperWidth: 58, deviceEnabled: false, autoPrint: false };
-const escapeXml = text => String(text ?? '').replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&apos;');
+export const DIRECT_EPOS = 'DIRECT_EPOS';
+export const EPSON_TM_PRINT_ASSISTANT = 'EPSON_TM_PRINT_ASSISTANT';
+export const printerDefaults = { name: 'Epson TM-m30II', endpoint: '', deviceId: 'local_printer', layout: 'kitchen', paperWidth: 58, deviceEnabled: false, autoPrint: false, method: DIRECT_EPOS };
+export function normalizePrinterProfile(profile = {}) {
+  const method = profile.method === EPSON_TM_PRINT_ASSISTANT ? EPSON_TM_PRINT_ASSISTANT : DIRECT_EPOS;
+  return { ...printerDefaults, ...profile, method, ...(method === EPSON_TM_PRINT_ASSISTANT ? { autoPrint: false } : {}) };
+}
+export const escapeXml = text => String(text ?? '').replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&apos;');
+export function syntheticTestDocket(name, date = new Date().toISOString()) {
+  return `NAKORN THAI\nPRINTER TEST\n${name}\n${orderTime(date)} (Melbourne)\nTEST PRINT\n1234567890\nABCDEFGHIJKLMNOPQRSTUVWXYZ\nEnd of test\n`;
+}
 export function printerUrl(config) {
   const url = new URL(config.endpoint);
   if (url.protocol !== 'https:' || url.username || url.password || url.hash || url.search || url.pathname !== '/') throw new Error('Enter an HTTPS printer origin only, with no credentials, path or query.');
@@ -57,7 +66,7 @@ export function createPrinter({ enabled = printingEnabled, fetcher = globalThis.
   }
   return {
     printOrder(config, order, pickupMinutes) { return send(config, orderDocketXml(order, config, pickupMinutes)); },
-    test(config) { return send(config, eposEnvelope(`NAKORN THAI\nPRINTER TEST\n${config.name}\n${orderTime(new Date().toISOString())} (Melbourne)\nTEST PRINT\n1234567890\nABCDEFGHIJKLMNOPQRSTUVWXYZ\nEnd of test\n`)); },
+    test(config) { return send(config, eposEnvelope(syntheticTestDocket(config.name))); },
     // Empty ePOS document is a non-printing service probe, not a TCP or physical-output test.
     async check(config) { const result = await send(config, eposEnvelope('', { cut: false })); return { ...result, message: 'ePOS service responded successfully. No paper was printed; physical output remains unverified.' }; },
   };

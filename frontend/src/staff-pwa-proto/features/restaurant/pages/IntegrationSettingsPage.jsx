@@ -1,4 +1,4 @@
-import PrinterSettings from '../../../../shared/staff-orders/printing/PrinterSettings';
+import PrinterSettings from '../../printing/PrinterSettings';
 import PageAction from '../../../components/PageAction';
 import { StaffPageHeading, StaffUnsavedIndicator } from '../../staff/components/StaffPresentation';
 import {useEffect,useRef,useState} from 'react';

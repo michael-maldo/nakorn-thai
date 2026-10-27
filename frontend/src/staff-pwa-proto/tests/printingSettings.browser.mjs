@@ -30,6 +30,13 @@ try{
  await evaluate("(()=>{const input=document.querySelector('dialog input[maxlength]');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'Updated via device');input.dispatchEvent(new Event('input',{bubbles:true}));})()");
  await click('Save profile','dialog button');await waitFor("document.querySelector('dialog[open]').innerText.includes('Profile saved.')");await click('Close dialog');
  assert.equal(await evaluate("document.querySelector('details input[maxlength]').value"),'Updated via device');
+ await field('Printing method','EPSON_TM_PRINT_ASSISTANT');
+ await evaluate("(()=>{for(const name of ['endpoint','deviceId']){const key=name==='endpoint'?'endpoint':'deviceId';document.querySelectorAll('input').forEach(input=>{if(input.value==='https://printer.test'||input.value==='local_printer'){Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'');input.dispatchEvent(new Event('input',{bubbles:true}));}})}})()");
+ await click('Save profile');await waitFor("document.body.innerText.includes('Experimental Assistant profile saved')");
+ assert.equal(await evaluate("JSON.parse(localStorage.getItem('nakorn-staff-pwa-proto:orders:printer')).method"),'EPSON_TM_PRINT_ASSISTANT');
+ assert.equal(await evaluate("JSON.parse(localStorage.getItem('nakorn-staff-pwa-proto:orders:printer')).autoPrint"),false);
+ assert.equal(await evaluate("document.querySelector('input[type=url]')"),null);
+ assert.equal(await evaluate("document.body.innerText.includes('Test Print via Epson Assistant')"),true);
  for(const role of ['FOH','BOH']){
   await send('Page.navigate',{url:base+'?role='+role+'#/staff/settings'});await waitFor("document.body.innerText.includes('Access restricted')");
   assert.equal(await evaluate("!!document.querySelector('.proto-manage')"),false);assert.equal(await evaluate("!!document.querySelector('summary')"),false);

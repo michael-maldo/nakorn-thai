@@ -20,7 +20,6 @@ on:
       - 'frontend/src/assets/images/signature-*.jpg'
       - 'frontend/tests/e2e/staffIdentityFixtures.mjs'
       - 'frontend/tests/e2e/staffLayoutFixtures.mjs'
-      - '.github/workflows/deploy-staff-pwa-proto.yml'
   workflow_dispatch:
 
 permissions:
@@ -32,7 +31,7 @@ concurrency:
 
 jobs:
   deploy:
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/epson-tmpa-ipad-test')
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:

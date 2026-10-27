@@ -2,7 +2,7 @@ import OrderMonitorStatus from '../shared/staff-orders/components/OrderMonitorSt
 import {OrdersRuntimeProvider} from '../shared/staff-orders/runtime';
 import useOrdersController from '../shared/staff-orders/hooks/useOrdersController';
 import AudioSettings from '../shared/staff-orders/components/AudioSettings';
-import PrinterSettings from '../shared/staff-orders/printing/PrinterSettings';
+import PrinterSettings from './features/printing/PrinterSettings';
 import {paymentRequest} from './features/payment/api/paymentApi';
 import * as orderApi from './features/ordering/api/orderApi';
 import {readPreference,writePreference} from './app/orderPreferences';
@@ -27,6 +27,7 @@ import {PageActionTarget} from './components/PageAction';
 import Icon from './components/Icon';
 import Sheet from './components/Sheet';
 import {registerPrototypeWorker} from './pwa/register';
+import {consumeAssistantCallback,markAssistantOutcomeUnknown} from './features/printing/assistantTransport';
 const storageKey='nakorn-staff-pwa-proto:sidebar';
 function readSidebar(){try{return localStorage.getItem(storageKey)!=='collapsed';}catch{return true;}}
 export default function StaffProtoApp(){
@@ -42,6 +43,12 @@ function Workspace({orders}){
  const pageOwner=`${user.id}:${user.role}:${context?.sessionId || 'unknown'}`;
  useEffect(()=>{setSheet(null);content.current?.focus();},[hash]);
  useEffect(()=>{let disposed=false,cleanup;registerPrototypeWorker(activate=>{if(!disposed)setUpdate(()=>activate);}).then(stop=>{if(disposed)stop();else cleanup=stop;}).catch(()=>setNotice('Update check unavailable. Try again when online.'));return()=>{disposed=true;cleanup?.();};},[]);
+ useEffect(()=>{
+  try{const result=consumeAssistantCallback(window.location.search);if(result)setNotice(result.message);}catch{}
+  const onReturn=()=>{if(document.visibilityState&&document.visibilityState!=='visible')return;try{const result=markAssistantOutcomeUnknown();if(result)setNotice(result.message);}catch{setNotice('Print outcome unknown. Inspect the printer before any deliberate manual reprint.');}};
+  document.addEventListener('visibilitychange',onReturn);window.addEventListener('pageshow',onReturn);window.addEventListener('focus',onReturn);
+  return()=>{document.removeEventListener('visibilitychange',onReturn);window.removeEventListener('pageshow',onReturn);window.removeEventListener('focus',onReturn);};
+ },[]);
  function toggle(){setExpanded(value=>{try{localStorage.setItem(storageKey,value?'collapsed':'expanded');}catch{}return !value;});}
  async function signOut(approved=false){if(!approved&&!allowMenuNavigation(undefined,undefined,()=>signOut(true)))return;setBusy(true);try{await logout();}finally{setBusy(false);}}
  const operations=operationRoutes(user.role),management=managementRoutes(user.role);

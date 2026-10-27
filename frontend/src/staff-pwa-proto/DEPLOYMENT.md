@@ -11,8 +11,11 @@ prototype ownership and trigger isolation.
 
 `.github/workflows/deploy-staff-pwa-proto.yml` deploys the prototype on `main`
 pushes affecting its sources, HTML entry, Vite config, deployment helper/tests,
-workflow, locked npm dependencies, consumed signature photographs or the two
-shared browser fixtures. It also supports `workflow_dispatch` on `main`.
+locked npm dependencies, consumed signature photographs or the two shared
+browser fixtures. Workflow-only changes do not auto-deploy. It also supports
+`workflow_dispatch` on `main` and, for the isolated Epson hardware test, the
+exact branch `epson-tmpa-ipad-test`. Dispatch checks out the selected commit SHA.
+Feature-branch pushes do not deploy automatically.
 
 Node 24 and `npm ci --include=optional` match repository conventions. The pipeline
 runs prototype unit tests, deployment/rollback tests, a prototype-only build,

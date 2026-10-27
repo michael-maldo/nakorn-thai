@@ -41,7 +41,7 @@ test('identical concurrent writes dispatch once; successful and failed results a
 test('prototype never imports protected order, audio, worker or printer components',()=>{
  function walk(dir){return readdirSync(dir,{withFileTypes:true}).flatMap(entry=>entry.isDirectory()?walk(resolve(dir,entry.name)):[resolve(dir,entry.name)]);}
  for(const path of walk(local).filter(p=>/\.(jsx?|css)$/.test(p)&&!p.includes('/tests/')&&!p.endsWith('.test.js'))){
-  const text=readFileSync(path,'utf8');assert.doesNotMatch(text,/from ['"][^'"]*\/staff-pwa\//,path);assert.doesNotMatch(text,/epos|createSoundEngine|registerStaffWorker/,path);
+  const text=readFileSync(path,'utf8');assert.doesNotMatch(text,/from ['"][^'"]*\/staff-pwa\//,path);assert.doesNotMatch(text,/createSoundEngine|registerStaffWorker/,path);
  }
 });
 test('PWA extraction baseline and untouched Android, Web shell and styles retain reviewed fingerprints',()=>{

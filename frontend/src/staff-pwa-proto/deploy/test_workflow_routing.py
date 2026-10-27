@@ -25,10 +25,19 @@ class WorkflowRoutingTests(unittest.TestCase):
     def test_prototype_only_paths_never_trigger_existing_deployment(self):
         old = patterns('deploy.yml')
         new = patterns('deploy-staff-pwa-proto.yml')
-        for path in ('frontend/src/staff-pwa-proto/StaffProtoApp.jsx', 'frontend/src/staff-pwa-proto/deploy/release.py', 'frontend/staff-pwa-proto/index.html', 'frontend/vite.proto.config.js', '.github/workflows/deploy-staff-pwa-proto.yml'):
+        for path in ('frontend/src/staff-pwa-proto/StaffProtoApp.jsx', 'frontend/src/staff-pwa-proto/deploy/release.py', 'frontend/staff-pwa-proto/index.html', 'frontend/vite.proto.config.js'):
             self.assertTrue(matches(new, path), path)
             self.assertFalse(matches(old, path), path)
         self.assertFalse(matches(old, '.github/workflows/deploy.yml'))
+
+    def test_workflow_definition_changes_do_not_auto_deploy_and_test_branch_dispatch_uses_selected_commit(self):
+        workflow = (ROOT / '.github/workflows/deploy-staff-pwa-proto.yml').read_text()
+        new = patterns('deploy-staff-pwa-proto.yml')
+        self.assertFalse(matches(new, '.github/workflows/deploy-staff-pwa-proto.yml'))
+        self.assertIn('workflow_dispatch:', workflow)
+        self.assertIn("github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/epson-tmpa-ipad-test'", workflow)
+        self.assertIn('ref: ${{ github.sha }}', workflow)
+        self.assertIn('COMMIT_SHA: ${{ github.sha }}', workflow)
 
     def test_original_app_deployment_paths_remain_effective(self):
         old = patterns('deploy.yml')
@@ -46,7 +55,7 @@ class WorkflowRoutingTests(unittest.TestCase):
     def test_shared_orders_changes_trigger_both_frontend_workflows(self):
         old = patterns('deploy.yml')
         new = patterns('deploy-staff-pwa-proto.yml')
-        for path in ('frontend/src/shared/staff-orders/audio/alerts.js', 'frontend/src/shared/staff-orders/components/OrderDetails.jsx', 'frontend/src/domains/ordering/components/OrderItemOptions.jsx', 'frontend/src/domains/staff/components/StaffPresentation.jsx'):
+        for path in ('frontend/src/shared/staff-orders/audio/alerts.js', 'frontend/src/shared/staff-orders/components/OrderDetails.jsx', 'frontend/src/shared/staff-orders/printing/epos.js', 'frontend/src/shared/staff-orders/hooks/useOrdersController.js', 'frontend/src/domains/ordering/components/OrderItemOptions.jsx', 'frontend/src/domains/staff/components/StaffPresentation.jsx'):
             self.assertTrue(matches(old, path), path)
             self.assertTrue(matches(new, path), path)
 
