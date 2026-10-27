@@ -6,7 +6,7 @@ import { docketText, eposEnvelope, printerUrl, createPrinter, printerDefaults, p
 import { docketLines } from '../features/printing/dockets.js';
 import { paymentText } from '../features/orders/presentation.js';
 const order = { id: 'one', status: 'ACCEPTED', reference: 'NT-42', customerName: 'Guest & <family>', email: 'guest@example.test', fulfilment: 'PICKUP', currency: 'AUD', subtotalMinor: 4800, paymentStatus: 'PAID', paymentReference: 'CAPTURE-ABC123', phone: '0412345678', createdAt: '2026-10-22T01:00:00Z', estimatedReadyAt: '2026-10-22T01:20:00Z', totalMinor: 4800, paymentMethod: 'PAYPAL', paidAt: '2026-10-22T01:01:00Z', notes: 'No peanuts', items: [{ dishName: 'Curry', variationName: 'Chicken', quantity: 2, unitPriceMinor: 2400, lineTotalMinor: 4800, selectedOptions: [{ optionName: 'Hot', optionGroupName: 'Spice', quantity: 1 }] }] };
-const config = { ...printerDefaults, endpoint: 'https://192.168.1.100' };
+const config = { ...printerDefaults, deviceEnabled: true, endpoint: 'https://192.168.1.100' };
 test('pending tracker establishes silent baseline, suppresses repeats, survives reconnection and clears acknowledgements', () => {
   const tracker = createPendingTracker();
   assert.deepEqual(tracker.accept([{ id: 'first', status: 'NEW' }]), { arrived: false, count: 0 });
@@ -88,8 +88,8 @@ test('timeout aborts once and duplicate sends are rejected', async () => {
 
 test('only confirmed acceptance and reload can trigger one enabled print; failures never undo acceptance', async () => {
   let sends = 0;
-  const request = { order, target: 'ACCEPTED', enabled: true, autoPrint: true, current: () => true, send: async () => { sends++; } };
-  for (const change of [{ order: undefined }, { order: { ...order, status: 'NEW' } }, { enabled: false }, { autoPrint: false }, { target: 'PREPARING' }, { current: () => false }]) assert.equal(await printConfirmedAcceptance({ ...request, ...change }), false);
+  const request = { order, target: 'ACCEPTED', enabled: true, deviceEnabled: true, autoPrint: true, current: () => true, send: async () => { sends++; } };
+  for (const change of [{ order: undefined }, { order: { ...order, status: 'NEW' } }, { enabled: false }, { deviceEnabled: false }, { autoPrint: false }, { target: 'PREPARING' }, { current: () => false }]) assert.equal(await printConfirmedAcceptance({ ...request, ...change }), false);
   assert.equal(sends, 0);
   assert.equal(await printConfirmedAcceptance(request), true); assert.equal(sends, 1);
   await assert.rejects(printConfirmedAcceptance({ ...request, send: async () => { throw new Error('Offline'); } }), /Offline/);
@@ -443,4 +443,19 @@ test('unusable retained contexts are retired after unlock, with bounded replacem
       } else { assert.equal(f.engine.ready(), true, mode); assert.equal(f.contexts.length, 2); }
     } finally { f.engine.close(); }
   }
+});
+
+test('device printing defaults off and blocks every transport operation', async () => {
+ assert.equal(printerDefaults.deviceEnabled, false);
+ const printer = createPrinter({ enabled: true, fetcher() { assert.fail('disabled device must never contact printer'); } });
+ for (const deviceEnabled of [undefined, false]) {
+  const saved = { ...config, deviceEnabled, autoPrint: true };
+  await assert.rejects(printer.test(saved), /disabled on this device/);
+  await assert.rejects(printer.check(saved), /disabled on this device/);
+  await assert.rejects(printer.printOrder(saved, order), /disabled on this device/);
+ }
+});
+test('stale dialogs cannot print after device disablement', async () => {
+ const printer = createPrinter({ enabled: true, getConfig: () => ({deviceEnabled:false}), fetcher() { assert.fail('must not send'); } });
+ await assert.rejects(printer.printOrder(config, order), /disabled on this device/);
 });

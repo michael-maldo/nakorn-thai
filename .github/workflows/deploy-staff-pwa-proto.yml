@@ -12,6 +12,7 @@ on:
       - 'frontend/src/domains/menu/model/menuOptions.js'
       - 'frontend/src/domains/staff/components/StaffPresentation.jsx'
       - 'frontend/src/staff-pwa/tests/core.test.js'
+      - 'frontend/src/staff-pwa/tests/eposBuild.test.mjs'
       - 'frontend/staff-pwa-proto/**'
       - 'frontend/vite.proto.config.js'
       - 'frontend/package.json'
@@ -36,6 +37,7 @@ jobs:
     timeout-minutes: 20
     env:
       RELEASE: ${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+      VITE_STAFF_EPOS_ENABLED: 'true'
       COMMIT_SHA: ${{ github.sha }}
 
     steps:
@@ -66,6 +68,7 @@ jobs:
         run: |
           set -euo pipefail
           npm run build:staff-proto
+          node src/staff-pwa/tests/eposBuild.test.mjs dist-staff-pwa-proto/staff-pwa-proto/assets
           python3 src/staff-pwa-proto/deploy/release.py manifest dist-staff-pwa-proto --commit "$COMMIT_SHA"
           python3 src/staff-pwa-proto/deploy/release.py validate dist-staff-pwa-proto --commit "$COMMIT_SHA"
 
@@ -91,6 +94,7 @@ jobs:
           done
           test "$ready" = true
           npm run test:staff-proto-install-browser
+          PROTO_TEST_URL=http://127.0.0.1:5176/staff-pwa-proto/ node src/staff-pwa-proto/tests/printingSettings.browser.mjs
 
       - name: Configure verified SSH connection
         env:

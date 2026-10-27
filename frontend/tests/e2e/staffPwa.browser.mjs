@@ -223,7 +223,7 @@ try {
     for(const xml of [response('false'),'<html>broken</html>','<bad>']){try{p.parsePrintResponse(xml)}catch{checks++}}
     let sent=0;
     const printer=p.createPrinter({enabled:true,fetcher:async()=>{sent++;return new Response(response('true'))}});
-    await printer.test({...p.printerDefaults,endpoint:'https://printer.invalid'}); if(sent===1)checks++;
+    await printer.test({...p.printerDefaults,deviceEnabled:true,endpoint:'https://printer.invalid'}); if(sent===1)checks++;
     return checks;
   })()`);
   check(printerChecks===5,'browser XML and mock print completion/error handling');

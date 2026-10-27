@@ -17,7 +17,14 @@ try{
  assert.equal(await evaluate("JSON.parse(localStorage.getItem('nakorn-staff-pwa-proto:orders:printer')).paperWidth"),80);
  assert.equal(await evaluate("JSON.parse(localStorage.getItem('nakorn.staff.printer')).name"),'Original untouched');
  assert.equal(await evaluate("[...document.querySelectorAll('details button')].filter(b=>/Test Print|Check saved endpoint/.test(b.textContent)).every(b=>b.disabled)"),true);
- assert.equal(await evaluate("document.querySelector('details [type=checkbox]').disabled"),true);
+ assert.equal(await evaluate("document.querySelector('details [type=checkbox]').checked"),false);
+ await b.check('Enable printing on this device');
+ assert.equal(await evaluate("JSON.parse(localStorage.getItem('nakorn-staff-pwa-proto:orders:printer')).deviceEnabled"),true);
+ assert.equal(await evaluate("JSON.parse(localStorage.getItem('nakorn-staff-pwa-proto:orders:printer')).autoPrint"),false);
+ const capable=await evaluate("document.body.innerText.includes('Experimental browser printing enabled')");
+ assert.equal(await evaluate("[...document.querySelectorAll('details button')].find(b=>b.textContent==='Test Print').disabled"),!capable);
+ await b.check('Enable printing on this device');
+ assert.equal(await evaluate("[...document.querySelectorAll('details button')].find(b=>b.textContent==='Test Print').disabled"),true);
  await click('Device settings');await waitFor("document.querySelector('dialog input')");
  assert.equal(await evaluate("document.querySelector('dialog input[maxlength]').value"),'Prototype counter');
  await evaluate("(()=>{const input=document.querySelector('dialog input[maxlength]');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'Updated via device');input.dispatchEvent(new Event('input',{bubbles:true}));})()");

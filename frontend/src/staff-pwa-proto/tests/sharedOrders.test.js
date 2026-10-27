@@ -37,3 +37,19 @@ test('ADMIN integrations Printing reuses the same printer UI and session profile
  assert.match(page,/<summary>Printing<\/summary>/);
  assert.match(page,/config={orders.config} printer={orders.printer} onSave={orders.savePrinter}/);
 });
+
+test('printer preferences persist independently and preserve legacy profiles',async()=>{
+ const original=await import('../../staff-pwa/preferences.js');
+ const saved=globalThis.localStorage,values=new Map();
+ globalThis.localStorage={getItem:key=>values.get(key)??null,setItem:(key,value)=>values.set(key,value)};
+ try{
+  const profile={name:'Existing',endpoint:'https://printer.test',deviceId:'local_printer',paperWidth:80,layout:'detailed',autoPrint:true};
+  original.writePreference('printer',profile);
+  writePreference('printer',{...profile,name:'Prototype',deviceEnabled:true,autoPrint:false});
+  assert.deepEqual(original.readPreference('printer',{}),profile);
+  assert.equal(readPreference('printer',{}).deviceEnabled,true);
+  original.writePreference('printer',{...original.readPreference('printer',{}),deviceEnabled:true,autoPrint:false});
+  assert.equal(original.readPreference('printer',{}).endpoint,profile.endpoint);
+  assert.equal(readPreference('printer',{}).name,'Prototype');
+ }finally{globalThis.localStorage=saved;}
+});

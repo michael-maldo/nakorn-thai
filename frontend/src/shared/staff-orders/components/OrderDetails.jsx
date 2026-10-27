@@ -74,7 +74,7 @@ export default function OrderDetails({ id, onClose, onChanged, printer, config, 
       onAction={async (snapshot, command) => {
         const next = await mutate(() => changeOrderStatus(snapshot.id, command, authorization, current));
         // A successful PATCH plus authoritative detail read must precede any print.
-        await printConfirmedAcceptance({ order: next, target: command.status, enabled: canPrint, autoPrint: config.autoPrint, current, send: order => print(order, true, command.pickupMinutes) });
+        await printConfirmedAcceptance({ order: next, target: command.status, enabled: canPrint, deviceEnabled: config.deviceEnabled, autoPrint: config.autoPrint, current, send: order => print(order, true, command.pickupMinutes) });
       }} onPayment={(snapshot, command) => mutate(() => verifyStaffPayment(snapshot.id, command, authorization, current))} />}
     {order && canPrint && ['ACCEPTED', 'PREPARING', 'READY'].includes(order.status) && <button disabled={busy || blocked || !!monitoringError} onClick={async () => {
       if (!window.confirm('Inspect existing paper first. Send one deliberate reprint of this order?')) return;

@@ -99,19 +99,20 @@ jobs:
 
       - name: Install and build
         env:
-          VITE_STAFF_EPOS_ENABLED: 'false'
+          VITE_STAFF_EPOS_ENABLED: 'true'
         working-directory: frontend
         run: |
           npm ci --include=optional
           npm test
           npm run build
           npm run test:staff-pwa-build
+          node src/staff-pwa/tests/eposBuild.test.mjs dist/assets
           test -s dist/index.html
 
       - name: Verify staff PWA and existing staff layouts in Chromium
         working-directory: frontend
         env:
-          # No production jobs: this build leaves Epson printing disabled.
+          # Regression fixtures keep device printing disabled; no printer jobs.
           VITE_STAFF_EPOS_ENABLED: 'false'
         run: |
           set -euo pipefail
@@ -130,6 +131,7 @@ jobs:
           npm run test:staff-pwa-browser
           npm run test:staff-layout-browser
           npm run test:staff-pwa-install-browser
+          CHROME_DEBUG_URL=http://127.0.0.1:9223 STAFF_EPOS_PREVIEW_URL=http://127.0.0.1:5175/ node src/staff-pwa/tests/eposEnabled.browser.mjs
 
       - name: Configure SSH
         env:

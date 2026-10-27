@@ -3,7 +3,7 @@ import { docketLines } from './dockets.js';
 export { docketText } from './dockets.js';
 // A build-time flag cannot be enabled through device preferences.
 export const printingEnabled = import.meta.env?.VITE_STAFF_EPOS_ENABLED === 'true';
-export const printerDefaults = { name: 'Epson TM-m30II', endpoint: '', deviceId: 'local_printer', layout: 'kitchen', paperWidth: 58, autoPrint: false };
+export const printerDefaults = { name: 'Epson TM-m30II', endpoint: '', deviceId: 'local_printer', layout: 'kitchen', paperWidth: 58, deviceEnabled: false, autoPrint: false };
 const escapeXml = text => String(text ?? '').replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&apos;');
 export function printerUrl(config) {
   const url = new URL(config.endpoint);
@@ -12,6 +12,9 @@ export function printerUrl(config) {
   url.pathname = '/cgi-bin/epos/service.cgi';
   url.searchParams.set('devid', config.deviceId); url.searchParams.set('timeout', '10000');
   return url.href;
+}
+export function validPrinterProfile(config) {
+  try { printerUrl(config); return !!config.name?.trim() && [58, 80].includes(config.paperWidth) && ['kitchen', 'detailed'].includes(config.layout); } catch { return false; }
 }
 function envelope(contents, cut = true) {
   // Epson cut type=feed feeds to the cutter and performs the printer's partial cut.
@@ -33,10 +36,12 @@ export function parsePrintResponse(xml) {
   if (!['true', '1'].includes(response.getAttribute('success')) || response.getAttribute('code')) throw new Error(`Epson reported ${response.getAttribute('code') || 'failure'} (status ${response.getAttribute('status') || 'unknown'}). Inspect output before manual reprint.`);
   return { success: true, status: response.getAttribute('status'), message: 'Epson reported completion. Check the physical docket and cut.' };
 }
-export function createPrinter({ enabled = printingEnabled, fetcher = globalThis.fetch, timeoutMs = 15000 } = {}) {
+export function createPrinter({ enabled = printingEnabled, fetcher = globalThis.fetch, getConfig, timeoutMs = 15000 } = {}) {
   let busy = false;
   async function send(config, xml) {
     if (!enabled) throw new Error('Browser printing is disabled in this build. Hardware verification required.');
+    if (config.deviceEnabled !== true || (getConfig && getConfig().deviceEnabled !== true)) throw new Error('Printing is disabled on this device.');
+    if (!validPrinterProfile(config)) throw new Error('Save a valid printer profile first.');
     if (busy) throw new Error('A printer request is already in progress.');
     const url = printerUrl(config);
     busy = true;
