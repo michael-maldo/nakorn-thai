@@ -6,10 +6,10 @@ import Reviews from '../components/Reviews';
 import Location from '../components/Location';
 import Footer from '../components/Footer';
 
-export default function HomePage() {
+export default function HomePage({ hash }) {
   return (
     <>
-      <Header />
+      <Header currentPage={hash === '#contact' ? 'Contact' : 'Home'} />
       <main>
         <Hero />
         <SignatureDishes />

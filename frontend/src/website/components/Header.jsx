@@ -1,9 +1,10 @@
 import { useLayoutEffect, useRef, useState } from 'react';
-import { navigation } from '../content/homeContent';
+import { homeLink, menuLink, publicNavigation } from '../content/navigation';
 import logo from '../../assets/images/nakorn-thai-logo.png';
 
-export default function Header({ currentPage = 'Home' }) {
+export default function Header({ currentPage }) {
   const [open, setOpen] = useState(false);
+  const toggleRef = useRef(null);
   const headerRef = useRef(null);
   useLayoutEffect(() => {
     const updateHeight = () => document.documentElement.style.setProperty('--site-header-height', `${headerRef.current.getBoundingClientRect().height}px`);
@@ -17,22 +18,28 @@ export default function Header({ currentPage = 'Home' }) {
   }, []);
 
   return (
-    <header ref={headerRef} className="site-header">
-      <a className="brand" href="#home" aria-label="Nakorn Thai home">
+    <header ref={headerRef} className="site-header" onKeyDown={(event) => {
+      if (event.key === 'Escape' && open) {
+        setOpen(false);
+        toggleRef.current.focus();
+      }
+    }}>
+      <a className="brand" href={homeLink.href} onClick={() => setOpen(false)} aria-label="Nakorn Thai home">
         <img src={logo} alt="Nakorn Thai Restaurant and Bar" />
       </a>
-      <button className="menu-toggle" aria-expanded={open} aria-controls="main-nav" onClick={() => setOpen(!open)}>
+      <a className="button button-outline order-button mobile-order-button" href={menuLink.href} onClick={() => setOpen(false)}>Order online</a>
+      <button ref={toggleRef} type="button" className="menu-toggle" aria-expanded={open} aria-controls="main-nav" onClick={() => setOpen((wasOpen) => !wasOpen)}>
         <span className="sr-only">Toggle menu</span>
         <span /><span /><span />
       </button>
       <nav id="main-nav" className={open ? 'main-nav is-open' : 'main-nav'} aria-label="Main navigation">
-        {navigation.map((item) => (
-          <a key={item} className={item === currentPage ? 'active' : ''} aria-current={item === currentPage ? 'page' : undefined} href={item === 'Menu' ? '#/menu' : item === 'Reservations' ? '#/reservations' : item === 'Functions' ? '#/functions' : `#${item.toLowerCase()}`}  onClick={() => setOpen(false)}>
-            {item}
+        {publicNavigation.map(({ label, href }) => (
+          <a key={href} aria-current={label === currentPage ? (label === 'Contact' ? 'location' : 'page') : undefined} href={href} onClick={() => setOpen(false)}>
+            {label}
           </a>
         ))}
       </nav>
-      <a className="button button-outline order-button" href="#/menu">Order online <span aria-hidden="true">♧</span></a>
+      <a className="button button-outline order-button" href={menuLink.href} onClick={() => setOpen(false)}>Order online</a>
     </header>
   );
 }

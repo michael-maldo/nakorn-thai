@@ -1,5 +1,3 @@
-export const navigation = ['Home', 'Menu', 'Reservations', 'Functions', 'Gallery', 'About', 'Contact'];
-
 export const features = [
   { icon: '❧', title: 'Fresh Ingredients', text: 'Locally sourced produce for the best quality.' },
   { icon: '♨', title: 'Authentic Recipes', text: 'Traditional Thai flavours passed down through generations.' },
@@ -19,11 +17,4 @@ export const contactDetails = [
   { icon: '☎', label: 'Phone', lines: ['(03) 9819 4044'] },
   { icon: '⌖', label: 'Address', lines: ['233 Glenferrie Rd,', 'Malvern VIC 3144'] },
   { icon: '▱', label: 'Parking', lines: ['Street parking available', 'on Glenferrie Rd and nearby.'] },
-];
-
-export const footerGroups = [
-  { title: 'Menu', links: ['Entrées', 'Mains', 'Desserts', 'Drinks'] },
-  { title: 'Reservations', links: ['Book a Table', 'Functions', 'Private Dining'] },
-  { title: 'About', links: ['Our Story', 'Our Chefs', 'Gallery'] },
-  { title: 'Contact', links: ['Location', 'Contact Us', 'Careers'] },
 ];
