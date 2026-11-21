@@ -8,3 +8,9 @@ export const publicNavigation = [
 
 export const homeLink = publicNavigation[0];
 export const menuLink = publicNavigation[1];
+
+export const socialLinks = [
+  { platform: 'facebook', label: 'Facebook', href: 'https://www.facebook.com/NakornThaiMalvern' },
+  { platform: 'instagram', label: 'Instagram', href: 'https://www.instagram.com/' },
+  { platform: 'tiktok', label: 'TikTok', href: 'https://www.tiktok.com/' },
+];
