@@ -109,7 +109,7 @@ export default function CheckoutPage() {
       }
     } finally { submitting.current=false;if(mounted.current)setBusy(false); }
   }
-  return <><Header currentPage="Menu" /><main className="restaurant-menu page-width customer-checkout">
+  return <><Header /><main className="restaurant-menu page-width customer-checkout">
     <header className="checkout-heading"><p className="checkout-eyebrow">Freshly prepared · Pickup only</p><h1>Pickup checkout</h1><p>Good food, ready for you. Review your order and choose how to pay.</p></header>
     {paymentOptionsError&&<p role="alert" className="staff-error">{paymentOptionsError}</p>}
     {orderingOptionsError&&<p role="alert" className="staff-error">{orderingOptionsError}</p>}

@@ -116,5 +116,5 @@ export default function AppRouter() {
   if (hash === '#/staff/restaurant') return staffPage(<RestaurantSchedulePage />, ['ADMIN']);
   if (hash === '#/staff/users') return staffPage(<UsersPage />, ['ADMIN']);
   if (hash === '#/staff/menu' || hash.startsWith('#/staff/menu/')) return staffPage(<StaffMenuPage hash={hash} />, ['ADMIN']);
-  return <HomePage />;
+  return <HomePage hash={hash} />;
 }

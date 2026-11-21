@@ -34,7 +34,7 @@ export default function OrderConfirmationPage() {
     }
     poll(); return () => { stopped = true; clearTimeout(timer); };
   }, [dispatch]);
-  return <><Header currentPage="Menu" /><main className="restaurant-menu page-width customer-checkout customer-receipt">
+  return <><Header /><main className="restaurant-menu page-width customer-checkout customer-receipt">
     <header className="checkout-heading"><p className="checkout-eyebrow">Nakorn Thai · Pickup</p><h1>Your pickup order</h1><p>Your receipt and the latest updates, all in one place.</p></header>
     {error && <><p role="alert" className="staff-error">{error}</p><a href={`#/recover-order${receipt?.requestId?'?order='+encodeURIComponent(receipt.requestId):''}`}>Recover order tracking</a></>}
     {!order && !error && <p role="status">Checking your order…</p>}
