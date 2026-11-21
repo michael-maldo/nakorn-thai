@@ -13,6 +13,7 @@ export default function Footer() {
             <a key={href} href={href}>{footerLabel ?? label}</a>
           ))}
           <a href="#/recover-order">Track an order</a>
+          <a href="https://www.facebook.com/NakornThaiMalvern">Facebook</a>
         </nav>
       </div>
       <div className="footer-bottom page-width">
