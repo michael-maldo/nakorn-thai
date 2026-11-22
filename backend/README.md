@@ -285,3 +285,8 @@ The existing ordering scaffold now implements guest pickup orders, private track
 role-restricted FOH/BOH queues and status transitions using JPA. V11 adds three order
 tables. See [online-ordering.md](../docs/ordering/online-ordering.md) for configuration and
 scope. Public writes require CSRF; menu administration remains ADMIN-only.
+
+## Google Business Profile reviews
+
+See [Google Business Profile reviews](GOOGLE_REVIEWS.md) for StaffPlatform access,
+OAuth setup, retention, and the public feed contract.

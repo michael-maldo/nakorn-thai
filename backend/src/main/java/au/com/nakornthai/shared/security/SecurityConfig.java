@@ -23,7 +23,8 @@ public class SecurityConfig {
                         .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/menu/homepage", "/api/menu/collections", "/api/menu/collections/*/items",
                                 "/media/menu/*", "/actuator/health", "/actuator/prometheus").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/order-tracking").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/order-tracking", "/api/integrations/google/callback",
+                                "/api/public/google-reviews").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/staff/orders/*/tracking/revoke").hasAnyRole("ADMIN", "FOH")
                         .requestMatchers(HttpMethod.GET, "/api/orders/options", "/api/orders/csrf", "/api/orders/*").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/orders").permitAll()

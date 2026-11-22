@@ -24,6 +24,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                         || !user.getId().toString().equals(claims.getSubject())) throw new io.jsonwebtoken.JwtException("Session expired");
                 // Roles and account status come from the database, not client claims.
                 var auth=UsernamePasswordAuthenticationToken.authenticated(user.getUsername(), null, List.of(new SimpleGrantedAuthority("ROLE_"+user.getRole())));
+                auth.setDetails(session.getId());
                 SecurityContextHolder.getContext().setAuthentication(auth);
             } catch (io.jsonwebtoken.JwtException | IllegalArgumentException exception) {
                 SecurityContextHolder.clearContext(); response.setStatus(401); return;
