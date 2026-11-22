@@ -52,7 +52,7 @@ for (const [name, values] of Object.entries({
   rotation: { rotation: 90 }, 'position and zoom': { focusX: 30, focusY: 70, zoom: 1.2 },
   combined: { focusX: 45, focusY: 55, zoom: 1.6, rotation: 45 },
 })) {
-  test(`homepage thumbnail, preview and Menu card share ${name} presentation`, async () => {
+  test(`homepage thumbnail and Menu card share ${name} presentation`, async () => {
     const { createElement } = await import('react');
     const { renderToStaticMarkup } = await import('react-dom/server');
     const item = { id: 'photo-test', name: 'Test dish', available: true, variations: [], optionGroups: [], image: { url: '/test-photo.jpg', ...values } };
@@ -62,12 +62,12 @@ for (const [name, values] of Object.entries({
       zoom: values.zoom ?? 1, rotation: values.rotation ?? 0,
       origin: `${values.focusX ?? 50}% ${values.focusY ?? 50}%` });
     const menu = renderToStaticMarkup(createElement(MenuItemCard, { item, collection: { availability: { available: true } }, enabled: true, cart: [] }));
-    const homepage = renderToStaticMarkup(createElement(FeaturedDishCard, { dish, open: true }));
+    const homepage = renderToStaticMarkup(createElement(FeaturedDishCard, { dish, available: true }));
     const styles = html => Array.from(html.matchAll(/class="menu-photo-layer" style="([^"]+)"/g), match => match[1]);
-    assert.deepEqual(styles(homepage), [styles(menu)[0], styles(menu)[0]]);
+    assert.deepEqual(styles(homepage), [styles(menu)[0]]);
     assert.ok(styles(menu)[0].includes(`scale(${photo.zoom}) rotate(${photo.rotation}deg)`));
     assert.ok(styles(menu)[0].includes(`transform-origin:${photo.origin}`));
-    assert.equal((homepage.match(/menu-photo-frame/g) || []).length, 2);
+    assert.equal((homepage.match(/menu-photo-frame/g) || []).length, 1);
   });
 }
 

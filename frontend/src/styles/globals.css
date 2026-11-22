@@ -107,9 +107,8 @@ button, input { font: inherit; }
 .section-title > span:not(#reviews-title) { display: block; width: 30px; height: 1px; margin: 0 auto 12px; background: var(--gold); }
 .section-title h2 { margin: 0; font: 400 36px/1.15 var(--serif); }
 .dish-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; }
-.dish-card { position: relative; z-index: 0; text-align: center; outline: none; }
-.dish-card:hover, .dish-card:focus-visible { z-index: 5; }
-.dish-image-trigger { width: 100%; padding: 0; display: block; border: 0; border-radius: 8px; background: transparent; cursor: zoom-in; }
+.dish-card { min-width: 0; text-align: center; }
+.dish-image-trigger { position: relative; width: 100%; padding: 0; display: block; border: 0; border-radius: 8px; background: transparent; cursor: pointer; }
 .dish-image {
   position: relative;
   width: 100%;
@@ -130,40 +129,15 @@ button, input { font: inherit; }
   border-radius: inherit;
   box-shadow: inset 0 0 18px 5px rgba(251,248,242,.34);
 }
-.dish-preview {
-  position: absolute;
-  z-index: 8;
-  left: 50%;
-  bottom: calc(100% - 20px);
-  width: min(440px, 155%);
-  aspect-ratio: 1.45;
-  overflow: hidden;
-  border: 5px solid rgba(255,253,249,.96);
-  border-radius: 8px;
-  background: var(--paper);
-  box-shadow: 0 18px 45px rgba(38,25,12,.28);
-  opacity: 0;
-  visibility: hidden;
-  pointer-events: none;
-  transform: translate(-50%, 14px) scale(.88);
-  transform-origin: center bottom;
-  transition: opacity .2s ease, transform .25s ease, visibility .2s ease;
+.dish-image-action { display: none; position: absolute; inset: auto 12px 12px; padding: 8px 12px; color: #fff; background: var(--plum); border-radius: 4px; font-weight: 700; }
+@media (hover: hover) and (pointer: fine) {
+  .dish-image-trigger:hover .dish-image-action { display: block; }
 }
-.dish-preview-photo { width: 100%; }
-.dish-preview-actions { position: absolute; inset: auto 10px 9px; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-.dish-preview-actions > span { padding: 6px 9px; color: #fff; background: rgba(41,25,14,.78); border-radius: 2px; font: 600 10px var(--sans); letter-spacing: .06em; text-transform: uppercase; }
-.dish-preview-actions > a { padding: 8px 11px; color: #fff; background: linear-gradient(135deg, #bf811c, #a5680d); border: 1px solid rgba(255,255,255,.62); border-radius: 2px; box-shadow: 0 3px 10px rgba(24,14,4,.22); font-size: 9px; font-style: normal; font-weight: 700; letter-spacing: .045em; text-transform: uppercase; white-space: nowrap; }
-.dish-preview-actions i { width: 7px; height: 7px; margin-right: 4px; display: inline-block; border-radius: 50%; background: #8ed56a; box-shadow: 0 0 0 2px rgba(142,213,106,.2); }
-.dish-preview-actions > a:hover, .dish-preview-actions > a:focus-visible { background: var(--plum); outline: 2px solid #fff; outline-offset: 2px; }
-.dish-card:hover .dish-preview, .dish-image-trigger:focus-visible + .dish-preview, .dish-preview.is-open { opacity: 1; visibility: visible; pointer-events: auto; transform: translate(-50%, 0) scale(1); }
-.dish-card:first-child .dish-preview { left: 42%; }
-.dish-card:last-child .dish-preview { left: 58%; }
-.dish-image-trigger:focus-visible .dish-image { outline: 2px solid var(--gold); outline-offset: 3px; }
-.dish-preview-close { display: none; }
+.dish-image-trigger:focus-visible, .dish-order-button:focus-visible, .quick-order-dialog :focus-visible { outline: 2px solid var(--gold-dark); outline-offset: 3px; }
+.dish-order-button { min-height: 44px; cursor: pointer; }
 .dish-card h3 { margin: 13px 0 2px; font: 400 20px var(--serif); }
 .dish-card p { max-width: 235px; min-height: 45px; margin: 0 auto 8px; color: var(--muted); font-size: 12px; line-height: 1.45; }
-.dish-card > a { color: var(--gold-dark); font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
-.dish-card > a span { padding-left: 5px; }
+.dish-card .featured-order-status { min-height: 0; margin-top: 8px; color: var(--plum); font-weight: 700; }
 .centered-button { width: fit-content; min-height: 40px; margin: 25px auto 0; display: flex; }
 
 /* Features */
@@ -527,3 +501,50 @@ body.has-cart-dock { padding-bottom: calc(88px + env(safe-area-inset-bottom)); }
 .configuration-checkbox + small { margin-inline-start: 1.5rem; }
 
 .configuration-secret-clear small { color: #596675; font-size: .8rem; }
+
+/* Homepage quick ordering */
+html:has(.quick-order-dialog[open]) { overflow: hidden; }
+.quick-order-dialog {
+  width: min(880px, calc(100% - 24px));
+  max-height: min(860px, calc(100dvh - 24px));
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: 0 16px 48px #22170e30;
+}
+.quick-order-dialog[open] { display: flex; flex-direction: column; }
+.quick-order-dialog::backdrop { background: #21160fb3; }
+.quick-order-close {
+  align-self: flex-end;
+  width: 44px;
+  height: 44px;
+  margin: 8px 8px 4px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--ivory);
+  color: var(--plum);
+  font-size: 24px;
+  cursor: pointer;
+}
+.quick-order-scroll { min-height: 0; overflow: auto; overscroll-behavior: contain; }
+.quick-order-layout { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap: 24px; padding: 0 24px; }
+.quick-order-photo { align-self: start; border-radius: 8px; }
+.quick-order-details { min-width: 0; grid-column: -2 / -1; overflow-wrap: anywhere; }
+.quick-order-details h2 { margin: 0; color: var(--plum); font: 400 clamp(1.75rem, 4vw, 2.4rem)/1.1 var(--serif); }
+.quick-order-details select { min-height: 44px; }
+.quick-order-details .menu-option-checkbox { min-height: 44px; }
+.quick-order-action { position: sticky; bottom: 0; padding: 12px 4px 20px; border-top: 1px solid var(--line); background: var(--paper); }
+.quick-order-total { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+.quick-order-total select { margin-inline-start: 4px; font: inherit; }
+.quick-order-action .button { width: 100%; cursor: pointer; }
+.quick-order-action .button:disabled { opacity: .55; cursor: default; }
+@media (max-width: 640px) {
+  .quick-order-layout { grid-template-columns: minmax(0, 1fr); gap: 16px; padding-inline: 16px; }
+  .quick-order-photo { width: min(100%, 240px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dish-order-button, .quick-order-action .button { transition: none; transform: none; }
+}

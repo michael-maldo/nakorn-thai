@@ -47,10 +47,20 @@ function fixture() {
     { id: 'draft', name: 'Draft collection', status: 'DRAFT' },
   ] };
   window.failHomepageSave = false; window.homepageWrites = [];window.acceptNavigation=true;window.navigationPrompts=[];window.confirm=message=>{navigationPrompts.push(message);return acceptNavigation;};window.alert=()=>{};
+  window.orderingEnabled = true;
+  window.dishSoldOut = false;
+  window.failQuickOrder = false;
+  window.priceIncrease = 0;
+  const protein = { id: 'protein', name: 'Protein', active: true, selectionType: 'SINGLE', minSelections: 1, maxSelections: 1,
+    options: [{ id: 'prawns', name: 'Prawns', available: true, priceDeltaMinor: 500 }] };
+  const extras = { id: 'extras', name: 'Extras', active: true, selectionType: 'MULTIPLE', minSelections: 0, maxSelections: 2,
+    options: [{ id: 'rice', name: 'Rice', available: true, priceDeltaMinor: 200 }] };
   window.photoCollection = c => ({ ...c, slug: c.id, availability: { available: true },
     categories: [{ id: 'photo-category', name: 'Photo examples' }],
     items: Array.from({ length: 6 }, (_, i) => ({ id: `${c.id}-${i}`, name: `${c.name} dish ${i}`,
-      description: 'Test dish', available: true, category: { id: 'photo-category' }, displayOrder: i, variations: [], optionGroups: [],
+      description: 'Test dish', available: i !== 2 && (i !== 0 || !window.dishSoldOut), category: { id: 'photo-category' },
+      displayOrder: i, variations: [{ id: `${c.id}-standard-${i}`, name: 'Standard', defaultVariation: true, available: true,
+        priceMinor: 2000 + window.priceIncrease }], optionGroups: i === 0 ? [protein, extras] : [],
       image: { url: 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="100" height="250"><rect width="100" height="250" fill="#d99724"/><path d="M0 0L100 250M100 0L0 250" stroke="#6d2853" stroke-width="8"/></svg>'),
         alt: 'Synthetic portrait regression photo', ...(i === 0 ? { focusX: 45, focusY: 55, zoom: 1.6, rotation: 45 } : {}) } })) });
   const realFetch = window.fetch;
@@ -70,8 +80,13 @@ function fixture() {
     }
     if (url === '/api/menu/homepage' || url === '/api/menu/collections') return Response.json(savedHomepage.collectionIds
       .map(id => savedHomepage.collections.find(c => c.id === id)).filter(c => c.status === 'PUBLISHED').map(window.photoCollection));
-    if (String(url).startsWith('/api/menu/collections/')) return Response.json(window.photoCollection(savedHomepage.collections.find(c => String(url).includes('/'+c.id+'/'))));
-    if (url === '/api/orders/options') return Response.json({ enabled: false });
+    if (String(url).startsWith('/api/menu/collections/')) {
+      if (window.failQuickOrder) return Response.json({ message: 'Menu temporarily offline' }, { status: 503 });
+      return Response.json(window.photoCollection(savedHomepage.collections.find(c => String(url).includes('/'+c.id+'/'))));
+    }
+    if (url === '/api/orders/options') return Response.json({ enabled: window.orderingEnabled });
+    if (url === '/api/payments/options') return Response.json({ payAtRestaurant: true });
+    if (url === '/api/order-verification/options') return Response.json({ sms: true });
     throw new Error(`Unexpected API: ${url}`);
   };
 }
@@ -128,12 +143,105 @@ try {
   assert.deepEqual(await evaluate("Array.from(document.querySelectorAll('.homepage-menu-collection')).map(el => el.querySelectorAll('.dish-card').length)"), [4, 4]);
   const homepagePhoto=await photoGeometry('.dish-image');
   assert.equal(homepagePhoto.covered,true);assert.equal(homepagePhoto.frameOverflow,'hidden');assert.equal(homepagePhoto.layerOverflow,'visible');assert.equal(homepagePhoto.objectFit,'fill');assert.equal(homepagePhoto.imageTransform,'none');
-  await evaluate("document.querySelector('.dish-image-trigger').click()");
-  const previewPhoto=await photoGeometry('.dish-preview-photo');assert.deepEqual(previewPhoto.presentation,homepagePhoto.presentation);assert.equal(previewPhoto.covered,true);
-  await send('Emulation.setDeviceMetricsOverride', { width: 1360, height: 1000, deviceScaleFactor: 1, mobile: false });
-  assert.equal((await photoGeometry('.dish-image')).covered,true);
+  const quickButton = (index = 0) => `document.querySelectorAll('.dish-order-button')[${index}]`;
+  const quickAdd = 'document.querySelector(".quick-order-action .button")';
+  const savedLines = 'JSON.parse(sessionStorage.getItem("nakorn-pickup-cart")).lines';
+  const setSelect = async (selector, value) => evaluate(`(() => {
+    const field = document.querySelector(${JSON.stringify(selector)});
+    field.value = ${JSON.stringify(value)};
+    field.dispatchEvent(new Event('change', { bubbles: true }));
+  })()`);
+  const openDish = async (index = 0) => {
+    await evaluate(`${quickButton(index)}.click()`);
+    await waitFor("document.querySelector('.quick-order-dialog[open]')");
+    await waitFor("!document.querySelector('.quick-order-dialog [role=status]').textContent.includes('Checking')");
+  };
+  const escape = async () => {
+    await send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
+    await waitFor("!document.querySelector('.quick-order-dialog')");
+  };
+  for (const width of [390, 768, 1280]) {
+    await send('Emulation.setDeviceMetricsOverride', { width, height: 680, deviceScaleFactor: 1, mobile: width === 390 });
+    await openDish();
+    assert.equal(await evaluate("document.querySelector('.quick-order-dialog h2').textContent"), 'Second collection dish 0');
+    assert.equal(await evaluate("document.activeElement.className"), 'quick-order-close');
+    assert.equal(await evaluate("getComputedStyle(document.documentElement).overflow"), 'hidden');
+    assert.equal(await evaluate("document.querySelector('.quick-order-dialog').scrollWidth <= document.querySelector('.quick-order-dialog').clientWidth"), true);
+    assert.equal(await evaluate("document.querySelector('.quick-order-scroll').scrollWidth <= document.querySelector('.quick-order-scroll').clientWidth"), true);
+    assert.equal(await evaluate(`${quickAdd}.getBoundingClientRect().bottom <= document.querySelector('.quick-order-scroll').getBoundingClientRect().bottom`), true);
+    assert.equal(await evaluate(`${quickAdd}.disabled`), true);
+    await evaluate("document.querySelector('.site-header .brand').focus()");
+    assert.equal(await evaluate("document.activeElement.closest('.quick-order-dialog') !== null"), true);
+    const previewPhoto = await photoGeometry('.quick-order-photo');
+    assert.deepEqual(previewPhoto.presentation, homepagePhoto.presentation);
+    assert.equal(previewPhoto.covered, true);
+    await escape();
+    await waitFor(`document.activeElement === ${quickButton()}`);
+  }
+  await openDish(1);
+  assert.equal(await evaluate(`${quickAdd}.disabled`), false);
+  await click('Add to order');
+  await waitFor(`${savedLines}.length === 1 && !document.querySelector('.quick-order-dialog')`);
+  assert.equal(await evaluate(`${savedLines}[0].quantity`), 1);
+  assert.equal(await evaluate('location.hash'), '#home');
+
+  await openDish(2);
+  assert.equal(await evaluate(`${quickAdd}.disabled`), true);
+  await escape();
+  await openDish();
+  await setSelect('.quick-order-dialog .menu-option-group select', 'prawns');
+  await evaluate(`document.querySelector('.quick-order-dialog input[aria-label="Extras: Rice"]').click()`);
+  await setSelect('.quick-order-total select', '2');
+  await waitFor("document.querySelector('.quick-order-total strong').textContent === 'Subtotal $54.00'");
+  assert.equal(await evaluate(`${quickAdd}.disabled`), false);
+
+  await evaluate(`window.failQuickOrder = true; ${quickAdd}.click()`);
+  await waitFor("document.querySelector('.quick-order-action [role=alert]')");
+  assert.equal(await evaluate(`${savedLines}.length`), 1);
+  await evaluate(`window.failQuickOrder = false; window.dishSoldOut = true; ${quickAdd}.click()`);
+  await waitFor("document.querySelector('.quick-order-action [role=alert]')?.textContent.includes('no longer available')");
+  assert.equal(await evaluate(`${quickAdd}.disabled`), true);
+  assert.equal(await evaluate(`${savedLines}.length`), 1);
+  await escape();
+
+  await evaluate('window.dishSoldOut = false');
+  await openDish();
+  assert.equal(await evaluate(`${quickAdd}.disabled`), true);
+  assert.equal(await evaluate("document.querySelector('.quick-order-total select').value"), '1');
+  await setSelect('.quick-order-dialog .menu-option-group select', 'prawns');
+  await evaluate(`document.querySelector('.quick-order-dialog input[aria-label="Extras: Rice"]').click()`);
+  await setSelect('.quick-order-total select', '2');
+  await waitFor("document.querySelector('.quick-order-total strong').textContent === 'Subtotal $54.00'");
+  await evaluate(`window.priceIncrease = 100; ${quickAdd}.click()`);
+  await waitFor("document.querySelector('.quick-order-action [role=alert]')?.textContent.includes('price or options have changed')");
+  assert.equal(await evaluate(`${savedLines}.length`), 1);
+  await waitFor("document.querySelector('.quick-order-total strong').textContent === 'Subtotal $56.00'");
+  await evaluate(`${quickAdd}.click(); ${quickAdd}.click()`);
+  await waitFor(`${savedLines}.length === 2 && !document.querySelector('.quick-order-dialog')`);
+  const configured = await evaluate(`${savedLines}[1]`);
+  assert.deepEqual([configured.collectionId, configured.variationId, configured.quantity, configured.unitPriceMinor], ['second', 'second-standard-0', 2, 2800]);
+  assert.deepEqual(configured.selectedOptions.map(({ optionId, quantity }) => [optionId, quantity]), [['prawns', 1], ['rice', 1]]);
+  assert.equal(await evaluate('location.hash'), '#home');
+  await waitFor("document.querySelector('.featured-order-status')?.textContent.includes('added to your cart')");
+  await evaluate("document.querySelector('.cart-dock button').click()");
+  await waitFor(`document.querySelector(".cart-dialog[open] a[href='#/checkout']")`);
+  await evaluate(`document.querySelector(".cart-dialog a[href='#/checkout']").click()`);
+  await waitFor("document.querySelector('h1')?.textContent === 'Pickup checkout' && document.querySelector('main').textContent.includes('Prawns')");
+  await evaluate("location.hash='/recover-order'");
+  await waitFor("document.querySelector('h1')?.textContent === 'Track your order' && document.querySelector('main input[pattern]')");
+
   await evaluate("window.location.hash='/menu'");
-  const menuPhoto=await photoGeometry('.restaurant-menu-photo');assert.deepEqual(menuPhoto.presentation,homepagePhoto.presentation);assert.equal(menuPhoto.covered,true);
+  const menuPhoto=await photoGeometry('.restaurant-menu-photo');
+  assert.deepEqual(menuPhoto.presentation,homepagePhoto.presentation);
+  assert.equal(menuPhoto.covered,true);
+  const menuAdd = "document.querySelector('.restaurant-menu-item .button-primary')";
+  await waitFor(`${menuAdd}.disabled`);
+  await setSelect('.restaurant-menu-item .menu-option-group select', 'prawns');
+  await evaluate(`document.querySelector('.restaurant-menu-item input[aria-label="Extras: Rice"]').click()`);
+  await waitFor(`!${menuAdd}.disabled`);
+  assert.equal(await evaluate("document.querySelector('.restaurant-menu-item .menu-unit-price').textContent"), '$28.00');
+  await evaluate(`${menuAdd}.click()`);
+  await waitFor(`${savedLines}[1].quantity === 3`);
   await send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
   assert.equal((await photoGeometry('.restaurant-menu-photo')).covered,true);
   await evaluate("window.location.hash = '/staff/homepage'");
@@ -149,7 +257,7 @@ try {
   await evaluate("window.location.hash = 'home'");
   await waitFor("document.querySelector('.hero') && !document.querySelector('.signature')");
   assert.deepEqual(errors, []);
-  console.log('Home page browser checks passed: dirty link/Back/Forward/sign-out guards, select/order/save/reload, conflict recovery, mobile layout, four dishes per published collection, empty selection, and full-source position/zoom/rotation parity across homepage, preview and Menu at mobile/desktop widths.');
+  console.log('Home page browser checks passed: dirty link/Back/Forward/sign-out guards, select/order/save/reload, conflict recovery, mobile layout, four dishes per published collection, empty selection, and full-source position/zoom/rotation parity across homepage, quick order and Menu, plus cart and route checks at mobile, tablet and desktop widths.');
 } finally {
   await send('Page.close'); ws.close();
 }

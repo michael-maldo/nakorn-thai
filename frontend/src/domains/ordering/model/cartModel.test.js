@@ -60,3 +60,15 @@ test('Lunch proteins remain separate cart identities and prawns cost 4180 for tw
   assert.notEqual(prawns.key, configurationKey({ ...prawns, collectionId: 'main' }));
   assert.equal(prawns.key, configurationKey({ ...prawns, dishName: 'Renamed', unitPriceMinor: 9999 }));
 });
+
+test('a multi-dish add preserves the configuration and rejects quantities beyond the existing cart limit', () => {
+  const line = makeLine('c', [{ optionId: 'a', quantity: 1 }]);
+  const add = (cart, quantity) => cartReducer(cart, { type: 'add', line, quantity });
+  const cart = add([], 3);
+  assert.deepEqual(cart, [{ ...line, quantity: 3 }]);
+  assert.equal(cartTotal(cart), 7800);
+  assert.equal(add(cart, 17)[0].quantity, 20);
+  assert.equal(add(cart, 18), cart);
+  assert.equal(add(cart, 1.5), cart);
+  assert.equal(add(cart, 0), cart);
+});

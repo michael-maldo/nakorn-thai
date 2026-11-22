@@ -30,26 +30,6 @@
   .thai-divider { max-width: 350px; margin-inline: auto; }
   .hero-actions, .hero-meta { justify-content: center; }
   .dish-grid { grid-template-columns: repeat(2, 1fr); gap: 30px 22px; }
-  .dish-preview,
-  .dish-card:first-child .dish-preview,
-  .dish-card:last-child .dish-preview {
-    position: fixed;
-    z-index: 100;
-    top: 50%;
-    bottom: auto;
-    left: 50%;
-    width: min(88vw, 520px);
-    max-height: 72vh;
-    aspect-ratio: 1.45;
-    transform: translate(-50%, -44%) scale(.9);
-  }
-  .dish-card:hover .dish-preview { opacity: 0; visibility: hidden; pointer-events: none; transform: translate(-50%, -44%) scale(.9); }
-  .dish-card .dish-preview.is-open,
-  .dish-card:hover .dish-preview.is-open,
-  .dish-card:focus-within .dish-preview.is-open { opacity: 1; visibility: visible; pointer-events: auto; transform: translate(-50%, -50%) scale(1); }
-  .dish-preview-close { position: absolute; z-index: 2; top: 10px; right: 10px; width: 38px; height: 38px; padding: 0 0 4px; display: grid; place-items: center; color: #fff; background: rgba(31,22,16,.78); border: 1px solid rgba(255,255,255,.65); border-radius: 50%; font: 28px/1 var(--sans); }
-  .dish-preview-actions { left: 12px; right: 12px; bottom: 12px; }
-  .dish-preview-actions > a { min-height: 40px; display: inline-flex; align-items: center; }
   .feature-grid { grid-template-columns: repeat(2, 1fr); }
   .feature { padding: 25px; border-bottom: 1px solid var(--line); }
   .feature:nth-child(2n) { border-right: 0; }

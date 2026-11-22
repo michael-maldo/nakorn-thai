@@ -59,8 +59,8 @@ export default function MenuPage() {
         {sections.map((section) => <section key={section.id} id={`menu-section-${section.id}`} aria-labelledby={`menu-category-${section.id}`}>
           <h2 id={`menu-category-${section.id}`}>{section.name}</h2>
           <div className="restaurant-menu-grid">{section.items.map((item) => <MenuItemCard
-            key={`${menu.id}:${item.id}:${menu.availability.evaluatedAt}`} item={item} collection={menu} enabled={enabled} cart={cart}
-            onAdd={(line) => { dispatch({ type: 'add', line }); setAdded(`${line.dishName} added to your cart.`); }} />)}</div>
+            key={`${menu.id}:${item.id}:${menu.availability.evaluatedAt}`} item={item} collection={menu} enabled={enabled} cart={cart} dispatch={dispatch}
+            onAdded={(line) => setAdded(`${line.dishName} added to your cart.`)} />)}</div>
         </section>)}
         {search && !count && <button type="button" onClick={() => setSearch('')}>Clear search</button>}
       </>}
