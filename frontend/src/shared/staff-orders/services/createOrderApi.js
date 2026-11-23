@@ -19,7 +19,7 @@ async function request(path, { authorization, token, csrf, ...options } = {}) {
   try { return await response.json(); } catch { throw new Error('The ordering service returned an invalid response.'); }
 }
 const getOrderingOptions = (signal) => request('/orders/options', { signal });
-const getOrder = (receipt) => request(`/orders/${receipt.requestId}`, { token: receipt.trackingToken });
+const getOrder = (receipt, signal) => request(`/orders/${receipt.requestId}`, { token: receipt.trackingToken, cache: 'no-store', signal });
 async function submitOrder(payload) {
   const csrf = await request('/orders/csrf');
   return request('/orders', { method: 'POST', body: JSON.stringify(payload), csrf });

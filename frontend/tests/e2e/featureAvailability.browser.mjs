@@ -115,7 +115,7 @@ try{
  await evaluate("window.location.hash='/reservations';window.delayStart=false");await waitFor("document.querySelector('[name=phone]')&&!document.querySelector('[name=phone]').disabled");
  // Tracking must not resurrect an SMS challenge after falling back to email.
  await evaluate("window.location.hash='/recover-order'");await waitFor("document.querySelector('select option[value=sms]')");
- await input('input[pattern="[0-9a-fA-F-]{36}"]','11111111-1111-4111-8111-111111111111');await evaluate('window.delayStart=true;window.resolveStart=null');await click('Send verification code');await waitFor('window.resolveStart');
+ await input('#tracking-order-id','11111111-1111-4111-8111-111111111111');await evaluate('window.delayStart=true;window.resolveStart=null');await click('Track order');await waitFor('window.resolveStart');
  await evaluate('window.sms=false');await focus();await waitFor("document.querySelector('select').value==='email'");await evaluate('window.resolveStart()');await settle();assert.equal(await evaluate("!!document.querySelector('[autocomplete=one-time-code]')"),false);
  // Disabled PayPal still permits checking an existing payment, without setup calls.
  await evaluate("window.created={id:'11111111-1111-4111-8111-111111111111',reference:'TEST',paymentMethod:'PAYPAL',status:'NEW',totalMinor:1990,items:[]};sessionStorage.setItem('nakorn-pickup-receipt',JSON.stringify({requestId:window.created.id,trackingToken:'test'}));window.paypal=false;window.location.hash='/order-confirmation'");
