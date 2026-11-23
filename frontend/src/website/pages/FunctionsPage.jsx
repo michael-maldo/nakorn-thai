@@ -1,4 +1,6 @@
 import { useRef, useState } from 'react';
+import FunctionDateDetails from '../../domains/reservation/components/FunctionDateDetails.jsx';
+import { addMonths, localDateTime } from '../../domains/reservation/model/bookingDates.js';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import { functionRequest } from '../../domains/reservation/api/functionApi';
@@ -8,14 +10,24 @@ export default function FunctionsPage() {
   const [error, setError] = useState('');
   const [receipt, setReceipt] = useState(null);
   const attempt = useRef(null);
+  const dateField = useRef(null);
+  const [date, setDate] = useState('');
+  const [invalidDate, setInvalidDate] = useState(false);
 
   async function submit(event) {
     event.preventDefault();
+    const today = localDateTime(Date.now(), 'Australia/Melbourne').slice(0, 10);
+    if (date && (date < today || date > addMonths(today, 24))) {
+      setInvalidDate(true);
+      setError('Choose a date within the next two years or leave it open.');
+      dateField.current.querySelector('.booking-date-trigger').focus();
+      return;
+    }
     const form = new FormData(event.currentTarget);
     const body = {
       customerName: form.get('name'), email: form.get('email'), phone: form.get('phone'),
       eventType: form.get('eventType'), guestCount: Number(form.get('guests')),
-      preferredDate: form.get('date') || null, preferredTime: form.get('time'), message: form.get('message'),
+      preferredDate: date || null, preferredTime: form.get('time'), message: form.get('message'),
     };
     const signature = JSON.stringify(body);
     if (attempt.current?.signature !== signature) attempt.current = { signature, id: crypto.randomUUID() };
@@ -43,13 +55,16 @@ export default function FunctionsPage() {
           <legend>Contact and event details</legend>
           <label>Your name<input name="name" required maxLength={100} autoComplete="name" /></label>
           <label>Email<input name="email" type="email" required maxLength={254} autoComplete="email" /></label>
-          <label>Phone<input name="phone" type="tel" required pattern="[+0-9 ()\-]{6,30}" maxLength={30} autoComplete="tel" /></label>
+          <label>Phone<input name="phone" type="tel" required pattern="[+0-9 \(\)\-]{6,30}" maxLength={30} autoComplete="tel" /></label>
           <label>Event type<select name="eventType" defaultValue="Birthday celebration"><option>Birthday celebration</option><option>Family gathering</option><option>Corporate event</option><option>Wedding celebration</option><option>Private dining</option><option>Other</option></select></label>
           <label>Estimated number of guests<input name="guests" type="number" min={1} max={1000} required /></label>
           <p>Guest numbers are an estimate for discussion, not a statement of venue capacity.</p>
-          <label>Preferred date (optional)<input name="date" type="date" /></label>
+          <div ref={dateField}><FunctionDateDetails date={date} invalid={invalidDate} onChange={(value) => {
+            setDate(value);
+            if (invalidDate) { setInvalidDate(false); setError(''); }
+          }} /></div>
           <label>Preferred time (optional)<input name="time" maxLength={100} placeholder="For example, evening or flexible" /></label>
-          <p>Dates and times are Melbourne local time. Leave the date open if you are still planning, or choose within the next two years.</p>
+          <p>Dates and times are Melbourne local time.</p>
           <label>Tell us about your event<textarea name="message" required maxLength={2000} rows={5} placeholder="Occasion, dining preferences, accessibility needs and any questions" /></label>
           <p>We use these details to respond to your enquiry. Submitting does not reserve the venue or take a payment.</p>
           <button className="button button-primary" disabled={busy}>{busy ? 'Sending enquiry…' : 'Send venue enquiry'}</button>

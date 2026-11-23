@@ -1,7 +1,9 @@
+import ReservationDetails from '../components/ReservationDetails.jsx';
+import { reservationDates, reservationTimes } from '../model/bookingDates.js';
 import AustralianMobileInput from '../../../shared/components/AustralianMobileInput.jsx';
 import { observeOptions } from '../../restaurant/model/observeOptions.js';
 import { getRestaurantAvailability } from '../../restaurant/api/restaurantApi';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Header from '../../../website/components/Header';
 import { reservationRequest } from '../api/reservationApi';
 import ContactVerification from '../components/ContactVerification.jsx';
@@ -11,14 +13,26 @@ export default function ReservationPage() {
  useEffect(()=>{const timer=setInterval(()=>setNow(Date.now()),1000);return()=>clearInterval(timer);},[]);
  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[receipt,setReceipt]=useState(null);
  const attempt=useRef(null);
+ const booking=useRef(null);
+ const [selection,setSelection]=useState({date:'',time:''});
+ const [invalidSelection,setInvalidSelection]=useState(false);
  const [optionsError,setOptionsError]=useState('');
  const [options,setOptions]=useState({enabled:false,phoneRequired:true});
  useEffect(()=>observeOptions(signal=>reservationRequest('/options',{signal}),data=>{setOptions(data);setOptionsError('');},e=>{setOptions({enabled:false,phoneRequired:true});setOptionsError(e.message);}),[]);
  const [timezone,setTimezone]=useState(null);
  useEffect(()=>{let active=true;getRestaurantAvailability().then(data=>{if(active)setTimezone(data.timezone);}).catch(e=>{if(active)setError(e.message);});return()=>{active=false;};},[]);
+ const minute=Math.floor(now/60000)*60000;
+ const dates=useMemo(()=>timezone ? reservationDates(minute,timezone) : null,[minute,timezone]);
  async function submit(e) {
   e.preventDefault();if(busy)return;if(!options.enabled){setError('Online table requests are currently unavailable. Please contact the restaurant.');return;}if(options.phoneRequired&&!canSubmit(phone)) {setError('Verify your current mobile by SMS.');return;}const form=new FormData(e.currentTarget);
-  const data={customerName:form.get('name'),phone:phone.destination||null,email:email||null,...(options.phoneRequired?verificationIds(phone):{phoneVerificationId:null}),partySize:Number(form.get('party')),requestedAt:form.get('time'),notes:form.get('notes')};
+  if(!timezone || !selection.date || !reservationTimes(selection.date,reservationDates(Date.now(),timezone),timezone).includes(selection.time)){
+   setInvalidSelection(true);setError('Choose a valid reservation date and arrival time.');
+   const details=booking.current;
+   const slot=selection.date && details.querySelector('.booking-slots input:not(:disabled)');
+   (slot || details.querySelector('.booking-date-trigger'))?.focus();
+   return;
+  }
+  const data={customerName:form.get('name'),phone:phone.destination||null,email:email||null,...(options.phoneRequired?verificationIds(phone):{phoneVerificationId:null}),partySize:Number(form.get('party')),requestedAt:`${selection.date}T${selection.time}`,notes:form.get('notes')};
   // Renewing an OTP after a lost response must not create a second booking.
   const {phoneVerificationId,...details}=data;
   const signature=JSON.stringify(details);
@@ -34,8 +48,8 @@ export default function ReservationPage() {
  {options.phoneRequired?<ContactVerification australianMobile channel="SMS" label="Mobile number (required)" required state={phone} onChange={setPhone} now={now} disabled={busy} />:<label>Mobile number<AustralianMobileInput name="phone" required value={phone.destination} disabled={busy} onChange={value=>setPhone(changeDestination(phone,value))}/></label>}
  <label>Email for booking updates (optional)<input name="email" type="email" maxLength={254} autoComplete="email" value={email} onChange={e=>setEmail(e.target.value)} /></label>
  <label>Guests<input name="party" type="number" min={1} max={20} defaultValue={2} required /></label>
- <label>Requested date and time<input name="time" type="datetime-local" step={60} required /></label>
- <p>Please choose a future time within 90 days. This is a request, subject to opening hours and table availability.</p>
+ <div ref={booking}><ReservationDetails dates={dates} timezone={timezone} selection={selection} invalid={invalidSelection}
+  onChange={value=>{setSelection(value);if(invalidSelection){setInvalidSelection(false);setError('');}}} /></div>
  <label>Special requests (optional)<textarea name="notes" maxLength={1000} /></label>
  <p>We use your contact details to arrange this booking. For parties larger than 20, please contact the restaurant.</p>
  <button className="button button-primary" disabled={busy || !options.enabled || (options.phoneRequired&&!canSubmit(phone,now))}>{busy?'Sending…':'Request booking'}</button>
