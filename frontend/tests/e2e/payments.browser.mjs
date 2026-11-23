@@ -230,7 +230,7 @@ try{
  }
  await evaluate("sessionStorage.removeItem('nakorn-pickup-receipt');sessionStorage.removeItem('nakorn-pending-pickup')");
  await reload();await waitFor("document.body.innerText.includes('No order receipt is available in this browser tab.')");
- assert.ok(await evaluate("Array.from(document.querySelectorAll('a')).some(a=>a.textContent==='Recover order tracking')"));
+ assert.ok(await evaluate("Array.from(document.querySelectorAll('a')).some(a=>a.textContent==='Contact Nakorn Thai for order help' && a.hash==='#contact')"));
  assert.equal(await evaluate("window.requests.some(r=>r.url.startsWith('/api/payments/'))"),false);
  // Failed setup: save the receipt, offer checks, and never automatically repeat the write.
  await evaluate(`sessionStorage.setItem('nakorn-pickup-cart',${JSON.stringify(savedCart)});sessionStorage.removeItem('payment-test-order');sessionStorage.setItem('payment-test-setup-error','true');sessionStorage.setItem('payment-test-no-verification','true')`);

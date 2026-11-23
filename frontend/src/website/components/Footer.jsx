@@ -35,7 +35,6 @@ export default function Footer() {
           {publicNavigation.filter((link) => link !== homeLink).map(({ label, footerLabel, href }) => (
             <a key={href} href={href}>{footerLabel ?? label}</a>
           ))}
-          <a href="#/recover-order">Track an order</a>
         </nav>
       </div>
       <div className="footer-bottom page-width">

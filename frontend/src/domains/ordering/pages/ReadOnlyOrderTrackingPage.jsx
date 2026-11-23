@@ -10,8 +10,8 @@ export default function ReadOnlyOrderTrackingPage({ token }) {
   const load = useCallback((signal) => getReadOnlyOrder(token, signal), [token]);
   const { order, error, expired, retry } = useTrackedOrder(token ? load : null);
   return <TrackingLayout>
-    {!token && <p role="alert">This order tracking link is missing or invalid. Use the complete link from your email, or contact Nakorn Thai.</p>}
-    {expired && <p role="alert">This order tracking link has expired or is invalid. Recover access below or contact Nakorn Thai with your order reference.</p>}
+    {!token && <p role="alert">This order tracking link is missing or invalid. Use the private link from your confirmation email if you received one.</p>}
+    {expired && <p role="alert">This order tracking link has expired or is invalid. Contact Nakorn Thai with your order reference for help.</p>}
     {error && <div className="tracking-card"><p role="alert">{error}</p><button className="button button-outline" type="button" onClick={retry}>Try again</button></div>}
     {token && !order && !error && !expired && <p role="status">Loading your order…</p>}
     {order && <>
@@ -32,7 +32,7 @@ export default function ReadOnlyOrderTrackingPage({ token }) {
         {order.customerInstructions && <><h3>Your instructions</h3><p className="tracking-instructions">{order.customerInstructions}</p></>}
       </section>
     </>}
-    <p>This private link provides read-only order tracking for seven days. Keep it private.</p>
-    <a href="#/recover-order">Recover access using a verification code</a>
+    {token && <p>This private link provides read-only order tracking for seven days. Keep it private.</p>}
+    <a href="#contact">Contact Nakorn Thai for order help</a>
   </TrackingLayout>;
 }

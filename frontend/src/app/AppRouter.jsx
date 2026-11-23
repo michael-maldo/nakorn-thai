@@ -8,7 +8,6 @@ import StaffShell from '../domains/staff/components/StaffShell';
 import StaffDashboardPage from '../domains/staff/pages/StaffDashboardPage';
 import { allowMenuNavigation, hasMenuEdits, cancelPendingMenuNavigation, createMenuNavigationApproval } from '../domains/menu/model/menuAdminNavigation';
 import RestaurantSchedulePage from '../domains/restaurant/pages/RestaurantSchedulePage';
-import OrderTrackingPage from '../domains/ordering/pages/OrderTrackingPage';
 import FunctionsPage from '../website/pages/FunctionsPage';
 import FunctionEnquiriesPage from '../domains/staff/pages/FunctionEnquiriesPage';
 import ReservationPage from '../domains/reservation/pages/ReservationPage';
@@ -95,7 +94,8 @@ export default function AppRouter() {
     return () => { mounted = false; pendingTransition?.ticket.cancel(); pendingTransition = null; cancelPendingMenuNavigation(); window.removeEventListener('hashchange', navigate); window.removeEventListener('popstate', navigate); document.removeEventListener('click', beforeLink); window.removeEventListener('beforeunload', beforeUnload); };
   }, []);
   useEffect(() => {
-    if (hash.startsWith('#/')) window.scrollTo(0, 0);
+    if (hash === '#/recover-order') window.location.replace('#home');
+    else if (hash.startsWith('#/')) window.scrollTo(0, 0);
     else if (!hash.startsWith('#/')) document.getElementById(hash.slice(1))?.scrollIntoView();
   }, [hash]);
   const staffPage = (page, roles) => <ProtectedRoute roles={roles}><StaffShell hash={hash}>{page}</StaffShell></ProtectedRoute>;
@@ -105,7 +105,6 @@ export default function AppRouter() {
   if (hash === '#/reservations') return <ReservationPage />;
   if (hash === '#/staff/reservations') return staffPage(<ReservationAdminPage />, ['ADMIN','FOH']);
   if (hash === '#/menu') return <MenuPage />;
-  if (hash === '#/recover-order' || hash === '#/track-order' && new URLSearchParams(location.split('?')[1]||'').has('order') && !new URLSearchParams(location.split('?')[1]||'').has('t')) return <OrderTrackingPage key={location} linked={linked} />;
   if (hash === '#/track-order') return <ReadOnlyOrderTrackingPage key={location} token={trackingToken(location)} />;
   if (hash === '#/checkout') return <CheckoutPage />;
   if (hash === '#/order-confirmation') return <OrderConfirmationPage />;

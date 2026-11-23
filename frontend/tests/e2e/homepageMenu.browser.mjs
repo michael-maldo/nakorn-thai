@@ -86,7 +86,6 @@ function fixture() {
     }
     if (url === '/api/orders/options') return Response.json({ enabled: window.orderingEnabled });
     if (url === '/api/payments/options') return Response.json({ payAtRestaurant: true });
-    if (url === '/api/order-verification/options') return Response.json({ sms: true });
     throw new Error(`Unexpected API: ${url}`);
   };
 }
@@ -227,8 +226,6 @@ try {
   await waitFor(`document.querySelector(".cart-dialog[open] a[href='#/checkout']")`);
   await evaluate(`document.querySelector(".cart-dialog a[href='#/checkout']").click()`);
   await waitFor("document.querySelector('h1')?.textContent === 'Pickup checkout' && document.querySelector('main').textContent.includes('Prawns')");
-  await evaluate("location.hash='/recover-order'");
-  await waitFor("document.querySelector('h1')?.textContent === 'Track your order' && document.querySelector('main input[pattern]')");
 
   await evaluate("window.location.hash='/menu'");
   const menuPhoto=await photoGeometry('.restaurant-menu-photo');

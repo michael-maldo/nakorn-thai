@@ -17,9 +17,3 @@ test('read-only links accept exactly one opaque token without an order selector'
  const token='a'.repeat(64);assert.equal(trackingToken('#/track-order?t='+token),token);
  for(const hash of ['#/track-order','#/track-order?t=bad','#/track-order?t='+token+'&t='+token,'#/track-order?t='+token.toUpperCase()])assert.equal(trackingToken(hash),null);
 });
-
-test('the recovery field normalizes pasted UUIDs while rejecting short references and malformed IDs', async () => {
- const { normalizeOrderId } = await import('./orderLinks.js');
- assert.equal(normalizeOrderId('  ' + id.toUpperCase() + '  '), id);
- for (const value of ['', 'ABCD1234', '-'.repeat(36), id.replace('-', ''), null]) assert.equal(normalizeOrderId(value), null);
-});

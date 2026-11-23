@@ -28,7 +28,7 @@ export default function OrderConfirmationPage() {
       } catch (failure) {
         if (stopped) return;
         if(failure.status===404&&!sessionStorage.getItem(PENDING_ORDER))setOrder(null);
-        setError(failure.status === 404 ? sessionStorage.getItem(PENDING_ORDER)?'No order has been found yet. Return to checkout to retry the saved submission.':'Tracking access expired or is invalid. Recover tracking with a new verification code.' : failure.message);
+        setError(failure.status === 404 ? sessionStorage.getItem(PENDING_ORDER)?'No order has been found yet. Return to checkout to retry the saved submission.':'Tracking access expired or is invalid. Use the private link from your confirmation email if you received one, or contact Nakorn Thai.' : failure.message);
         if(failure.status!==404||sessionStorage.getItem(PENDING_ORDER))timer = setTimeout(poll, 5000);
       }
     }
@@ -36,7 +36,7 @@ export default function OrderConfirmationPage() {
   }, [dispatch]);
   return <><Header /><main className="restaurant-menu page-width customer-checkout customer-receipt">
     <header className="checkout-heading"><p className="checkout-eyebrow">Nakorn Thai · Pickup</p><h1>Your pickup order</h1><p>Your receipt and the latest updates, all in one place.</p></header>
-    {error && <><p role="alert" className="staff-error">{error}</p><a href={`#/recover-order${receipt?.requestId?'?order='+encodeURIComponent(receipt.requestId):''}`}>Recover order tracking</a></>}
+    {error && <><p role="alert" className="staff-error">{error}</p><a href="#contact">Contact Nakorn Thai for order help</a></>}
     {!order && !error && <p role="status">Checking your order…</p>}
     {order && <section className="order-panel receipt-panel">
       <div className="receipt-reference"><h2>Order {order.reference}</h2><span>{order.paymentMethod==='PAYPAL'?'PayPal':order.paymentMethod==='PAYID'?'PayID':'Pay at restaurant'}</span></div>
@@ -48,7 +48,7 @@ export default function OrderConfirmationPage() {
       <div className="checkout-pickup"><h3>Pickup at Nakorn Thai</h3><p>233 Glenferrie Rd<br />Malvern VIC 3144</p></div></section>
       <section aria-label="Order summary"><h3>Your order</h3>{order.items.map((line,index) => <div className="checkout-item" key={line.id ?? index}><CheckoutSummary line={line} historical compact /></div>)}
       <p className="checkout-total"><span>Total <small>AUD</small></span><strong>{money(order.totalMinor)}</strong></p></section></div>
-      <details className="receipt-tracking"><summary>Keep your order reference &amp; tracking details</summary><p>Full order ID: <strong>{order.id}</strong></p><p>Keep this receipt for tracking. <a href={`#/recover-order?order=${encodeURIComponent(order.id)}`}>Recover tracking with an SMS or email verification code</a>.</p></details>
+      <details className="receipt-tracking"><summary>Keep your order reference &amp; tracking details</summary><p>Full order ID: <strong>{order.id}</strong></p><p>If you received a confirmation email, use its private tracking link. <a href="#contact">Contact Nakorn Thai for order help</a> if you cannot access the link.</p></details>
     </section>}
     <div className="checkout-links">{!order&&<a href="#/checkout">Return to checkout</a>}<a href="#/menu">Back to menu</a></div>
   </main></>;
