@@ -3,6 +3,7 @@ package au.com.nakornthai.restaurant.holidays;
 import au.com.nakornthai.restaurant.infrastructure.RestaurantAuditJpaEntity;
 import jakarta.persistence.*;
 import lombok.Getter;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.UUID;
 
@@ -25,14 +26,17 @@ public class HolidayDefinition extends RestaurantAuditJpaEntity {
     private String notes;
     @Column(nullable = false)
     private boolean active;
+    @Column(nullable = false, precision = 5, scale = 2)
+    private BigDecimal surchargePercentage = new BigDecimal("0.00");
 
     void update(String name, LocalDate startDate, LocalDate endDate, HolidayRecurrence recurrence,
-                String notes, boolean active) {
+                String notes, boolean active, BigDecimal surchargePercentage) {
         this.name = name;
         this.startDate = startDate;
         this.endDate = endDate;
         this.recurrence = recurrence;
         this.notes = notes;
         this.active = active;
+        this.surchargePercentage = surchargePercentage;
     }
 }

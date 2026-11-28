@@ -40,11 +40,12 @@ public class HolidayDefinitionService {
         var row = id == null ? new HolidayDefinition() : findVersion(id, request.version());
         boolean active = request.active() == null ? id == null || row.isActive() : request.active();
         String notes = request.notes() == null || request.notes().isEmpty() ? null : request.notes();
-        row.update(request.name(), request.startDate(), request.endDate(), request.recurrence(), notes, active);
+        var surcharge = request.surchargePercentage() == null ? row.getSurchargePercentage() : request.surchargePercentage();
+        row.update(request.name(), request.startDate(), request.endDate(), request.recurrence(), notes, active, surcharge);
         try {
             var response = HolidayDefinitionResponse.from(holidays.saveAndFlush(row));
             audit(id == null ? "HOLIDAY_DEFINITION_CREATED" : "HOLIDAY_DEFINITION_UPDATED",
-                    Set.of("name", "startDate", "endDate", "recurrence", "notes", "active"));
+                    Set.of("name", "startDate", "endDate", "recurrence", "notes", "active", "surchargePercentage"));
             return response;
         } catch (DataIntegrityViolationException failure) {
             if (failure.getCause() instanceof ConstraintViolationException constraint

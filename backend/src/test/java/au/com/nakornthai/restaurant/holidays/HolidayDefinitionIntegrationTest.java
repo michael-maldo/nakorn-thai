@@ -131,7 +131,7 @@ class HolidayDefinitionIntegrationTest {
             new org.springframework.transaction.support.TransactionTemplate(transactionManager).executeWithoutResult(status -> {
                 holidayService.save(null, new HolidayDefinitionRequest("Rollback holiday",
                         java.time.LocalDate.of(2028, 1, 1), java.time.LocalDate.of(2028, 1, 1),
-                        HolidayRecurrence.ONE_TIME, null, true, null));
+                        HolidayRecurrence.ONE_TIME, null, true, null, null));
                 assertEquals(1, auditCount(actor, "HOLIDAY_DEFINITION_CREATED"));
                 status.setRollbackOnly();
             });
@@ -146,6 +146,39 @@ class HolidayDefinitionIntegrationTest {
     private int auditCount(String actor, String action) {
         return jdbc.queryForObject("SELECT count(*) FROM configuration_audit WHERE actor = ? AND category = 'SETTINGS' AND action = ?",
                 Integer.class, actor, action);
+    }
+
+    @Test void surchargeIsExactAndLegacyUpdatesPreserveIt() throws Exception {
+        String actor = "surcharge-test-admin";
+        String base = "{\"name\":\"Surcharge integration\",\"startDate\":\"2028-06-01\",\"recurrence\":\"ONE_TIME\"";
+        String id = null;
+        try {
+            mvc.perform(post(PATH).with(user(actor).roles("ADMIN")).with(csrf())
+                    .contentType("application/json").content(base + ",\"surchargePercentage\":12.50}"))
+                    .andExpect(status().isCreated()).andExpect(jsonPath("$.surchargePercentage").value(12.5));
+            id = jdbc.queryForObject("SELECT id::text FROM restaurant_holiday_definition WHERE name = 'Surcharge integration'", String.class);
+            assertEquals(0, new java.math.BigDecimal("12.50").compareTo(jdbc.queryForObject(
+                    "SELECT surcharge_percentage FROM restaurant_holiday_definition WHERE id::text = ?", java.math.BigDecimal.class, id)));
+            mvc.perform(put(PATH + "/" + id).with(user(actor).roles("ADMIN")).with(csrf())
+                    .contentType("application/json").content(base + ",\"version\":0,\"notes\":\"legacy edit\"}"))
+                    .andExpect(status().isOk()).andExpect(jsonPath("$.surchargePercentage").value(12.5));
+            mvc.perform(put(PATH + "/" + id).with(user(actor).roles("ADMIN")).with(csrf())
+                    .contentType("application/json").content(base + ",\"version\":1,\"surchargePercentage\":100.00}"))
+                    .andExpect(status().isOk()).andExpect(jsonPath("$.surchargePercentage").value(100));
+            mvc.perform(put(PATH + "/" + id).with(user(actor).roles("ADMIN")).with(csrf())
+                    .contentType("application/json").content(base + ",\"version\":1,\"surchargePercentage\":0.00}"))
+                    .andExpect(status().isConflict());
+            assertTrue(jdbc.queryForObject("SELECT count(*) FROM configuration_audit WHERE actor = ? AND changed_fields @> CAST(? AS jsonb)",
+                    Integer.class, actor, "[\"surchargePercentage\"]") > 0);
+            for (String invalid : new String[] {"-0.01", "100.01", "1.234"}) {
+                mvc.perform(post(PATH).with(user(actor).roles("ADMIN")).with(csrf())
+                        .contentType("application/json").content(base + ",\"surchargePercentage\":" + invalid + "}"))
+                        .andExpect(status().isBadRequest());
+            }
+        } finally {
+            if (id != null) jdbc.update("DELETE FROM restaurant_holiday_definition WHERE id::text = ?", id);
+            jdbc.update("DELETE FROM configuration_audit WHERE actor = ?", actor);
+        }
     }
 
     @Test void requiresAdminCsrfAndValidFields() throws Exception {
